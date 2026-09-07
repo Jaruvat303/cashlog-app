@@ -9,6 +9,8 @@
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
+import 'package:cashlog/features/categories/data/categories_repository.dart';
+import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +52,40 @@ class _FakeAccountsRepository implements AccountsRepository {
   Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
+/// T5 replaced the Categories placeholder with a real page — same reasoning
+/// as [_FakeAccountsRepository]: fake the repository entirely so this
+/// nav-shell test never lets a real dio call hit Flutter's test HTTP stub.
+class _FakeCategoriesRepository implements CategoriesRepository {
+  @override
+  Stream<List<Category>> watchAll() => Stream.value(const []);
+
+  @override
+  Future<Either<Failure, void>> refreshFromApi() async => const Right(null);
+
+  @override
+  Future<Either<Failure, Category>> create({
+    required String name,
+    required CategoryType type,
+    required String iconKey,
+    required String colorHex,
+  }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+
+  @override
+  Future<Either<Failure, Category>> update(
+    int id, {
+    required String name,
+    required CategoryType type,
+    required String iconKey,
+    required String colorHex,
+  }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+
+  @override
+  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — it just keeps pumping until nothing's scheduled, up to its
 /// own 10-minute default timeout. A bounded pump loop fails fast instead of
@@ -64,7 +100,10 @@ void main() {
   testWidgets('switches between all 4 bottom nav tabs', (WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository())],
+        overrides: [
+          accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+          categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+        ],
         child: const MyApp(),
       ),
     );
@@ -84,7 +123,9 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Categories'));
     await _pumpBounded(tester);
-    expect(find.text('Categories — coming soon'), findsOneWidget);
+    // T5 replaced the placeholder with the real categories feature — just
+    // confirm the tab itself is reachable, per this smoke test's scope.
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Categories')), findsOneWidget);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Dashboard'));
     await _pumpBounded(tester);
