@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../features/accounts/presentation/pages/accounts_page.dart';
 import '../../features/categories/presentation/pages/categories_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/slip_scan/presentation/pages/slip_gallery_debug_page.dart';
 import '../../features/transactions/presentation/pages/transactions_page.dart';
 import 'app_shell.dart';
 
@@ -17,6 +18,11 @@ part 'app_router.g.dart';
 GoRouter appRouter(Ref ref) {
   return GoRouter(
     routes: [
+      // T9 debug tool, not one of the 4 bottom-nav tabs — deliberately
+      // outside the StatefulShellRoute so it pushes as a normal screen
+      // rather than becoming a 5th branch. Reachable only via the
+      // kDebugMode-gated button in DashboardPage's AppBar.
+      GoRoute(path: '/debug/slip-scan', builder: (context, state) => const SlipGalleryDebugPage()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) => AppShell(navigationShell: navigationShell),
         branches: [

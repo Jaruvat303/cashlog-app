@@ -71,11 +71,13 @@ class _ErrorAndRetryInterceptor extends Interceptor {
     final data = err.response?.data;
     if (data is Map) {
       // Envelope confirmed against dev: {"success","error_code","message"}.
-      // BUT the actual error_code values seen there (e.g. CLIENT_ERROR,
-      // BAD_REQUEST_PARAMETERS, RESOURCE_NOT_FOUND) don't match any of the
-      // ErrXxx names in CLAUDE.md/spec §4 — every real response currently
-      // falls through to UnknownFailure below. Flagged for T16 (SRS
-      // reconciliation) rather than guessed at here; still crash-safe either way.
+      // The actual error_code values (e.g. BAD_REQUEST_PARAMETERS,
+      // RESOURCE_NOT_FOUND, GEMINI_SERVICE_ERROR) are UPPER_SNAKE_CASE, not
+      // the ErrXxx names CLAUDE.md/spec §4 describe — confirmed by reading
+      // cashlog-api's error_handler.go directly (T10) and fixed in
+      // Failure.fromErrorCode's switch keys. CLIENT_ERROR (a generic fiber
+      // fallback for status codes with no dedicated case) still falls
+      // through to UnknownFailure by design, not by omission.
       final errorField = data['error'];
       final code = (data['error_code'] ?? data['code'] ?? (errorField is Map ? errorField['code'] : null))?.toString();
       final message = (data['message'] ?? (errorField is String ? errorField : null) ?? (errorField is Map ? errorField['message'] : null))?.toString();

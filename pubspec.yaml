@@ -42,9 +42,18 @@ dependencies:
   path_provider: ^2.1.6
   path: ^1.9.1
   go_router: ^18.0.1
+  fl_chart: ^1.2.0
+  remix_icons_flutter: ^4.9.3+1
+  photo_manager: ^3.12.0
+  flutter_image_compress: ^2.3.0
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  # Emulator/device-level verification of T10's slip upload pipeline (real
+  # photo_manager platform channel + real network) — flutter_test alone can't
+  # touch either, per CLAUDE.md's testing rule. SDK-bundled, no version pin.
+  integration_test:
     sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -56,6 +65,7 @@ dev_dependencies:
   riverpod_generator: ^4.0.9
   build_runner: ^2.16.1
   drift_dev: ^2.34.6
+  flutter_image_compress_platform_interface: ^1.1.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

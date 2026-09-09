@@ -1,5 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- T9 / spec §7.3: gallery access for slip auto-scan. `photo_manager`'s
+         own bundled manifest already merges in READ_EXTERNAL_STORAGE
+         (maxSdkVersion 32) for pre-Android-13 devices, so only the
+         Android 13+/14 granular permissions need declaring here.
+         READ_MEDIA_VIDEO is required by photo_manager even for an
+         image-only request on Android 13 (confirmed in its own README,
+         not something spec §7.3 mentions) — without it, image queries
+         fail on API 33. READ_MEDIA_VISUAL_USER_SELECTED covers Android
+         14's "Select photos" partial-access flow so a user who picks
+         that option doesn't silently get zero results. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED"/>
+
     <application
         android:label="cashlog"
         android:name="${applicationName}"

@@ -28,25 +28,40 @@ sealed class Failure {
   /// Maps a backend `error_code` string to its typed Failure. Falls back to
   /// [UnknownFailure] for anything unrecognized so an unfamiliar/future
   /// error code can never crash the app.
+  ///
+  /// These string keys are the real values `internal/delivery/http/middleware/
+  /// error_handler.go` (cashlog-api) sends — UPPER_SNAKE_CASE, not the
+  /// `ErrXxx` Go identifier names CLAUDE.md/spec §4 describe. Confirmed by
+  /// reading that file directly (T10); the old `ErrXxx` keys never matched
+  /// anything live, so every real error response was silently falling
+  /// through to [UnknownFailure] before this fix.
+  ///
+  /// One genuine spec conflict found in the process: the backend collapses
+  /// what spec §4 lists as two codes with opposite retry policies —
+  /// `ErrGeminiUnavailable` (transient) and `ErrGeminiEmptyResponse`
+  /// (permanent) — into a single `GEMINI_SERVICE_ERROR`, with no way for the
+  /// client to tell them apart. Treated as transient here (approved default):
+  /// dio's retry cap is 2 attempts (~2s), so a wrongly-retried permanent
+  /// error costs little, while a wrongly-surfaced transient one costs a
+  /// needless user-facing failure on every slip scan.
   factory Failure.fromErrorCode(
     String? code, {
     String? message,
     int? statusCode,
   }) {
     return switch (code) {
-      'ErrTimeout' => TimeoutFailure(message: message, statusCode: statusCode),
-      'ErrGeminiUnavailable' => GeminiUnavailableFailure(message: message, statusCode: statusCode),
-      'ErrInternalDB' => InternalDbFailure(message: message, statusCode: statusCode),
-      'ErrContextCanceled' => ContextCanceledFailure(message: message, statusCode: statusCode),
-      'ErrNotFound' => NotFoundFailure(message: message, statusCode: statusCode),
-      'ErrDuplicateRequest' => DuplicateRequestFailure(message: message, statusCode: statusCode),
-      'ErrInvalidInput' => InvalidInputFailure(message: message, statusCode: statusCode),
-      'ErrGeminiEmptyResponse' => GeminiEmptyResponseFailure(message: message, statusCode: statusCode),
-      'ErrSlipParseFailed' => SlipParseFailedFailure(message: message, statusCode: statusCode),
-      'ErrAccountInactive' => AccountInactiveFailure(message: message, statusCode: statusCode),
-      'ErrTransferSameAccount' => TransferSameAccountFailure(message: message, statusCode: statusCode),
-      'ErrCategoryNotAllowedForTransfer' => CategoryNotAllowedForTransferFailure(message: message, statusCode: statusCode),
-      'ErrGeminiQuotaExhausted' => GeminiQuotaExhaustedFailure(message: message, statusCode: statusCode),
+      'DATABASE_TIMEOUT' => TimeoutFailure(message: message, statusCode: statusCode),
+      'GEMINI_SERVICE_ERROR' => GeminiUnavailableFailure(message: message, statusCode: statusCode),
+      'INTERNAL_DATABASE_ERROR' || 'INTERNAL_SERVER_ERROR' => InternalDbFailure(message: message, statusCode: statusCode),
+      'REQUEST_CANCELED' => ContextCanceledFailure(message: message, statusCode: statusCode),
+      'RESOURCE_NOT_FOUND' || 'URL_NOT_FOUND' => NotFoundFailure(message: message, statusCode: statusCode),
+      'DUPLICATE_RESOURCE' => DuplicateRequestFailure(message: message, statusCode: statusCode),
+      'INVALID_INPUT_PARAMETERS' || 'BAD_REQUEST_PARAMETERS' => InvalidInputFailure(message: message, statusCode: statusCode),
+      'SLIP_PARSE_FAILED' => SlipParseFailedFailure(message: message, statusCode: statusCode),
+      'ACCOUNT_INACTIVE' => AccountInactiveFailure(message: message, statusCode: statusCode),
+      'TRANSFER_SAME_ACCOUNT' => TransferSameAccountFailure(message: message, statusCode: statusCode),
+      'CATEGORY_NOT_ALLOWED_FOR_TRANSFER' => CategoryNotAllowedForTransferFailure(message: message, statusCode: statusCode),
+      'GEMINI_QUOTA_EXHAUSTED' => GeminiQuotaExhaustedFailure(message: message, statusCode: statusCode),
       _ => UnknownFailure(code: code, message: message, statusCode: statusCode),
     };
   }
@@ -82,6 +97,9 @@ final class TimeoutFailure extends Failure {
   RetryPolicy get retryPolicy => RetryPolicy.transient;
 }
 
+/// Also covers what spec §4 calls `ErrGeminiEmptyResponse` — the backend
+/// merges both into `GEMINI_SERVICE_ERROR` with no way to distinguish them
+/// (see [Failure.fromErrorCode]'s doc comment).
 final class GeminiUnavailableFailure extends Failure {
   const GeminiUnavailableFailure({super.message, super.statusCode});
   @override
@@ -124,12 +142,6 @@ final class DuplicateRequestFailure extends Failure {
 
 final class InvalidInputFailure extends Failure {
   const InvalidInputFailure({super.message, super.statusCode});
-  @override
-  RetryPolicy get retryPolicy => RetryPolicy.permanent;
-}
-
-final class GeminiEmptyResponseFailure extends Failure {
-  const GeminiEmptyResponseFailure({super.message, super.statusCode});
   @override
   RetryPolicy get retryPolicy => RetryPolicy.permanent;
 }
