@@ -129,6 +129,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? toAccountId,
     int? categoryId,
   }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 class _FakeDashboardRepository implements DashboardRepository {

@@ -11,6 +11,11 @@ import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
+import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/transaction.dart';
+import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +91,59 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
+/// T7 replaced the Transactions placeholder with a real page — same
+/// reasoning as [_FakeAccountsRepository]: fake the repository entirely so
+/// this nav-shell test never lets a real dio call hit Flutter's test HTTP
+/// stub (the feed's initState kicks off a page-1 fetch as soon as the tab
+/// mounts).
+class _FakeTransactionsRepository implements TransactionsRepository {
+  @override
+  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.value(const []);
+
+  @override
+  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async =>
+      const Right(TransactionPage(transactions: [], currentPage: 1, totalPages: 1));
+
+  @override
+  Future<Either<Failure, Transaction>> create({
+    required TransactionType type,
+    required double amount,
+    required DateTime date,
+    String? note,
+    int? accountId,
+    int? fromAccountId,
+    int? toAccountId,
+    int? categoryId,
+  }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+
+  @override
+  Future<Either<Failure, Transaction>> update(
+    int id, {
+    required TransactionType type,
+    required double amount,
+    required DateTime date,
+    String? note,
+    int? accountId,
+    int? fromAccountId,
+    int? toAccountId,
+    int? categoryId,
+  }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+}
+
+/// T8 replaced the Dashboard placeholder with a real page — same reasoning
+/// as [_FakeAccountsRepository]: fake the repository entirely so this
+/// nav-shell test never lets a real dio call hit Flutter's test HTTP stub
+/// (the page's build kicks off a summary fetch as soon as it mounts).
+class _FakeDashboardRepository implements DashboardRepository {
+  @override
+  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async => Right(
+    DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: year, month: month, income: const [], expense: const []),
+  );
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — it just keeps pumping until nothing's scheduled, up to its
 /// own 10-minute default timeout. A bounded pump loop fails fast instead of
@@ -103,17 +161,23 @@ void main() {
         overrides: [
           accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
           categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+          transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
+          dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
         ],
         child: const MyApp(),
       ),
     );
     await _pumpBounded(tester);
 
-    expect(find.text('Dashboard — coming soon'), findsOneWidget);
+    // T8 replaced the placeholder with the real dashboard feature — just
+    // confirm the tab itself is reachable, per this smoke test's scope.
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Dashboard')), findsOneWidget);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Transactions'));
     await _pumpBounded(tester);
-    expect(find.text('Transactions — coming soon'), findsOneWidget);
+    // T7 replaced the placeholder with the real transaction feed — just
+    // confirm the tab itself is reachable, per this smoke test's scope.
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Transactions')), findsOneWidget);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Accounts'));
     await _pumpBounded(tester);
@@ -129,6 +193,6 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Dashboard'));
     await _pumpBounded(tester);
-    expect(find.text('Dashboard — coming soon'), findsOneWidget);
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Dashboard')), findsOneWidget);
   });
 }

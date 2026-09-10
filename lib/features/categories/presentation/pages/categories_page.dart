@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/widgets/category_icon.dart';
 import '../../data/categories_repository.dart';
 import '../../domain/category.dart';
-import '../../domain/category_icon.dart';
 import '../providers/categories_providers.dart';
 import 'category_form_page.dart';
 

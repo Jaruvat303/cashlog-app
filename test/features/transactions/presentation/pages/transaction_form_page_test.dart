@@ -10,6 +10,7 @@ import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
+import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transaction_form_page.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
@@ -89,6 +90,14 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   int createCallCount = 0;
 
   @override
+  Stream<List<Transaction>> watchMonth({required int year, required int month}) =>
+      throw UnimplementedError('not exercised by this form test');
+
+  @override
+  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
+      throw UnimplementedError('not exercised by this form test');
+
+  @override
   Future<Either<Failure, Transaction>> create({
     required TransactionType type,
     required double amount,
@@ -127,6 +136,9 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? toAccountId,
     int? categoryId,
   }) => throw UnimplementedError('not exercised by this form test');
+
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
 }
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck

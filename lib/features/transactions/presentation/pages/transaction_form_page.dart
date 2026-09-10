@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../data/transactions_repository.dart';
 import '../../domain/transaction.dart';
 import '../../domain/transaction_validation.dart';
@@ -107,8 +108,26 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
       (failure) => ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Request failed. Please try again.'))),
-      (_) => Navigator.of(context).pop(true),
+      (_) {
+        _invalidateAffectedDashboardMonths();
+        Navigator.of(context).pop(true);
+      },
     );
+  }
+
+  /// The feed's own cache (`cached_transactions`) is a drift table that
+  /// updates reactively on upsert — no explicit invalidation needed there.
+  /// The dashboard summary has no such table (spec §8/§11: network-only, kept
+  /// in Riverpod state), so it's the one thing this mutation must invalidate
+  /// by hand — CLAUDE.md's cache-invalidation rule ("invalidate only the
+  /// affected month's cache... both old and new if a date edit crosses a
+  /// month boundary") applied here instead of to a drift row.
+  void _invalidateAffectedDashboardMonths() {
+    ref.invalidate(dashboardSummaryProvider(_date.year, _date.month));
+    final original = widget.initial?.transactionDate;
+    if (original != null && (original.year != _date.year || original.month != _date.month)) {
+      ref.invalidate(dashboardSummaryProvider(original.year, original.month));
+    }
   }
 
   @override

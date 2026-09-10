@@ -19,6 +19,15 @@ TransactionType transactionTypeFromWire(String value) => TransactionType.values.
   orElse: () => TransactionType.expense,
 );
 
+/// Spec §7.7: the backend never sends a junk flag — Gemini is prompted to
+/// answer empty/zero rather than error when a slip image can't be read, so
+/// a non-slip photo that slipped into the scanned album creates an
+/// otherwise-normal transaction with no usable data. The client detects
+/// that shape itself and flags it for the feed badge (see
+/// `TransactionListTile`).
+bool computeIsJunk({required double amount, required String senderName, required String receiverName}) =>
+    amount == 0 && senderName.isEmpty && receiverName.isEmpty;
+
 /// Mirrors `CachedTransactions` (spec §8) field-for-field so this doubles
 /// as T7's future feed read model with no rework.
 class Transaction {

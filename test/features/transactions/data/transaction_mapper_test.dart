@@ -121,4 +121,103 @@ void main() {
     expect(transactionTypeFromWire('income'), TransactionType.income);
     expect(transactionTypeFromWire('transfer'), TransactionType.transfer);
   });
+
+  group('isJunk (spec §7.7 — client-derived, backend sends no such field)', () {
+    test('amount==0 with no sender/receiver name is flagged junk', () {
+      final transaction = transactionFromJson({
+        'id': 5,
+        'amount': 0,
+        'transaction_type': 'expense',
+        'account_id': 1,
+        'transaction_date': '2026-09-01T00:00:00.000Z',
+        'category': null,
+      });
+
+      expect(transaction.isJunk, isTrue);
+    });
+
+    test('a nonzero amount is never junk even with no sender/receiver name (e.g. an unparseable transfer)', () {
+      final transaction = transactionFromJson({
+        'id': 6,
+        'amount': 1000,
+        'transaction_type': 'transfer',
+        'from_account_id': 1,
+        'to_account_id': 2,
+        'transaction_date': '2026-09-01T00:00:00.000Z',
+      });
+
+      expect(transaction.isJunk, isFalse);
+    });
+
+    test('amount==0 but a real sender name present is not junk — some fields parsed', () {
+      final transaction = transactionFromJson({
+        'id': 7,
+        'amount': 0,
+        'transaction_type': 'income',
+        'sender_name': 'Someone',
+        'account_id': 1,
+        'transaction_date': '2026-09-01T00:00:00.000Z',
+        'category': null,
+      });
+
+      expect(transaction.isJunk, isFalse);
+    });
+
+    test('a stray is_junk value on the wire is ignored — the flag is always recomputed, never trusted', () {
+      final transaction = transactionFromJson({
+        'id': 8,
+        'amount': 100,
+        'transaction_type': 'expense',
+        'account_id': 1,
+        'transaction_date': '2026-09-01T00:00:00.000Z',
+        'category': null,
+        'is_junk': true,
+      });
+
+      expect(transaction.isJunk, isFalse);
+    });
+  });
+
+  group('transactionPageFromJson (GET /transactions — PaginatedResponse)', () {
+    test('parses data + meta.current_page/total_pages, confirmed against the live dev swagger doc shape', () {
+      final page = transactionPageFromJson({
+        'success': true,
+        'data': [
+          {
+            'id': 1,
+            'amount': 100,
+            'transaction_type': 'expense',
+            'account_id': 5,
+            'transaction_date': '2026-09-01T00:00:00.000Z',
+            'category': null,
+          },
+          {
+            'id': 2,
+            'amount': 200,
+            'transaction_type': 'income',
+            'account_id': 3,
+            'transaction_date': '2026-09-02T00:00:00.000Z',
+            'category': null,
+          },
+        ],
+        'meta': {'current_page': 1, 'page_size': 20, 'total_items': 22, 'total_pages': 2},
+        'message': 'Monthly history fetched successfully',
+      });
+
+      expect(page.transactions, hasLength(2));
+      expect(page.transactions.first.id, 1);
+      expect(page.currentPage, 1);
+      expect(page.totalPages, 2);
+      expect(page.hasMore, isTrue);
+    });
+
+    test('hasMore is false once current_page reaches total_pages', () {
+      final page = transactionPageFromJson({
+        'data': <Map<String, dynamic>>[],
+        'meta': {'current_page': 2, 'page_size': 20, 'total_items': 22, 'total_pages': 2},
+      });
+
+      expect(page.hasMore, isFalse);
+    });
+  });
 }

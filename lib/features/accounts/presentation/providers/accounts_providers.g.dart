@@ -152,7 +152,7 @@ final class AccountsRefreshProvider
   AccountsRefresh create() => AccountsRefresh();
 }
 
-String _$accountsRefreshHash() => r'd0dc6671d131a2c0068eb3b86cef99f8462d45ea';
+String _$accountsRefreshHash() => r'c833874ee4095c4fd7a7eb198ad6165f1bd2ca87';
 
 /// Drives the pull-to-refresh / initial-load API sync. The list itself is
 /// always sourced from [activeAccountsProvider]'s drift watch, so a

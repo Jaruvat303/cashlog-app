@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 
 import '../../../core/db/app_database.dart';
 import '../domain/transaction.dart';
+import '../domain/transaction_page.dart';
 
 /// Wire field names mirror the `CachedTransactions` drift columns exactly,
 /// same snake_case convention already confirmed for accounts
@@ -13,12 +14,15 @@ import '../domain/transaction.dart';
 /// color_hex}` (or `null`), confirmed against a live `TransactionResponse`.
 Transaction transactionFromJson(Map<String, dynamic> json) {
   final categoryJson = json['category'] as Map<String, dynamic>?;
+  final amount = (json['amount'] as num).toDouble();
+  final senderName = json['sender_name'] as String? ?? '';
+  final receiverName = json['receiver_name'] as String? ?? '';
   return Transaction(
     id: json['id'] as int,
-    amount: (json['amount'] as num).toDouble(),
+    amount: amount,
     type: transactionTypeFromWire(json['transaction_type'] as String),
-    senderName: json['sender_name'] as String? ?? '',
-    receiverName: json['receiver_name'] as String? ?? '',
+    senderName: senderName,
+    receiverName: receiverName,
     note: json['note'] as String? ?? '',
     accountId: json['account_id'] as int?,
     fromAccountId: json['from_account_id'] as int?,
@@ -27,7 +31,10 @@ Transaction transactionFromJson(Map<String, dynamic> json) {
     localImageName: json['local_image_name'] as String?,
     transactionDate: DateTime.parse(json['transaction_date'] as String),
     categoryId: categoryJson?['id'] as int?,
-    isJunk: json['is_junk'] as bool? ?? false,
+    // Spec §7.7: the backend has no junk flag of its own — always derive it
+    // client-side from the transaction's own fields, never trust a wire
+    // value (there isn't one to trust).
+    isJunk: computeIsJunk(amount: amount, senderName: senderName, receiverName: receiverName),
   );
 }
 
@@ -149,6 +156,19 @@ CachedTransactionsCompanion transactionToCompanion(Transaction transaction) => C
   categoryId: Value(transaction.categoryId),
   isJunk: Value(transaction.isJunk),
 );
+
+/// `GET /api/v1/transactions` (`PaginatedResponse<TransactionResponse>`,
+/// confirmed against the live dev swagger doc) — `data` is the page of
+/// transactions, `meta.current_page`/`meta.total_pages` drive T7's
+/// infinite-scroll "is there another page" check.
+TransactionPage transactionPageFromJson(Map<String, dynamic> json) {
+  final meta = json['meta'] as Map<String, dynamic>;
+  return TransactionPage(
+    transactions: (json['data'] as List).map((e) => transactionFromJson(e as Map<String, dynamic>)).toList(),
+    currentPage: meta['current_page'] as int,
+    totalPages: meta['total_pages'] as int,
+  );
+}
 
 Transaction transactionFromCached(CachedTransaction row) => Transaction(
   id: row.id,

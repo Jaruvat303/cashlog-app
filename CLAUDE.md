@@ -43,6 +43,37 @@ instead of silently overriding.
 - Use `--dart-define-from-file=env/dev.json` / `env/prod.json`.
 - **No Flutter flavors** — intentionally out of scope, don't add them.
 
+## Testing
+
+- **Always run `flutter test -j 1`**, not bare `flutter test`. Default
+  concurrency has been observed to silently drop entire test files in
+  this project's sandbox (files present on disk never even print in the
+  run), which understates real coverage. `-j 1` reliably discovers and
+  runs everything.
+- Before writing any widget test that mounts a screen and calls
+  `pumpAndSettle`, mock/override the relevant repository provider(s)
+  first. Never let a real `dio` call hit Flutter's built-in test HTTP
+  stub (which returns 400 for everything) — if app code treats that as a
+  retryable error, it creates a `Timer` loop that never clears and
+  `pumpAndSettle` hangs for its full internal timeout. This caused a real
+  regression during T4.
+- `networking_core_smoke_test.dart` requires
+  `--dart-define-from-file=env/dev.json` to carry a real `BASE_URL`/API
+  key — it's expected to fail under bare `flutter test` without that
+  flag. That failure alone is not a regression.
+
+## App startup
+
+- Trigger category and account cache refresh **once at app startup**
+  (e.g. in `main.dart` before `runApp`, or a top-level provider
+  guaranteed to run regardless of which tab opens first) — not inside
+  individual screens. A per-screen-only refresh (e.g. only the
+  Categories tab refreshing category cache) causes a silent bug: any
+  other screen that reads categories/accounts before that tab has ever
+  been visited sees an empty cache and displays data as if it were
+  unset (e.g. a transaction with a real category silently shows as
+  uncategorized) — no crash, no error, just wrong. Found in T7.
+
 ## Non-negotiable business rules
 
 - **Body size limit:** backend `BodyLimit` is 4MB. Always compress images

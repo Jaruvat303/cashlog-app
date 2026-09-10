@@ -163,15 +163,44 @@ plus a month selector.
 **Context Dependencies**
 - required: CLAUDE.md, spec §11 (Dashboard — monthly scope, in-memory
   Riverpod cache only, no disk persistence)
-- related: T7's month/year state (must be shared, not duplicated)
+- related: T7's month/year state (must be shared, not duplicated). Backend
+  `GET /api/v1/summary` → `DashboardSummaryResponse` DTO: `total_income`,
+  `total_expense`, `total_transfer`, `scope`, `month`, `year`,
+  `income: CategoryBreakdownDTO[]`, `expense: CategoryBreakdownDTO[]`
+  (each: `category_id`, `category_name`, `icon_key`, `color_hex`,
+  `total_amount`). Backend's `CalculateSummary` case-sensitivity bug
+  (#12, income/expense type mismatch) is confirmed fixed on `main`
+  (verified directly in `pg_transaction.go`).
+- fact: backend defaults missing/null `icon_key`/`color_hex` to
+  `"folder"` / `"#CCCCCC"` itself (in `CalculateSummary`, not just a
+  client-side concern) — the client's Remix Icon lookup map must
+  recognize `"folder"` as a valid key, or it will fall back a second,
+  redundant time to the client's own generic icon.
 
-**Objective:** Summary screen driven by the same month/year state as T7.
+**Objective:** Summary screen driven by the same month/year state as T7,
+showing total income/expense/net for the month plus a pie chart of
+expense-by-category (using `fl_chart` — new dependency, flagged per
+CLAUDE.md). Category icons resolved via `icon_key` through the
+`flutter_remix` package (new dependency, flagged), with the client's own
+fallback icon for any key it doesn't recognize (same pattern as T4's
+`bank_icon`, including `"folder"` from backend's own default).
 
 **Definition of Done**
-- *Not explicitly stated in the tickets doc.* Draft before starting:
-  summary updates correctly when month/year changes in T7's selector, and
-  summary data is never persisted to disk. Confirm this matches intent
-  before treating it as final.
+- Total income/expense/net for the selected month match what
+  `GET /api/v1/summary` actually returns (not computed client-side)
+- Expense pie chart renders one slice per category in `expense[]`,
+  sorted by `total_amount` descending, using each category's real
+  `icon_key`/`color_hex` (with generic fallback only for truly unknown
+  keys)
+- If `expense` is empty for the month, show an empty-state message
+  instead of an empty chart
+- `total_transfer` is not shown in the main summary
+- Changing month in T7's selector updates the dashboard (same shared
+  state, not a second independent selector)
+- Summary data is never persisted to disk — in-memory Riverpod state
+  only
+- Loading/error states follow T1's standard retry policy — no
+  client-side sanity-check against local cache totals
 
 ---
 
