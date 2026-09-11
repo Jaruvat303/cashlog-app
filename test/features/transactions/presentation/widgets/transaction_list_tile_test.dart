@@ -5,6 +5,7 @@
 // dio call never reaches Flutter's test HTTP stub (T4's hang).
 import 'dart:async';
 
+import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
@@ -180,6 +181,20 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> remove(int id) => throw UnimplementedError('not exercised by this tile test');
 }
 
+/// T14: records exactly which months this tile's delete path asked to
+/// invalidate — the underlying invalidation mechanics against the real
+/// `monthTransactionsProvider`/`dashboardSummaryProvider` families are
+/// covered by test/core/cache/cache_invalidator_test.dart.
+class _RecordingCacheInvalidator implements CacheInvalidator {
+  final List<(int, int)> invalidatedMonths = [];
+
+  @override
+  void invalidateMonth(int year, int month) => invalidatedMonths.add((year, month));
+
+  @override
+  void invalidateMonths(Set<(int, int)> months) => invalidatedMonths.addAll(months);
+}
+
 final _junkTransaction = Transaction(
   id: 7,
   amount: 0,
@@ -216,6 +231,7 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late _FakePendingActionsRepository pendingActions;
+  late _RecordingCacheInvalidator cacheInvalidator;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
@@ -223,6 +239,7 @@ void main() {
     // driving a failure through the actual delete path, not a pre-seeded
     // stand-in.
     pendingActions = _FakePendingActionsRepository();
+    cacheInvalidator = _RecordingCacheInvalidator();
   });
 
   Widget buildApp(Transaction transaction) => ProviderScope(
@@ -231,6 +248,7 @@ void main() {
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
     ],
     child: MaterialApp(
       home: Scaffold(body: TransactionListTile(transaction: transaction, categoriesById: const {})),
@@ -287,6 +305,8 @@ void main() {
     await _pumpBounded(tester);
 
     expect(fakeTransactions.deleteCalls, [_junkTransaction.id]);
+    // T14: a successful delete invalidates the deleted transaction's month.
+    expect(cacheInvalidator.invalidatedMonths, [(_junkTransaction.transactionDate.year, _junkTransaction.transactionDate.month)]);
   });
 
   testWidgets('a failed delete shows an error and never crashes the tile', (tester) async {
@@ -303,6 +323,8 @@ void main() {
     expect(find.text('Could not delete transaction'), findsOneWidget);
     // Still junk (delete failed) — badge stays visible.
     expect(find.text("Couldn't read slip data"), findsOneWidget);
+    // T14: a failed delete must never invalidate any cache.
+    expect(cacheInvalidator.invalidatedMonths, isEmpty);
   });
 
   group('T13 pending-actions queue', () {

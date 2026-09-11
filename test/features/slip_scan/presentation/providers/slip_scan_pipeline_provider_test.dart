@@ -7,6 +7,7 @@
 // this test is verifying, the sequencing/outcome-bucketing logic is.
 import 'dart:typed_data';
 
+import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
 import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
@@ -73,18 +74,35 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   }
 }
 
+/// T14: records exactly which month-sets this pipeline's batch asked to
+/// invalidate — the underlying invalidation mechanics against the real
+/// `monthTransactionsProvider`/`dashboardSummaryProvider` families are
+/// covered by test/core/cache/cache_invalidator_test.dart.
+class _RecordingCacheInvalidator implements CacheInvalidator {
+  final List<Set<(int, int)>> invalidateMonthsCalls = [];
+
+  @override
+  void invalidateMonth(int year, int month) => invalidateMonthsCalls.add({(year, month)});
+
+  @override
+  void invalidateMonths(Set<(int, int)> months) => invalidateMonthsCalls.add(months);
+}
+
 void main() {
   late _FakeSlipGalleryRepository galleryRepository;
   late _FakeSlipUploadRepository uploadRepository;
+  late _RecordingCacheInvalidator cacheInvalidator;
   late ProviderContainer container;
 
   setUp(() {
     galleryRepository = _FakeSlipGalleryRepository();
     uploadRepository = _FakeSlipUploadRepository();
+    cacheInvalidator = _RecordingCacheInvalidator();
     container = ProviderContainer(
       overrides: [
         slipGalleryRepositoryProvider.overrideWithValue(galleryRepository),
         slipUploadRepositoryProvider.overrideWithValue(uploadRepository),
+        cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
       ],
     );
     addTearDown(container.dispose);
@@ -139,6 +157,55 @@ void main() {
     expect(byFilename['b.jpg']!.status, SlipUploadStatus.duplicate);
     expect(byFilename['c.jpg']!.status, SlipUploadStatus.failed);
     expect(byFilename['c.jpg']!.failureMessage, 'could not read slip');
+
+    // T14: only 'a.jpg' actually uploaded (the default fake result, dated
+    // 2026-09-01) — the duplicate and the failed file contribute nothing.
+    expect(cacheInvalidator.invalidateMonthsCalls, [
+      {(2026, 9)},
+    ]);
+  });
+
+  group('T14 cache invalidation', () {
+    test('a batch spanning multiple months invalidates every uploaded month exactly once, after the whole batch', () async {
+      galleryRepository.access = GalleryAccessLevel.full;
+      galleryRepository.candidates = [candidateA, candidateB, candidateC];
+      uploadRepository.newFiles = [candidateA, candidateB, candidateC];
+      uploadRepository.resultByFilename = {
+        'a.jpg': Right(
+          SlipUploaded(
+            Transaction(id: 1, amount: 100, type: TransactionType.expense, source: 'slip', transactionDate: DateTime.utc(2026, 8, 31)),
+          ),
+        ),
+        'b.jpg': const Right(SlipDuplicate()),
+        'c.jpg': Right(
+          SlipUploaded(
+            Transaction(id: 2, amount: 100, type: TransactionType.expense, source: 'slip', transactionDate: DateTime.utc(2026, 9, 1)),
+          ),
+        ),
+      };
+
+      await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+
+      // Exactly one call, covering both months from the whole batch — not
+      // one call per file.
+      expect(cacheInvalidator.invalidateMonthsCalls, [
+        {(2026, 8), (2026, 9)},
+      ]);
+    });
+
+    test('a batch with no successful uploads (only duplicates/failures) never invalidates anything', () async {
+      galleryRepository.access = GalleryAccessLevel.full;
+      galleryRepository.candidates = [candidateB, candidateC];
+      uploadRepository.newFiles = [candidateB, candidateC];
+      uploadRepository.resultByFilename = {
+        'b.jpg': const Right(SlipDuplicate()),
+        'c.jpg': const Left(SlipParseFailedFailure(message: 'could not read slip')),
+      };
+
+      await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+
+      expect(cacheInvalidator.invalidateMonthsCalls, isEmpty);
+    });
   });
 
   test('runScan spaces uploads apart by the given delay, but never delays before the first one', () async {

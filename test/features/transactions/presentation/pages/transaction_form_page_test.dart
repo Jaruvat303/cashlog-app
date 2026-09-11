@@ -5,6 +5,7 @@
 // thing that caused a hang in T4.
 import 'dart:async';
 
+import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
@@ -134,6 +135,9 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     );
   }
 
+  int updateCallCount = 0;
+  Either<Failure, Transaction>? nextUpdateResult;
+
   @override
   Future<Either<Failure, Transaction>> update(
     int id, {
@@ -145,10 +149,42 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? fromAccountId,
     int? toAccountId,
     int? categoryId,
-  }) => throw UnimplementedError('not exercised by this form test');
+  }) async {
+    updateCallCount++;
+    final forced = nextUpdateResult;
+    if (forced != null) return forced;
+    return Right(
+      Transaction(
+        id: id,
+        amount: amount,
+        type: type,
+        accountId: accountId,
+        fromAccountId: fromAccountId,
+        toAccountId: toAccountId,
+        categoryId: categoryId,
+        source: 'manual',
+        transactionDate: date,
+      ),
+    );
+  }
 
   @override
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
+}
+
+/// T14: records exactly which months this form's mutation asked to
+/// invalidate, without needing the real `monthTransactionsProvider`/
+/// `dashboardSummaryProvider` families (and their repositories) wired up —
+/// the actual invalidation mechanics are covered by
+/// test/core/cache/cache_invalidator_test.dart.
+class _RecordingCacheInvalidator implements CacheInvalidator {
+  final List<Set<(int, int)>> invalidatedMonthSets = [];
+
+  @override
+  void invalidateMonth(int year, int month) => invalidatedMonthSets.add({(year, month)});
+
+  @override
+  void invalidateMonths(Set<(int, int)> months) => invalidatedMonthSets.add(months);
 }
 
 /// In-memory stand-in, not a real drift-backed repository — a real one
@@ -213,6 +249,7 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late _FakePendingActionsRepository pendingActions;
+  late _RecordingCacheInvalidator cacheInvalidator;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
@@ -220,6 +257,7 @@ void main() {
     // driving a failure through the actual submit path, not a pre-seeded
     // stand-in.
     pendingActions = _FakePendingActionsRepository();
+    cacheInvalidator = _RecordingCacheInvalidator();
   });
 
   Widget buildApp() => ProviderScope(
@@ -228,6 +266,7 @@ void main() {
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
     ],
     child: MaterialApp(
       home: Scaffold(
@@ -239,6 +278,17 @@ void main() {
         ),
       ),
     ),
+  );
+
+  Widget buildEditApp(Transaction initial) => ProviderScope(
+    overrides: [
+      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+      transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+      pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
+    ],
+    child: MaterialApp(home: TransactionFormPage(initial: initial)),
   );
 
   testWidgets('a transfer with the same account on both sides is blocked before any create call', (tester) async {
@@ -300,6 +350,40 @@ void main() {
     // A successful submit pops back to the launcher screen.
     expect(find.byType(TransactionFormPage), findsNothing);
     expect(find.text('open'), findsOneWidget);
+
+    // T14: a create invalidates only the new transaction's own month —
+    // defaults to today since no date was explicitly picked in this test.
+    final today = DateTime.now();
+    expect(cacheInvalidator.invalidatedMonthSets, [
+      {(today.year, today.month)},
+    ]);
+  });
+
+  group('T14 cache invalidation', () {
+    testWidgets('editing a transaction without changing its date invalidates only that one month', (tester) async {
+      final original = Transaction(
+        id: 42,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'manual',
+        transactionDate: DateTime(2026, 9, 15),
+      );
+      await tester.pumpWidget(buildEditApp(original));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('accountDropdown')));
+      await _pumpBounded(tester);
+      await tester.tap(find.text('Cash').last);
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('submitButton')));
+      await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+
+      expect(fakeTransactions.updateCallCount, 1);
+      expect(cacheInvalidator.invalidatedMonthSets, [
+        {(2026, 9)},
+      ]);
+    });
   });
 
   group('T13 pending-actions queue', () {

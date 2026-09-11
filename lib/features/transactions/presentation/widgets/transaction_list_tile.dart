@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../accounts/presentation/widgets/bank_icon_avatar.dart';
 import '../../../categories/domain/category.dart';
-import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../data/pending_actions_repository.dart';
 import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
@@ -181,11 +181,12 @@ class TransactionListTile extends ConsumerWidget {
           SnackBar(content: Text(queued ? 'No connection — saved to the retry queue' : (failure.message ?? 'Could not delete transaction'))),
         );
       },
-      // No dedicated cache table backs the dashboard summary (spec §8/§11) —
-      // deleting a transaction changes its month's totals, so that month's
-      // in-memory summary must be invalidated by hand, same as
+      // T14: deleting a transaction changes its month's feed and dashboard
+      // totals, so that month must be invalidated by hand, same as
       // TransactionFormPage's own mutation does.
-      (_) async => ref.invalidate(dashboardSummaryProvider(transaction.transactionDate.year, transaction.transactionDate.month)),
+      (_) async => ref
+          .read(cacheInvalidatorProvider)
+          .invalidateMonth(transaction.transactionDate.year, transaction.transactionDate.month),
     );
   }
 }

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../core/network/failure.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
-import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../data/pending_actions_repository.dart';
 import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
@@ -110,7 +110,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     await result.fold(
       (failure) => _handleFailure(failure, amount: amount, note: note, isTransfer: isTransfer),
       (_) async {
-        _invalidateAffectedDashboardMonths();
+        _invalidateAffectedMonths();
         Navigator.of(context).pop(true);
       },
     );
@@ -157,19 +157,13 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
-  /// The feed's own cache (`cached_transactions`) is a drift table that
-  /// updates reactively on upsert — no explicit invalidation needed there.
-  /// The dashboard summary has no such table (spec §8/§11: network-only, kept
-  /// in Riverpod state), so it's the one thing this mutation must invalidate
-  /// by hand — CLAUDE.md's cache-invalidation rule ("invalidate only the
-  /// affected month's cache... both old and new if a date edit crosses a
-  /// month boundary") applied here instead of to a drift row.
-  void _invalidateAffectedDashboardMonths() {
-    ref.invalidate(dashboardSummaryProvider(_date.year, _date.month));
-    final original = widget.initial?.transactionDate;
-    if (original != null && (original.year != _date.year || original.month != _date.month)) {
-      ref.invalidate(dashboardSummaryProvider(original.year, original.month));
-    }
+  /// T14/CLAUDE.md: invalidate only the affected month's cache. Create (no
+  /// `widget.initial`) always invalidates the single new month; an edit
+  /// compares the pre-submit `widget.initial!.transactionDate` against the
+  /// chosen `_date` and invalidates both months when they differ across a
+  /// month boundary, one otherwise — see `monthsAffectedByEdit`.
+  void _invalidateAffectedMonths() {
+    ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial?.transactionDate, _date));
   }
 
   @override

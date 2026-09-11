@@ -41,7 +41,7 @@ final class SlipScanPipelineProvider
   }
 }
 
-String _$slipScanPipelineHash() => r'2b3b041da308146fc4a068791e9189102fddcbe1';
+String _$slipScanPipelineHash() => r'378c590b59e9eebdef8c12551cc26b4bb4686cb6';
 
 abstract class _$SlipScanPipeline extends $Notifier<SlipScanProgress> {
   SlipScanProgress build();

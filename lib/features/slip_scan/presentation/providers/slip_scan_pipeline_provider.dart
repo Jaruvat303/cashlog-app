@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/cache/cache_invalidator.dart';
 import '../../data/slip_gallery_repository.dart';
 import '../../data/slip_upload_repository.dart';
 import '../../domain/gallery_access_level.dart';
@@ -115,6 +116,10 @@ class SlipScanPipeline extends _$SlipScanPipeline {
     );
 
     final results = <SlipFileResult>[];
+    // T14: accumulated across the whole batch, not invalidated per-file —
+    // a single `invalidateMonths` call after the loop covers a 30-day
+    // backfill spanning multiple months in one shot.
+    final affectedMonths = <(int, int)>{};
     for (var i = 0; i < newFiles.length; i++) {
       if (i > 0) await Future<void>.delayed(delay);
       final candidate = newFiles[i];
@@ -134,10 +139,16 @@ class SlipScanPipeline extends _$SlipScanPipeline {
       results.add(
         outcome.fold(
           (failure) => SlipFileResult(filename: candidate.filename, status: SlipUploadStatus.failed, failureMessage: failure.message),
-          (outcome) => SlipFileResult(
-            filename: candidate.filename,
-            status: outcome is SlipUploaded ? SlipUploadStatus.uploaded : SlipUploadStatus.duplicate,
-          ),
+          (outcome) {
+            if (outcome is SlipUploaded) {
+              final date = outcome.transaction.transactionDate;
+              affectedMonths.add((date.year, date.month));
+            }
+            return SlipFileResult(
+              filename: candidate.filename,
+              status: outcome is SlipUploaded ? SlipUploadStatus.uploaded : SlipUploadStatus.duplicate,
+            );
+          },
         ),
       );
 
@@ -151,6 +162,10 @@ class SlipScanPipeline extends _$SlipScanPipeline {
           accessLevel: access,
         );
       }
+    }
+
+    if (affectedMonths.isNotEmpty && ref.mounted) {
+      ref.read(cacheInvalidatorProvider).invalidateMonths(affectedMonths);
     }
 
     if (ref.mounted) {
