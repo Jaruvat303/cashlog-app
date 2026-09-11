@@ -119,18 +119,36 @@ Tap chip/ปุ่มหมวดหมู่ตรงในแถวของ t
 
 ---
 
+## Gaps found in T16
+
+T16 (SRS reconciliation) พบ business rule 2 ข้อที่มีอยู่ใน SRS แต่ `cashlog-frontend-spec.md` ไม่เคยเขียนถึงเลย (ไม่ใช่แค่เอกสารไม่ตรงกันแบบ T19 — เป็นฟีเจอร์ที่ขาดไปทั้งฟีเจอร์) เพิ่มเป็น ticket ใหม่ที่นี่
+
+### T20 — Account current_balance display (BR-7, FR-1.4, FR-6.3)
+คำนวณและแสดง `current_balance` ของแต่ละบัญชีฝั่ง client ตามสูตร SRS BR-7 (§6.1): `opening_balance + SUM(income) - SUM(expense) - SUM(transfer ที่ from_account_id) + SUM(transfer ที่ to_account_id)` โดยคำนวณจาก `cached_transactions` ในเครื่อง — `GET /accounts` ไม่คืนค่านี้มาให้ ต้องแสดงทั้งในหน้ารายการบัญชี (FR-1.4) และหน้า dashboard แบบต่อบัญชี (FR-6.3) BR-7 ยังกำหนดให้ต้องมีข้อความกำกับ (disclaimer) ทุกที่ที่แสดงยอดคงเหลือ เช่น "ยอดประมาณจากข้อมูลที่บันทึกในระบบ" — **ไม่ใช่ทางเลือก ต้องมีเสมอ**
+**Blocked by:** T4 (accounts), T7 (transaction feed — เป็นแหล่งข้อมูลสำหรับ aggregate)
+**Acceptance:** เปิดหน้ารายการบัญชี → เห็นยอดคงเหลือที่คำนวณถูกต้องตามสูตร (ตรวจกับเลขที่คำนวณมือ) พร้อมข้อความ disclaimer เสมอ, เปิดหน้า dashboard ต่อบัญชี → เห็นยอดเดียวกัน, ปิด (soft-delete) บัญชีแล้วยังคำนวณยอดคงเหลือได้ถูกต้องจาก `cached_accounts` เดิม (ไม่ยิง network ใหม่)
+
+### T21 — Manual slip attach button (BR-8, FR-4.1)
+สร้างช่องทางรับสลิปช่องที่สองตาม SRS BR-8/FR-4.1: ปุ่มถ่ายภาพ/เลือกภาพจากคลังภาพ (ใช้ `image_picker` หรือเทียบเท่า) กดได้เองตลอดเวลา ป้อนเข้า upload pipeline **เดียวกัน**กับ auto-scan (T10) — ใช้แก้เคสที่ auto-scan กรอง folder ไปไม่ถึง ซึ่ง SRS ระบุว่าพบบ่อยกับรายรับ `cashlog-frontend-spec.md` §7.1 เอ่ยถึงปุ่มนี้ผ่านๆ ("ปุ่ม manual แนบสลิปแยกไว้") แต่ไม่เคยระบุรายละเอียด — ticket นี้คือ spec + implementation ส่วนที่ขาดไป
+**Blocked by:** T10 (ใช้ upload pipeline เดียวกัน)
+**Acceptance:** กดปุ่ม → ถ่าย/เลือกภาพ → ผ่าน pipeline เดียวกับ auto-scan (compress, `POST /upload-slip`, บันทึกผลลง `scanned_slips` เหมือนกัน) → เห็น transaction ใหม่โผล่ใน feed, ปุ่มกดได้ตลอดเวลาไม่ขึ้นกับสถานะ auto-scan
+
+---
+
 ## Dependency overview (ลำดับแนะนำ)
 
 ```
 T1 ─┬─ T2 ─┬─ T4 ─┬─ T6 ─┬─ T7 ─┬─ T8
     │      │      │      │      ├─ T14
-    │      │      │      │      └─ T18 (ต้องมี T5 ด้วย)
+    │      │      │      │      ├─ T18 (ต้องมี T5 ด้วย)
+    │      │      │      │      └─ T20 (ต้องมี T4 ด้วย)
     │      │      └─ T5 ─┘      
     │      │                     
     │      └─ T9 ─── T10 ─┬─ T11
     │                      ├─ T12
     │                      ├─ T13 (ร่วมกับ T6)
-    │                      └─ T15
+    │                      ├─ T15
+    │                      └─ T21
     └─ T3 (ขนานกับ T2)
 
 T16, T17, T19 — ทำขนานได้ตลอด ไม่ block สาย main
