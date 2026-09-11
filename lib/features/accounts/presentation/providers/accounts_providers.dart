@@ -13,6 +13,12 @@ Stream<List<Account>> activeAccounts(Ref ref) => ref.watch(accountsRepositoryPro
 @riverpod
 Stream<Account?> cachedAccount(Ref ref, int id) => ref.watch(accountsRepositoryProvider).watchCached(id);
 
+/// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+/// derived value recomputed from cache, never fetched or persisted.
+@riverpod
+Stream<double> accountCurrentBalance(Ref ref, int accountId) =>
+    ref.watch(accountsRepositoryProvider).watchCurrentBalance(accountId);
+
 /// Drives the pull-to-refresh / initial-load API sync. The list itself is
 /// always sourced from [activeAccountsProvider]'s drift watch, so a
 /// successful refresh here shows up there automatically once it upserts.

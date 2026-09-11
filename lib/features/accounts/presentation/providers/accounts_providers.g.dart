@@ -118,6 +118,90 @@ final class CachedAccountFamily extends $Family
   String toString() => r'cachedAccountProvider';
 }
 
+/// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+/// derived value recomputed from cache, never fetched or persisted.
+
+@ProviderFor(accountCurrentBalance)
+final accountCurrentBalanceProvider = AccountCurrentBalanceFamily._();
+
+/// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+/// derived value recomputed from cache, never fetched or persisted.
+
+final class AccountCurrentBalanceProvider
+    extends $FunctionalProvider<AsyncValue<double>, double, Stream<double>>
+    with $FutureModifier<double>, $StreamProvider<double> {
+  /// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+  /// derived value recomputed from cache, never fetched or persisted.
+  AccountCurrentBalanceProvider._({
+    required AccountCurrentBalanceFamily super.from,
+    required int super.argument,
+  }) : super(
+         retry: null,
+         name: r'accountCurrentBalanceProvider',
+         isAutoDispose: true,
+         dependencies: null,
+         $allTransitiveDependencies: null,
+       );
+
+  @override
+  String debugGetCreateSourceHash() => _$accountCurrentBalanceHash();
+
+  @override
+  String toString() {
+    return r'accountCurrentBalanceProvider'
+        ''
+        '($argument)';
+  }
+
+  @$internal
+  @override
+  $StreamProviderElement<double> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<double> create(Ref ref) {
+    final argument = this.argument as int;
+    return accountCurrentBalance(ref, argument);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is AccountCurrentBalanceProvider && other.argument == argument;
+  }
+
+  @override
+  int get hashCode {
+    return argument.hashCode;
+  }
+}
+
+String _$accountCurrentBalanceHash() =>
+    r'860d864d50f9d48f1c056e1cef62b44d471d057f';
+
+/// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+/// derived value recomputed from cache, never fetched or persisted.
+
+final class AccountCurrentBalanceFamily extends $Family
+    with $FunctionalFamilyOverride<Stream<double>, int> {
+  AccountCurrentBalanceFamily._()
+    : super(
+        retry: null,
+        name: r'accountCurrentBalanceProvider',
+        dependencies: null,
+        $allTransitiveDependencies: null,
+        isAutoDispose: true,
+      );
+
+  /// BR-7 current_balance (see [AccountsRepository.watchCurrentBalance]) — a
+  /// derived value recomputed from cache, never fetched or persisted.
+
+  AccountCurrentBalanceProvider call(int accountId) =>
+      AccountCurrentBalanceProvider._(argument: accountId, from: this);
+
+  @override
+  String toString() => r'accountCurrentBalanceProvider';
+}
+
 /// Drives the pull-to-refresh / initial-load API sync. The list itself is
 /// always sourced from [activeAccountsProvider]'s drift watch, so a
 /// successful refresh here shows up there automatically once it upserts.

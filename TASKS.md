@@ -1,4 +1,4 @@
-# Cashlog Mobile — Task Set (T1–T19)
+# Cashlog Mobile — Task Set (T1–T21)
 
 Each block below is ready to paste as the first message of a Claude Code
 session for that ticket (per `TASK_TEMPLATE.md`'s Plan → Approve → Verify
@@ -135,6 +135,15 @@ a slip) with account + category selection.
 - Client-side validation matches backend rules (e.g. rejects a transfer
   with the same source/destination account, rejects a category not valid
   for transfers)
+
+**Known bug, now confirmed against SRS (T16):** SRS FR-5.2 states
+`transaction_type` is read-only on the full edit screen ("ประเภทธุรกรรมเป็น
+ค่าอ่านอย่างเดียว ไม่สามารถแก้ไขได้ในหน้านี้"), and the Design Decision
+Log has a dedicated "การแก้ไขประเภทธุรกรรม" entry confirming this is
+deliberate (avoids the complexity of cascading field changes when type
+changes), not incidental. The existing open item — T6's edit form
+currently lets `transactionType` switch freely and needs a disable-on-edit
+fix — is therefore a real SRS requirement, not just a nice-to-have.
 
 ---
 
@@ -420,3 +429,79 @@ delete/edit" (2) section 6.1 (Account fields) — change `icon_key` /
 
 **Definition of Done**
 - SRS document text matches the decisions above (non-code — no dev impact)
+
+---
+
+## Gaps found in T16
+
+T16 (SRS reconciliation) found two business rules that exist in the SRS
+but were never carried into `cashlog-frontend-spec.md` — not a doc/code
+mismatch like T19's items, but a missing feature each. Added as new
+tickets here.
+
+### T20 — Account current_balance display
+**Blocked by:** T4 (accounts), T7 (transaction feed, aggregation source)
+
+**Context Dependencies**
+- required: CLAUDE.md, SRS §6.1 (Account schema — `current_balance`
+  formula), BR-7 (§7 — real-time calculation + mandatory disclaimer
+  text), FR-1.4, FR-6.3
+- related: T4 (`cached_accounts`, `opening_balance`), T7
+  (`cached_transactions` — the aggregation source; `GET /accounts` does
+  not return this field)
+- fact: this requirement doesn't appear in `cashlog-frontend-spec.md`'s
+  existing content at all — it's a new addition to the spec surfaced by
+  T16's SRS reconciliation, not a doc mismatch to fix like T19's items
+- exclude: no new backend endpoint or persisted column — this is purely a
+  client-side derived value, computed fresh each time it's shown
+
+**Objective:** Compute each account's `current_balance` client-side per
+SRS BR-7's formula — `opening_balance + SUM(income) - SUM(expense) -
+SUM(transfer where from_account_id) + SUM(transfer where to_account_id)`
+— derived from `cached_transactions`. Show it on the accounts list
+(FR-1.4) and the dashboard's per-account view (FR-6.3), each with the
+mandatory disclaimer text BR-7 requires (e.g. "estimated from recorded
+data") — not optional, must appear everywhere a balance is shown.
+
+**Definition of Done**
+- Accounts list shows each active account's `current_balance`, computed
+  correctly per BR-7's formula (verified against a hand-computed total)
+- The dashboard's per-account view shows the same computed balance
+- The disclaimer text is present next to every balance display, not just
+  one screen
+- A closed (soft-deleted) account still computes correctly wherever its
+  balance is shown — reads from the existing `cached_accounts` row, no
+  new network call (consistent with T4's no-`GET /accounts/:id` rule)
+
+---
+
+### T21 — Manual slip attach button
+**Blocked by:** T10 (shares its upload pipeline)
+
+**Context Dependencies**
+- required: CLAUDE.md, SRS BR-8 (two slip-intake channels into the same
+  pipeline), FR-4.1 (manual capture/select), spec §7.1 (names this button
+  in passing — "ปุ่ม manual แนบสลิปแยกไว้" — but specifies nothing
+  further; this ticket is that missing specification)
+- related: T10 — the exact upload pipeline this button must feed into
+  (same compress → `POST /upload-slip` → `scanned_slips` bookkeeping, no
+  parallel/duplicate pipeline)
+- exclude: any change to T10's diff/compression/rate-limit/sequencing
+  logic itself — this ticket only adds a second entry point into it
+
+**Objective:** A persistent camera/gallery-picker button (`image_picker`
+or equivalent — new dependency, flag per CLAUDE.md) that lets the user
+manually capture or select a slip image at any time, independent of
+auto-scan state, and feeds it into the same upload pipeline T10 built —
+for slips auto-scan's folder filtering misses (SRS notes this is common
+for income transactions).
+
+**Definition of Done**
+- Tapping the button lets the user capture or pick an image, which goes
+  through the same compress → `POST /upload-slip` → `scanned_slips`
+  bookkeeping path as an auto-scanned file (verify it lands as a row in
+  `scanned_slips`, not a separate table/path)
+- A successful manual upload produces a transaction in the feed, same as
+  an auto-scanned one
+- The button is available regardless of whether an auto-scan is currently
+  running or has ever run

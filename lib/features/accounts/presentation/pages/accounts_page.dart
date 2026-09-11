@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/account.dart';
 import '../providers/accounts_providers.dart';
 import '../widgets/bank_icon_avatar.dart';
+import '../widgets/current_balance_text.dart';
 import 'account_detail_page.dart';
 import 'account_form_page.dart';
 
@@ -63,7 +64,15 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                 return ListTile(
                   leading: BankIconAvatar(bankIconCode: account.bankIcon),
                   title: Text(account.name),
-                  subtitle: Text(account.accountType.label),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(account.accountType.label),
+                      CurrentBalanceText(accountId: account.id),
+                    ],
+                  ),
+                  isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AccountDetailPage(accountId: account.id))),
                 );

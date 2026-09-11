@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../core/db/app_database.dart';
@@ -31,6 +31,34 @@ class AccountsRepository {
       (_db.select(_db.cachedAccounts)..where((t) => t.id.equals(id))).watchSingleOrNull().map(
         (row) => row == null ? null : accountFromCached(row),
       );
+
+  /// BR-7's current_balance formula, computed entirely in SQL so drift's
+  /// `readsFrom` can make this reactive to both tables without hand-rolling
+  /// a stream combinator (no rxdart in this project): opening_balance, plus
+  /// income, minus expense, minus outgoing transfers, plus incoming
+  /// transfers — all filtered to this account and summed straight from
+  /// `cached_transactions`. This is a derived read, never persisted (spec
+  /// §8's note on no `cached_dashboard_summary`-style table for computed
+  /// values), and works for a closed account the same as an active one
+  /// since the WHERE clause never filters on `is_active`.
+  Stream<double> watchCurrentBalance(int accountId) {
+    final query = _db.customSelect(
+      '''
+      SELECT
+        a.opening_balance
+          + COALESCE((SELECT SUM(t.amount) FROM cached_transactions t WHERE t.transaction_type = 'income' AND t.account_id = a.id), 0)
+          - COALESCE((SELECT SUM(t.amount) FROM cached_transactions t WHERE t.transaction_type = 'expense' AND t.account_id = a.id), 0)
+          - COALESCE((SELECT SUM(t.amount) FROM cached_transactions t WHERE t.transaction_type = 'transfer' AND t.from_account_id = a.id), 0)
+          + COALESCE((SELECT SUM(t.amount) FROM cached_transactions t WHERE t.transaction_type = 'transfer' AND t.to_account_id = a.id), 0)
+        AS current_balance
+      FROM cached_accounts a
+      WHERE a.id = ?1
+      ''',
+      variables: [Variable<int>(accountId)],
+      readsFrom: {_db.cachedAccounts, _db.cachedTransactions},
+    );
+    return query.watchSingleOrNull().map((row) => row?.read<double>('current_balance') ?? 0);
+  }
 
   Future<Either<Failure, void>> refreshFromApi() async {
     final result = await _apiClient.get<List<Account>>(

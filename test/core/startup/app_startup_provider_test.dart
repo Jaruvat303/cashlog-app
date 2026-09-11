@@ -20,6 +20,8 @@ class _FakeAccountsRepository implements AccountsRepository {
   @override
   Stream<Account?> watchCached(int id) => Stream.value(null);
   @override
+  Stream<double> watchCurrentBalance(int accountId) => Stream.value(0);
+  @override
   Future<Either<Failure, void>> refreshFromApi() async {
     refreshCallCount++;
     return const Right(null);

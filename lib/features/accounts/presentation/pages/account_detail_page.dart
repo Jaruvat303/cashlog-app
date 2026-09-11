@@ -6,6 +6,7 @@ import '../../domain/account.dart';
 import '../../domain/bank_icon.dart';
 import '../providers/accounts_providers.dart';
 import '../widgets/bank_icon_avatar.dart';
+import '../widgets/current_balance_text.dart';
 import 'account_form_page.dart';
 
 /// Reads `cached_accounts` directly — there is no `GET /accounts/:id` to
@@ -75,6 +76,10 @@ class AccountDetailPage extends ConsumerWidget {
                 ],
               ),
               const Divider(height: 32),
+              ListTile(
+                title: const Text('Current balance'),
+                subtitle: CurrentBalanceText(accountId: account.id),
+              ),
               ListTile(title: const Text('Type'), subtitle: Text(account.accountType.label)),
               ListTile(title: const Text('Opening balance'), subtitle: Text(account.openingBalance.toStringAsFixed(2))),
               ListTile(
