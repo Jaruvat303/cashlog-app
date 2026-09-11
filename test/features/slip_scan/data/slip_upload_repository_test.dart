@@ -187,6 +187,13 @@ class _ScriptedUploadAdapter implements HttpClientAdapter {
             Headers.contentTypeHeader: [Headers.jsonContentType],
           },
         ),
+      'quota_exhausted' => ResponseBody.fromString(
+          jsonEncode({'success': false, 'error_code': 'GEMINI_QUOTA_EXHAUSTED', 'message': 'Gemini quota exhausted.'}),
+          429,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        ),
       _ => throw StateError('unscripted outcome: $outcome'),
     };
   }
@@ -230,7 +237,7 @@ void main() {
   tearDown(() async => db.close());
 
   group('diffNewFiles', () {
-    test('excludes uploaded and duplicate rows, keeps failed and unseen ones eligible', () async {
+    test('excludes uploaded/duplicate/failed/junk rows, keeps quotaExceeded and unseen ones eligible', () async {
       await db.into(db.scannedSlips).insert(
         ScannedSlipsCompanion.insert(localImageName: 'already_uploaded.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.uploaded, scannedAt: DateTime.now()),
       );
@@ -240,17 +247,25 @@ void main() {
       await db.into(db.scannedSlips).insert(
         ScannedSlipsCompanion.insert(localImageName: 'previously_failed.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.failed, scannedAt: DateTime.now()),
       );
+      await db.into(db.scannedSlips).insert(
+        ScannedSlipsCompanion.insert(localImageName: 'previously_junk.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.junk, scannedAt: DateTime.now()),
+      );
+      await db.into(db.scannedSlips).insert(
+        ScannedSlipsCompanion.insert(localImageName: 'previously_quota_exceeded.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.quotaExceeded, scannedAt: DateTime.now()),
+      );
 
       const candidates = [
         SlipCandidate(id: '1', filename: 'already_uploaded.jpg', sourceAlbum: 'SCB EASY'),
         SlipCandidate(id: '2', filename: 'already_duplicate.jpg', sourceAlbum: 'SCB EASY'),
         SlipCandidate(id: '3', filename: 'previously_failed.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '4', filename: 'brand_new.jpg', sourceAlbum: 'SCB EASY'),
+        SlipCandidate(id: '4', filename: 'previously_junk.jpg', sourceAlbum: 'SCB EASY'),
+        SlipCandidate(id: '5', filename: 'previously_quota_exceeded.jpg', sourceAlbum: 'SCB EASY'),
+        SlipCandidate(id: '6', filename: 'brand_new.jpg', sourceAlbum: 'SCB EASY'),
       ];
 
       final result = await repository.diffNewFiles(candidates);
 
-      expect(result.map((c) => c.filename).toSet(), {'previously_failed.jpg', 'brand_new.jpg'});
+      expect(result.map((c) => c.filename).toSet(), {'previously_quota_exceeded.jpg', 'brand_new.jpg'});
     });
   });
 
@@ -322,6 +337,50 @@ void main() {
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.retryCount, 1);
+    });
+
+    test('GEMINI_QUOTA_EXHAUSTED records quotaExceeded, not failed', () async {
+      adapter.script = () => 'quota_exhausted';
+
+      final result = await repository.uploadOne(candidate);
+
+      expect(result.isLeft(), isTrue);
+      result.fold((f) => expect(f, isA<GeminiQuotaExhaustedFailure>()), (_) => fail('expected a Left'));
+
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.status, SlipStatus.quotaExceeded);
+      expect(row.lastErrorCode, 'GEMINI_QUOTA_EXHAUSTED');
+      expect(row.retryCount, 0);
+    });
+
+    test('retryCount increments across two consecutive quota-exhausted attempts on the same file', () async {
+      adapter.script = () => 'quota_exhausted';
+
+      await repository.uploadOne(candidate);
+      await repository.uploadOne(candidate);
+
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.status, SlipStatus.quotaExceeded);
+      expect(row.retryCount, 1);
+    });
+
+    test('a quotaExceeded file is picked up again on the next diffNewFiles pass and succeeds', () async {
+      adapter.script = () => 'quota_exhausted';
+      await repository.uploadOne(candidate);
+
+      var eligible = await repository.diffNewFiles(const [candidate]);
+      expect(eligible.map((c) => c.filename), [candidate.filename]);
+
+      adapter.script = () => 'uploaded';
+      final result = await repository.uploadOne(candidate);
+
+      expect(result.isRight(), isTrue);
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.status, SlipStatus.uploaded);
+      expect(row.retryCount, 1);
+
+      eligible = await repository.diffNewFiles(const [candidate]);
+      expect(eligible, isEmpty, reason: 'now uploaded, no longer eligible for re-scan');
     });
 
     test('source file missing from the gallery fails without ever hitting the network or compressing', () async {

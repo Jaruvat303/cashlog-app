@@ -34,15 +34,17 @@ class SlipUploadRepository {
   final AppDatabase _db;
   final SlipGalleryRepository _galleryRepository;
 
-  /// Excludes files already resolved (`uploaded`/`duplicate`). A `failed`
-  /// row is deliberately still eligible, so the next scan pass retries it —
-  /// CLAUDE.md's Gemini-quota rule only requires not retrying *within* the
-  /// same pass, which this satisfies; T15 may add a longer cooldown later.
-  /// `junk` never appears here since T10 never writes that status (T12's
-  /// job).
+  /// Excludes files already permanently resolved (`uploaded`/`duplicate`/
+  /// `failed`/`junk`). `quotaExceeded` is the one exception (T15): a slip
+  /// that hit `GEMINI_QUOTA_EXHAUSTED` gets retried on the *next* scan cycle
+  /// indefinitely, since the quota exhaustion says nothing about whether
+  /// that particular slip is actually unparseable. Every other `failed` row
+  /// is a real permanent failure (matches spec §4's "surface to user, no
+  /// auto-retry") and must not be re-attempted automatically. `junk` never
+  /// appears here since T10 never writes that status (T12's job).
   Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) async {
     final resolvedNames = await (_db.select(_db.scannedSlips)
-          ..where((s) => s.status.isInValues(const [SlipStatus.uploaded, SlipStatus.duplicate])))
+          ..where((s) => s.status.isInValues(const [SlipStatus.uploaded, SlipStatus.duplicate, SlipStatus.failed, SlipStatus.junk])))
         .map((row) => row.localImageName)
         .get();
     final resolved = resolvedNames.toSet();
@@ -85,6 +87,10 @@ class SlipUploadRepository {
         if (failure is DuplicateRequestFailure) {
           await _recordDuplicate(candidate, retryCount);
           return const Right(SlipDuplicate());
+        }
+        if (failure is GeminiQuotaExhaustedFailure) {
+          await _recordQuotaExceeded(candidate, retryCount, failure);
+          return Left(failure);
         }
         await _recordFailure(candidate, retryCount, failure);
         return Left(failure);
@@ -155,6 +161,25 @@ class SlipUploadRepository {
           localImageName: candidate.filename,
           sourceFolder: candidate.sourceAlbum,
           status: SlipStatus.failed,
+          retryCount: Value(retryCount),
+          lastErrorCode: Value(_failureLabel(failure)),
+          scannedAt: DateTime.now(),
+        ),
+      );
+
+  /// `GEMINI_QUOTA_EXHAUSTED` special case (CLAUDE.md's retry policy, T15):
+  /// distinct from [_recordFailure]'s `failed` status so [diffNewFiles]
+  /// keeps offering this file up on the next scan cycle instead of
+  /// permanently excluding it. `retryCount` still increments per attempt,
+  /// same as any other status — there's no retry cap here by design (spec:
+  /// retried indefinitely until it either succeeds or fails for a different,
+  /// non-quota reason).
+  Future<void> _recordQuotaExceeded(SlipCandidate candidate, int retryCount, Failure failure) =>
+      _db.into(_db.scannedSlips).insertOnConflictUpdate(
+        ScannedSlipsCompanion.insert(
+          localImageName: candidate.filename,
+          sourceFolder: candidate.sourceAlbum,
+          status: SlipStatus.quotaExceeded,
           retryCount: Value(retryCount),
           lastErrorCode: Value(_failureLabel(failure)),
           scannedAt: DateTime.now(),

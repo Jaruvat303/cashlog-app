@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 
-enum SlipStatus { uploaded, duplicate, failed, junk }
+enum SlipStatus { uploaded, duplicate, failed, junk, quotaExceeded }
 
 class ScannedSlips extends Table {
   TextColumn get localImageName => text()();
