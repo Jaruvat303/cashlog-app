@@ -5,11 +5,17 @@
 // HTTP stub, the exact thing that caused a hang in T4.
 import 'dart:async';
 
+import 'dart:typed_data';
+
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_upload_outcome.dart';
+import 'package:cashlog/features/slip_scan/presentation/widgets/manual_slip_attach_button.dart';
 import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -21,6 +27,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
   @override
@@ -28,6 +35,9 @@ class _FakeAccountsRepository implements AccountsRepository {
 
   @override
   Stream<Account?> watchCached(int id) => Stream.value(null);
+
+  @override
+  Stream<double> watchCurrentBalance(int accountId) => Stream.value(0);
 
   @override
   Future<Either<Failure, void>> refreshFromApi() async => const Right(null);
@@ -208,6 +218,46 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> remove(int id) => throw UnimplementedError('not exercised by this feed test');
 }
 
+/// T21: stands in for `image_picker`'s `ImagePicker` — [pickImage] never
+/// touches a real platform channel (which doesn't exist under
+/// `flutter test`, CLAUDE.md's testing rule), just hands back whatever
+/// [nextFile] a test has scripted.
+class _FakeManualSlipImageSource implements ManualSlipImageSource {
+  XFile? nextFile;
+  final List<ImageSource> requestedSources = [];
+
+  @override
+  Future<XFile?> pickImage(ImageSource source) async {
+    requestedSources.add(source);
+    return nextFile;
+  }
+}
+
+/// T21: records manual-attach calls only — [uploadOne]/[diffNewFiles] are
+/// never exercised by this feed test (that's the auto-scan pipeline's own
+/// test suite).
+class _FakeSlipUploadRepository implements SlipUploadRepository {
+  final List<(Uint8List, String)> manualCalls = [];
+  Either<Failure, SlipUploadOutcome> Function(Uint8List bytes, String filename)? scriptManual;
+
+  /// T21: when set, [uploadManual] blocks here before returning — lets a
+  /// test observe the button's in-flight (disabled/spinner) state.
+  Completer<void>? gate;
+
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+    if (gate != null) await gate!.future;
+    manualCalls.add((bytes, filename));
+    return (scriptManual ?? (_, _) => Right(SlipUploaded(_expense(999, 'from slip', DateTime.utc(2026, 9, 1)))))(bytes, filename);
+  }
+
+  @override
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this feed test');
+
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this feed test');
+}
+
 Transaction _expense(int id, String note, DateTime date) =>
     Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date);
 
@@ -224,6 +274,8 @@ void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late DateTime thisMonth;
   late _FakePendingActionsRepository pendingActions;
+  late _FakeManualSlipImageSource manualImageSource;
+  late _FakeSlipUploadRepository manualSlipUploadRepository;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
@@ -233,6 +285,8 @@ void main() {
     // watchAll() stream, so seeding rows here exercises the same code path
     // the badge uses, not a stand-in count.
     pendingActions = _FakePendingActionsRepository();
+    manualImageSource = _FakeManualSlipImageSource();
+    manualSlipUploadRepository = _FakeSlipUploadRepository();
   });
 
   Widget buildApp() => ProviderScope(
@@ -241,6 +295,8 @@ void main() {
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      manualSlipImageSourceProvider.overrideWithValue(manualImageSource),
+      slipUploadRepositoryProvider.overrideWithValue(manualSlipUploadRepository),
     ],
     child: const MaterialApp(home: TransactionsPage()),
   );
@@ -325,6 +381,85 @@ void main() {
       await _pumpBounded(tester);
 
       expect(find.text('Stuck items'), findsOneWidget);
+    });
+  });
+
+  group('T21 manual slip attach button', () {
+    testWidgets('is present on the feed and opens a camera/gallery chooser on tap', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('manualSlipAttachButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('manualSlipAttachCameraOption')), findsOneWidget);
+      expect(find.byKey(const Key('manualSlipAttachGalleryOption')), findsOneWidget);
+      // Never actually picked a source — the (fake) image source should
+      // stay untouched by opening the chooser alone.
+      expect(manualImageSource.requestedSources, isEmpty);
+    });
+
+    testWidgets('picking "choose from gallery" feeds the picked bytes into the same upload path T10 built', (tester) async {
+      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([1, 2, 3]), path: '/fake/manual_slip.jpg');
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('manualSlipAttachGalleryOption')));
+      await _pumpBounded(tester);
+
+      expect(manualImageSource.requestedSources, [ImageSource.gallery]);
+      expect(manualSlipUploadRepository.manualCalls, hasLength(1));
+      final (bytes, filename) = manualSlipUploadRepository.manualCalls.single;
+      expect(bytes, [1, 2, 3]);
+      expect(filename, 'manual_slip.jpg');
+      expect(find.text('Slip uploaded'), findsOneWidget);
+    });
+
+    testWidgets('picking "take photo" requests the camera source', (tester) async {
+      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([9]), path: '/fake/camera_slip.jpg');
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('manualSlipAttachCameraOption')));
+      await _pumpBounded(tester);
+
+      expect(manualImageSource.requestedSources, [ImageSource.camera]);
+    });
+
+    testWidgets('the button disables and shows progress while a manual upload is in flight', (tester) async {
+      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([1]), path: '/fake/manual_slip.jpg');
+      final gate = Completer<void>();
+      manualSlipUploadRepository.gate = gate;
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('manualSlipAttachGalleryOption')));
+      await _pumpBounded(tester);
+
+      expect(
+        find.descendant(of: find.byKey(const Key('manualSlipAttachButton')), matching: find.byType(CircularProgressIndicator)),
+        findsOneWidget,
+      );
+      final button = tester.widget<IconButton>(find.byKey(const Key('manualSlipAttachButton')));
+      expect(button.onPressed, isNull, reason: 'disabled while a manual upload is already in flight');
+
+      gate.complete();
+      await _pumpBounded(tester);
+      expect(
+        find.descendant(of: find.byKey(const Key('manualSlipAttachButton')), matching: find.byType(CircularProgressIndicator)),
+        findsNothing,
+      );
     });
   });
 }

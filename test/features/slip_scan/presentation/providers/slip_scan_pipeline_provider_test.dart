@@ -5,6 +5,7 @@
 // delay: Duration.zero is passed to runScan so the ~7s real-world pacing
 // (spec §7.6.1) doesn't make this test slow — the pacing itself isn't what
 // this test is verifying, the sequencing/outcome-bucketing logic is.
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cashlog/core/cache/cache_invalidator.dart';
@@ -52,14 +53,43 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   /// filename has no entry.
   Map<String, Either<Failure, SlipUploadOutcome>> resultByFilename = {};
 
+  /// T21: when set, every [uploadOne]/[uploadManual] call blocks here before
+  /// recording anything — lets a test hold an upload "mid-flight" (either
+  /// channel) so it can exercise the other channel while it's still
+  /// running.
+  Completer<void>? uploadOneGate;
+
   @override
   Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) async => newFiles;
 
   @override
   Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) async {
+    if (uploadOneGate != null) await uploadOneGate!.future;
     uploadedInOrder.add(candidate.filename);
     uploadedAt.add(DateTime.now());
     return resultByFilename[candidate.filename] ??
+        Right(
+          SlipUploaded(
+            Transaction(
+              id: uploadedInOrder.length,
+              amount: 100,
+              type: TransactionType.expense,
+              source: 'slip',
+              transactionDate: DateTime.utc(2026, 9, 1),
+            ),
+          ),
+        );
+  }
+
+  /// T21: same recording/scripting behavior as [uploadOne] above, keyed the
+  /// same way (by filename) so tests can script a manual upload's outcome
+  /// with the same `resultByFilename` map.
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+    if (uploadOneGate != null) await uploadOneGate!.future;
+    uploadedInOrder.add(filename);
+    uploadedAt.add(DateTime.now());
+    return resultByFilename[filename] ??
         Right(
           SlipUploaded(
             Transaction(
@@ -240,5 +270,76 @@ void main() {
     await Future.wait([first, second]);
 
     expect(uploadRepository.uploadedInOrder, ['a.jpg']);
+  });
+
+  group('T21 manual attach', () {
+    test('a manual upload with no auto-scan running fires immediately and invalidates its month', () async {
+      final notifier = container.read(slipScanPipelineProvider.notifier);
+
+      final result = await notifier.uploadManual(bytes: Uint8List.fromList([1, 2, 3]), filename: 'manual.jpg');
+
+      expect(result.isRight(), isTrue);
+      expect(uploadRepository.uploadedInOrder, ['manual.jpg']);
+      expect(container.read(slipScanPipelineProvider).isManualUploading, isFalse);
+      expect(cacheInvalidator.invalidateMonthsCalls, [
+        {(2026, 9)},
+      ]);
+    });
+
+    test(
+      'tapping manual attach while an auto-scan batch is mid-flight waits for the batch to finish, '
+      'then fires automatically without a second tap',
+      () async {
+        galleryRepository.access = GalleryAccessLevel.full;
+        galleryRepository.candidates = [candidateA];
+        uploadRepository.newFiles = [candidateA];
+        final gate = Completer<void>();
+        uploadRepository.uploadOneGate = gate;
+
+        final notifier = container.read(slipScanPipelineProvider.notifier);
+        final scanFuture = notifier.runScan(delay: Duration.zero);
+
+        // Let the batch reach its (gated) uploadOne call for candidateA —
+        // several microtask/event-loop hops happen first (currentAccess,
+        // queryConfiguredAlbums, diffNewFiles), so a short real delay (not
+        // just `Future.value()`) is what reliably gets past all of them.
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        expect(uploadRepository.uploadedInOrder, isEmpty, reason: 'batch should be blocked on the gate, not yet recorded');
+
+        final manualFuture = notifier.uploadManual(bytes: Uint8List.fromList([9, 9, 9]), filename: 'manual.jpg');
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+
+        // The manual call must not have fired its HTTP-equivalent call yet
+        // — only the still-gated batch upload is pending, "manual.jpg" must
+        // not appear until after the batch's own upload finishes.
+        expect(uploadRepository.uploadedInOrder, isEmpty);
+        expect(container.read(slipScanPipelineProvider).isManualUploading, isTrue, reason: 'manual attach is queued, waiting its turn');
+
+        gate.complete();
+        await Future.wait([scanFuture, manualFuture]);
+
+        expect(uploadRepository.uploadedInOrder, ['a.jpg', 'manual.jpg'], reason: 'batch upload completes, then the queued manual upload runs');
+        final finalState = container.read(slipScanPipelineProvider);
+        expect(finalState.isScanning, isFalse);
+        expect(finalState.isManualUploading, isFalse);
+      },
+    );
+
+    test('a second manual upload while one is already in flight is rejected, not queued', () async {
+      final gate = Completer<void>();
+      uploadRepository.uploadOneGate = gate;
+
+      final notifier = container.read(slipScanPipelineProvider.notifier);
+      final first = notifier.uploadManual(bytes: Uint8List.fromList([1]), filename: 'first.jpg');
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final second = await notifier.uploadManual(bytes: Uint8List.fromList([2]), filename: 'second.jpg');
+      expect(second.isLeft(), isTrue);
+
+      gate.complete();
+      await first;
+
+      expect(uploadRepository.uploadedInOrder, ['first.jpg']);
+    });
   });
 }

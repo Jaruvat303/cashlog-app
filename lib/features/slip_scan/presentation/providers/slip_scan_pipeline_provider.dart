@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
+
+import 'package:dartz/dartz.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../core/cache/cache_invalidator.dart';
+import '../../../../core/network/failure.dart';
 import '../../data/slip_gallery_repository.dart';
 import '../../data/slip_upload_repository.dart';
 import '../../domain/gallery_access_level.dart';
@@ -36,6 +41,7 @@ class SlipScanProgress {
     required this.currentFilename,
     required this.results,
     required this.accessLevel,
+    this.isManualUploading = false,
   });
 
   static const idle = SlipScanProgress(
@@ -56,12 +62,43 @@ class SlipScanProgress {
   /// `null` until a scan has run at least once; distinguishes "haven't
   /// checked yet" from a confirmed [GalleryAccessLevel.denied].
   final GalleryAccessLevel? accessLevel;
+
+  /// T21: true only for the manual-attach entry point's own in-flight
+  /// request — deliberately separate from [isScanning] (an auto-scan
+  /// batch), since the two are serialized against each other (see
+  /// [SlipScanPipeline._withExclusiveAccess]) but represent different user
+  /// actions and shouldn't be conflated in the UI.
+  final bool isManualUploading;
 }
 
 @riverpod
 class SlipScanPipeline extends _$SlipScanPipeline {
   @override
   SlipScanProgress build() => SlipScanProgress.idle;
+
+  /// T21: the mutual-exclusion point between the two slip-intake channels
+  /// (auto-scan's [runScan] batch and manual attach's [uploadManual]) —
+  /// CLAUDE.md's "slip uploads must be sequential, never fire uploads
+  /// concurrently" rate-limit rule applies across both combined, not just
+  /// within one channel's own loop. A promise-chain mutex rather than a bare
+  /// `bool` flag: whichever call arrives second simply awaits the first
+  /// call's own future before running, instead of bailing out (T10's
+  /// `isScanning` re-entrancy guard bails; this one queues, per T21's DoD —
+  /// "wait for that batch to finish... then proceed automatically, no need
+  /// for the user to re-tap").
+  Future<void> _exclusiveAccess = Future<void>.value();
+
+  Future<T> _withExclusiveAccess<T>(Future<T> Function() operation) async {
+    final previous = _exclusiveAccess;
+    final completer = Completer<void>();
+    _exclusiveAccess = completer.future;
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      completer.complete();
+    }
+  }
 
   /// Diff → sequential compress+upload+record, one file at a time.
   /// [delay] defaults to [kSlipUploadDelay]; tests override it to
@@ -82,8 +119,17 @@ class SlipScanPipeline extends _$SlipScanPipeline {
       currentFilename: null,
       results: const [],
       accessLevel: state.accessLevel,
+      isManualUploading: state.isManualUploading,
     );
 
+    // Waits here (not before the claim above) if a manual attach is
+    // currently mid-upload — the claim still needs to happen synchronously
+    // so a second overlapping runScan call keeps bailing out immediately,
+    // same as before T21.
+    await _withExclusiveAccess(() => _runScanBody(delay));
+  }
+
+  Future<void> _runScanBody(Duration delay) async {
     final galleryRepo = ref.read(slipGalleryRepositoryProvider);
     final uploadRepo = ref.read(slipUploadRepositoryProvider);
 
@@ -97,6 +143,7 @@ class SlipScanPipeline extends _$SlipScanPipeline {
           currentFilename: null,
           results: const [],
           accessLevel: access,
+          isManualUploading: state.isManualUploading,
         );
       }
       return;
@@ -113,6 +160,7 @@ class SlipScanPipeline extends _$SlipScanPipeline {
       currentFilename: null,
       results: const [],
       accessLevel: access,
+      isManualUploading: state.isManualUploading,
     );
 
     final results = <SlipFileResult>[];
@@ -132,6 +180,7 @@ class SlipScanPipeline extends _$SlipScanPipeline {
           currentFilename: candidate.filename,
           results: List.unmodifiable(results),
           accessLevel: access,
+          isManualUploading: state.isManualUploading,
         );
       }
 
@@ -160,6 +209,7 @@ class SlipScanPipeline extends _$SlipScanPipeline {
           currentFilename: candidate.filename,
           results: List.unmodifiable(results),
           accessLevel: access,
+          isManualUploading: state.isManualUploading,
         );
       }
     }
@@ -176,7 +226,58 @@ class SlipScanPipeline extends _$SlipScanPipeline {
         currentFilename: null,
         results: List.unmodifiable(results),
         accessLevel: access,
+        isManualUploading: state.isManualUploading,
       );
     }
+  }
+
+  /// T21's manual-attach entry point: a single deliberate user-picked/
+  /// captured file, serialized against any in-progress auto-scan batch via
+  /// the same [_withExclusiveAccess] lock [runScan] uses — never a second
+  /// concurrent `/upload-slip` call regardless of which channel started
+  /// first. Only one manual upload is supported in flight at a time (T21's
+  /// DoD explicitly excludes a multi-item manual queue); a second call while
+  /// one is already running is rejected outright rather than queued, unlike
+  /// the auto-scan/manual queuing above — the UI is expected to disable the
+  /// attach button while [SlipScanProgress.isManualUploading] is true, so
+  /// this is a defensive guard, not the primary mechanism.
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+    if (state.isManualUploading) {
+      return const Left(UnknownFailure(message: 'A manual slip upload is already in progress.'));
+    }
+    state = SlipScanProgress(
+      isScanning: state.isScanning,
+      total: state.total,
+      completed: state.completed,
+      currentFilename: state.currentFilename,
+      results: state.results,
+      accessLevel: state.accessLevel,
+      isManualUploading: true,
+    );
+
+    final result = await _withExclusiveAccess(() {
+      final uploadRepo = ref.read(slipUploadRepositoryProvider);
+      return uploadRepo.uploadManual(bytes: bytes, filename: filename);
+    });
+
+    if (ref.mounted) {
+      result.fold((_) {}, (outcome) {
+        if (outcome is SlipUploaded) {
+          final date = outcome.transaction.transactionDate;
+          ref.read(cacheInvalidatorProvider).invalidateMonths({(date.year, date.month)});
+        }
+      });
+      state = SlipScanProgress(
+        isScanning: state.isScanning,
+        total: state.total,
+        completed: state.completed,
+        currentFilename: state.currentFilename,
+        results: state.results,
+        accessLevel: state.accessLevel,
+        isManualUploading: false,
+      );
+    }
+
+    return result;
   }
 }

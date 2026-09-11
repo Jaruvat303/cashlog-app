@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../../../slip_scan/presentation/widgets/manual_slip_attach_button.dart';
 import '../providers/pending_actions_providers.dart';
 import '../providers/transactions_feed_providers.dart';
 import '../widgets/transaction_list_tile.dart';
@@ -92,6 +93,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       appBar: AppBar(
         title: const Text('Transactions'),
         actions: [
+          // T21: only home for the manual slip-attach entry point (spec
+          // §7.1's second intake channel) — not on any other tab/page.
+          const ManualSlipAttachButton(),
           IconButton(
             key: const Key('pendingActionsButton'),
             icon: Badge(label: Text('$pendingCount'), isLabelVisible: pendingCount > 0, child: const Icon(Icons.sync_problem)),

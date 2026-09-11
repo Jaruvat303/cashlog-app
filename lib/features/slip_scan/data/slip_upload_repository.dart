@@ -57,10 +57,7 @@ class SlipUploadRepository {
   /// that never inspects the result still gets a durable record of what was
   /// attempted.
   Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) async {
-    final priorRow = await (_db.select(
-      _db.scannedSlips,
-    )..where((s) => s.localImageName.equals(candidate.filename))).getSingleOrNull();
-    final retryCount = priorRow == null ? 0 : priorRow.retryCount + 1;
+    final retryCount = await _retryCountFor(candidate.filename);
 
     final rawBytes = await _galleryRepository.readBytes(candidate.id);
     if (rawBytes == null) {
@@ -69,6 +66,34 @@ class SlipUploadRepository {
       return const Left(failure);
     }
 
+    return _uploadBytes(candidate, rawBytes, retryCount);
+  }
+
+  /// T21's manual-attach entry point (spec §7.1's second intake channel) —
+  /// same compress → `POST /upload-slip` → `scanned_slips`/
+  /// `cached_transactions` bookkeeping as [uploadOne], just fed raw bytes
+  /// directly instead of resolving a `SlipCandidate.id` through
+  /// [SlipGalleryRepository] (a manually captured/picked file was never in a
+  /// scanned album to begin with). `sourceAlbum` is always `'manual'`
+  /// (CLAUDE.md/T21: a distinct, non-fake `source_folder` value) so these
+  /// rows stay visibly distinguishable from auto-scanned ones. Sequencing
+  /// across both intake channels (never concurrent with an auto-scan batch)
+  /// is `SlipScanPipeline`'s job, not this repository's — same division of
+  /// responsibility as [uploadOne]'s own doc comment.
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+    final candidate = SlipCandidate(id: filename, filename: filename, sourceAlbum: 'manual');
+    final retryCount = await _retryCountFor(filename);
+    return _uploadBytes(candidate, bytes, retryCount);
+  }
+
+  Future<int> _retryCountFor(String filename) async {
+    final priorRow = await (_db.select(
+      _db.scannedSlips,
+    )..where((s) => s.localImageName.equals(filename))).getSingleOrNull();
+    return priorRow == null ? 0 : priorRow.retryCount + 1;
+  }
+
+  Future<Either<Failure, SlipUploadOutcome>> _uploadBytes(SlipCandidate candidate, Uint8List rawBytes, int retryCount) async {
     final compressed = await _compress(rawBytes);
     final result = await _apiClient.post<SlipUploadOutcome>(
       '/api/v1/transactions/upload-slip',

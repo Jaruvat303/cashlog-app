@@ -397,6 +397,71 @@ void main() {
     });
   });
 
+  group('uploadManual (T21)', () {
+    const manualFilename = 'manual_001.jpg';
+    final manualBytes = Uint8List.fromList(List.filled(rawByteCount, 2));
+
+    test('201 with data: records a scanned_slips row with sourceFolder "manual", upserts cached_transactions', () async {
+      adapter.script = () => 'uploaded';
+
+      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+
+      expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipUploaded>()));
+
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.localImageName, manualFilename);
+      expect(row.sourceFolder, 'manual');
+      expect(row.status, SlipStatus.uploaded);
+      expect(row.serverTransactionId, 501);
+
+      final txRow = await db.select(db.cachedTransactions).getSingle();
+      expect(txRow.id, 501);
+    });
+
+    test('never touches SlipGalleryRepository — the given bytes are what get compressed and sent', () async {
+      adapter.script = () => 'uploaded';
+
+      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+
+      expect(compressPlatform.calls, hasLength(1));
+      expect(compressPlatform.calls.single.inputLength, rawByteCount);
+    });
+
+    test('a real error (SLIP_PARSE_FAILED) surfaces as Left and records failed with sourceFolder "manual"', () async {
+      adapter.script = () => 'slip_parse_failed';
+
+      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+
+      expect(result.isLeft(), isTrue);
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.sourceFolder, 'manual');
+      expect(row.status, SlipStatus.failed);
+      expect(row.lastErrorCode, 'SLIP_PARSE_FAILED');
+    });
+
+    test('a duplicate 200 response is recorded as duplicate, not uploaded', () async {
+      adapter.script = () => 'duplicate_200';
+
+      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+
+      expect(result.isRight(), isTrue);
+      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipDuplicate>()));
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.sourceFolder, 'manual');
+      expect(row.status, SlipStatus.duplicate);
+    });
+
+    test('retrying the same manually-picked filename increments retryCount, same as an auto-scanned retry', () async {
+      adapter.script = () => 'slip_parse_failed';
+      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+
+      final row = await db.select(db.scannedSlips).getSingle();
+      expect(row.retryCount, 1);
+    });
+  });
+
   group('compression', () {
     test('every upload attempt compresses the raw gallery bytes before sending', () async {
       adapter.script = () => 'uploaded';
