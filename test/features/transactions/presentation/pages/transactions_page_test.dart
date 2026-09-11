@@ -10,7 +10,10 @@ import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transactions_page.dart';
@@ -86,16 +89,16 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 /// like the real upsert-into-cache/read-from-cache split: [fetchPage]
 /// appends into [current], [watchMonth] streams whatever's in [current] —
 /// including an immediate replay of the latest snapshot to every new
-/// listener (`Stream.multi`), since a real drift `.watch()` does the same.
+/// listener (an `async*` seed + broadcast passthrough), since a real drift
+/// `.watch()` does the same.
 class _MonthChannel {
   List<Transaction> current = [];
   final _controller = StreamController<List<Transaction>>.broadcast();
 
-  Stream<List<Transaction>> get stream => Stream.multi((controller) {
-    controller.add(current);
-    final sub = _controller.stream.listen(controller.add);
-    controller.onCancel = sub.cancel;
-  });
+  Stream<List<Transaction>> get stream async* {
+    yield current;
+    yield* _controller.stream;
+  }
 
   void append(List<Transaction> page) {
     current = [...current, ...page];
@@ -155,6 +158,56 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this feed test');
 }
 
+/// In-memory stand-in, not a real drift-backed repository — a real one
+/// inside a testWidgets test hits a known drift/flutter_test interaction
+/// (cancelling a live `.watch()` stream during widget-tree disposal
+/// schedules a zero-duration Timer that never fires before the test
+/// framework's post-test check, see
+/// https://github.com/simolus3/drift/issues/3323 — confirmed during T13
+/// verification). Reuses the real `recordIfTransient` policy check inline so
+/// this fake's queue-or-not behavior matches production exactly; the
+/// dedicated pending_actions_repository_test.dart (plain test(), unaffected
+/// by the FakeAsync interaction above) covers this against a real drift db.
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  final List<PendingAction> _items = [];
+  int _nextId = 1;
+  final _controller = StreamController<List<PendingAction>>.broadcast();
+
+  @override
+  Stream<List<PendingAction>> watchAll() async* {
+    yield List.unmodifiable(_items);
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) async {
+    if (failure.retryPolicy != RetryPolicy.transient) return false;
+    _items.add(
+      PendingAction(
+        id: _nextId++,
+        actionType: actionType,
+        payload: payload,
+        targetTransactionId: targetTransactionId,
+        createdAt: DateTime.now(),
+        lastErrorCode: errorTagForFailure(failure),
+      ),
+    );
+    _controller.add(List.unmodifiable(_items));
+    return true;
+  }
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this feed test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by this feed test');
+}
+
 Transaction _expense(int id, String note, DateTime date) =>
     Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date);
 
@@ -170,11 +223,16 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late DateTime thisMonth;
+  late _FakePendingActionsRepository pendingActions;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
     final now = DateTime.now();
     thisMonth = DateTime.utc(now.year, now.month);
+    // TransactionsPage's badge reads straight off this repository's own
+    // watchAll() stream, so seeding rows here exercises the same code path
+    // the badge uses, not a stand-in count.
+    pendingActions = _FakePendingActionsRepository();
   });
 
   Widget buildApp() => ProviderScope(
@@ -182,6 +240,7 @@ void main() {
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+      pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
     ],
     child: const MaterialApp(home: TransactionsPage()),
   );
@@ -231,5 +290,41 @@ void main() {
 
     expect(find.text('This month row'), findsNothing);
     expect(find.text('Next month row'), findsOneWidget);
+  });
+
+  group('T13 stuck-items badge', () {
+    testWidgets('hidden when the retry queue is empty', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingActionsButton')), findsOneWidget);
+      final badge = tester.widget<Badge>(
+        find.descendant(of: find.byKey(const Key('pendingActionsButton')), matching: find.byType(Badge)),
+      );
+      expect(badge.isLabelVisible, isFalse);
+    });
+
+    testWidgets('shows the queue count and opens the stuck-items page on tap', (tester) async {
+      await pendingActions.recordIfTransient(
+        failure: const TimeoutFailure(),
+        actionType: PendingActionType.deleteTransaction,
+        payload: deleteTransactionPayload(date: thisMonth),
+        targetTransactionId: 99,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final badge = tester.widget<Badge>(
+        find.descendant(of: find.byKey(const Key('pendingActionsButton')), matching: find.byType(Badge)),
+      );
+      expect(badge.isLabelVisible, isTrue);
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('pendingActionsButton')));
+      await _pumpBounded(tester);
+
+      expect(find.text('Stuck items'), findsOneWidget);
+    });
   });
 }

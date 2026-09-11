@@ -3,12 +3,17 @@
 // _FakeAccountsRepository in test/widget_test.dart) — this is what keeps a
 // real dio call from ever reaching Flutter's test HTTP stub, the exact
 // thing that caused a hang in T4.
+import 'dart:async';
+
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transaction_form_page.dart';
@@ -88,6 +93,9 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 
 class _FakeTransactionsRepository implements TransactionsRepository {
   int createCallCount = 0;
+  // T13: when set, [create] returns this instead of its default success —
+  // lets a test drive a real failure through the actual submit path.
+  Either<Failure, Transaction>? nextCreateResult;
 
   @override
   Stream<List<Transaction>> watchMonth({required int year, required int month}) =>
@@ -109,6 +117,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? categoryId,
   }) async {
     createCallCount++;
+    final forced = nextCreateResult;
+    if (forced != null) return forced;
     return Right(
       Transaction(
         id: 1,
@@ -141,6 +151,56 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
 }
 
+/// In-memory stand-in, not a real drift-backed repository — a real one
+/// inside a testWidgets test hits a known drift/flutter_test interaction
+/// (cancelling a live `.watch()` stream during widget-tree disposal
+/// schedules a zero-duration Timer that never fires before the test
+/// framework's post-test check, see
+/// https://github.com/simolus3/drift/issues/3323 — confirmed during T13
+/// verification). Reuses the real `recordIfTransient` policy check inline so
+/// this fake's queue-or-not behavior matches production exactly; the
+/// dedicated pending_actions_repository_test.dart (plain test(), unaffected
+/// by the FakeAsync interaction above) covers this against a real drift db.
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  final List<PendingAction> _items = [];
+  int _nextId = 1;
+  final _controller = StreamController<List<PendingAction>>.broadcast();
+
+  @override
+  Stream<List<PendingAction>> watchAll() async* {
+    yield List.unmodifiable(_items);
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) async {
+    if (failure.retryPolicy != RetryPolicy.transient) return false;
+    _items.add(
+      PendingAction(
+        id: _nextId++,
+        actionType: actionType,
+        payload: payload,
+        targetTransactionId: targetTransactionId,
+        createdAt: DateTime.now(),
+        lastErrorCode: errorTagForFailure(failure),
+      ),
+    );
+    _controller.add(List.unmodifiable(_items));
+    return true;
+  }
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this form test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by this form test');
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
 /// test/widget_test.dart's `_pumpBounded`).
@@ -152,9 +212,14 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
+  late _FakePendingActionsRepository pendingActions;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
+    // T13's tests below assert against this repository's own state after
+    // driving a failure through the actual submit path, not a pre-seeded
+    // stand-in.
+    pendingActions = _FakePendingActionsRepository();
   });
 
   Widget buildApp() => ProviderScope(
@@ -162,6 +227,7 @@ void main() {
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+      pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
     ],
     child: MaterialApp(
       home: Scaffold(
@@ -234,5 +300,50 @@ void main() {
     // A successful submit pops back to the launcher screen.
     expect(find.byType(TransactionFormPage), findsNothing);
     expect(find.text('open'), findsOneWidget);
+  });
+
+  group('T13 pending-actions queue', () {
+    Future<void> fillAndSubmitIncome(WidgetTester tester) async {
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
+      await _pumpBounded(tester);
+      await tester.tap(find.text('Income').last);
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('accountDropdown')));
+      await _pumpBounded(tester);
+      await tester.tap(find.text('Cash').last);
+      await _pumpBounded(tester);
+
+      await tester.enterText(find.byKey(const Key('amountField')), '5000');
+      await tester.tap(find.byKey(const Key('submitButton')));
+      await _pumpBounded(tester);
+    }
+
+    testWidgets('a transient create failure gets queued and shows the retry-queue snackbar', (tester) async {
+      fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
+      await fillAndSubmitIncome(tester);
+
+      expect(find.text('No connection — saved to the retry queue'), findsOneWidget);
+      // A blocked/failed submit never pops — the form stays open with the
+      // typed data still visible, same as any other failed submit today.
+      expect(find.byType(TransactionFormPage), findsOneWidget);
+
+      final queued = await pendingActions.watchAll().first;
+      expect(queued, hasLength(1));
+      expect(queued.single.actionType, PendingActionType.createTransaction);
+      expect(queued.single.targetTransactionId, isNull);
+    });
+
+    testWidgets('a permanent create failure is not queued — snackbar only, same as before this ticket', (tester) async {
+      fakeTransactions.nextCreateResult = const Left(InvalidInputFailure(message: 'Invalid input'));
+      await fillAndSubmitIncome(tester);
+
+      expect(find.text('Invalid input'), findsOneWidget);
+      expect(await pendingActions.watchAll().first, isEmpty);
+    });
   });
 }

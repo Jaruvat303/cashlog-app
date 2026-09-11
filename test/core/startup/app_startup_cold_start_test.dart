@@ -18,7 +18,9 @@ import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/main.dart';
@@ -61,11 +63,10 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   final _controller = StreamController<List<Category>>.broadcast();
 
   @override
-  Stream<List<Category>> watchAll() => Stream.multi((controller) {
-    controller.add(_current);
-    final sub = _controller.stream.listen(controller.add);
-    controller.onCancel = sub.cancel;
-  });
+  Stream<List<Category>> watchAll() async* {
+    yield _current;
+    yield* _controller.stream;
+  }
 
   @override
   Future<Either<Failure, void>> refreshFromApi() async {
@@ -103,11 +104,10 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final _controller = StreamController<List<Transaction>>.broadcast();
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.multi((controller) {
-    controller.add(_current);
-    final sub = _controller.stream.listen(controller.add);
-    controller.onCancel = sub.cancel;
-  });
+  Stream<List<Transaction>> watchMonth({required int year, required int month}) async* {
+    yield _current;
+    yield* _controller.stream;
+  }
 
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
@@ -165,6 +165,33 @@ class _FakeDashboardRepository implements DashboardRepository {
   );
 }
 
+/// T13 replaced the Transactions placeholder's AppBar with a stuck-items
+/// badge — fake the repository entirely (empty queue, always) rather than a
+/// real drift-backed instance: a real one inside a testWidgets test hits a
+/// known drift/flutter_test interaction (cancelling a live `.watch()`
+/// stream during widget-tree disposal schedules a zero-duration Timer that
+/// never fires before the test framework's post-test check, see
+/// https://github.com/simolus3/drift/issues/3323 — confirmed during T13
+/// verification).
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  @override
+  Stream<List<PendingAction>> watchAll() => Stream.value(const []);
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) => throw UnimplementedError('not exercised by this test');
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by this test');
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
 /// test/widget_test.dart's `_pumpBounded`).
@@ -185,6 +212,7 @@ void main() {
             categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
             transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
             dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
+            pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
           ],
           child: const MyApp(),
         ),
@@ -208,6 +236,7 @@ void main() {
           categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
           transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
           dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
+          pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
         ],
         child: const MyApp(),
       ),

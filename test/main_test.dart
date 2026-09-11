@@ -37,7 +37,9 @@ import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
 import 'package:cashlog/features/slip_scan/domain/gallery_access_level.dart';
 import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
 import 'package:cashlog/features/slip_scan/presentation/providers/slip_scan_pipeline_provider.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:dartz/dartz.dart';
@@ -140,6 +142,33 @@ class _FakeDashboardRepository implements DashboardRepository {
   );
 }
 
+/// T13 replaced the Transactions placeholder's AppBar with a stuck-items
+/// badge — fake the repository entirely (empty queue, always) rather than a
+/// real drift-backed instance: a real one inside a testWidgets test hits a
+/// known drift/flutter_test interaction (cancelling a live `.watch()`
+/// stream during widget-tree disposal schedules a zero-duration Timer that
+/// never fires before the test framework's post-test check, see
+/// https://github.com/simolus3/drift/issues/3323 — confirmed during T13
+/// verification).
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  @override
+  Stream<List<PendingAction>> watchAll() => Stream.value(const []);
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+}
+
 /// [currentAccess] is the first thing the real `SlipScanPipeline.runScan()`
 /// awaits after its synchronous guard check/claim — so counting calls to it
 /// counts exactly "how many times a `runScan()` call got past the guard and
@@ -189,6 +218,9 @@ void main() {
       transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
       slipGalleryRepositoryProvider.overrideWithValue(galleryRepository),
+      // T13: TransactionsPage watches this for its stuck-items badge as soon
+      // as it's built (IndexedStack builds every tab up front).
+      pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
     ],
     child: const MyApp(),
   );

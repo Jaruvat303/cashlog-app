@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/network/failure.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
+import '../../data/pending_actions_repository.dart';
 import '../../data/transactions_repository.dart';
+import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../../domain/transaction_validation.dart';
 
@@ -104,14 +107,53 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Request failed. Please try again.'))),
-      (_) {
+    await result.fold(
+      (failure) => _handleFailure(failure, amount: amount, note: note, isTransfer: isTransfer),
+      (_) async {
         _invalidateAffectedDashboardMonths();
         Navigator.of(context).pop(true);
       },
+    );
+  }
+
+  /// T13: a transient failure (CLAUDE.md/spec §9 — network cut, timeout,
+  /// etc.) gets snapshotted into `pending_manual_actions` so the user's typed
+  /// data isn't lost; a permanent one (e.g. invalid input) stays
+  /// snackbar-only, same as before this ticket, since retrying an identical
+  /// payload against it can't succeed. `PendingActionsRepository.recordIfTransient`
+  /// is the single place that decision is made, shared with
+  /// `TransactionListTile`'s delete path — never re-derived from live form
+  /// state on a later retry, only the args snapshotted right here.
+  Future<void> _handleFailure(Failure failure, {required double amount, required String note, required bool isTransfer}) async {
+    final payload = widget.isEditing
+        ? updateTransactionPayload(
+            type: _type,
+            amount: amount,
+            date: _date,
+            note: note,
+            accountId: isTransfer ? null : _accountId,
+            fromAccountId: isTransfer ? _fromAccountId : null,
+            toAccountId: isTransfer ? _toAccountId : null,
+            categoryId: isTransfer ? null : _categoryId,
+            originalDate: widget.initial!.transactionDate,
+          )
+        : isTransfer
+        ? createTransferPayload(amount: amount, date: _date, note: note, fromAccountId: _fromAccountId!, toAccountId: _toAccountId!, categoryId: _categoryId)
+        : createTransactionPayload(type: _type, amount: amount, date: _date, note: note, accountId: _accountId!, categoryId: _categoryId);
+
+    final queued = await ref
+        .read(pendingActionsRepositoryProvider)
+        .recordIfTransient(
+          failure: failure,
+          actionType: widget.isEditing
+              ? PendingActionType.updateTransaction
+              : (isTransfer ? PendingActionType.createTransfer : PendingActionType.createTransaction),
+          payload: payload,
+          targetTransactionId: widget.isEditing ? widget.initial!.id : null,
+        );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(queued ? 'No connection — saved to the retry queue' : (failure.message ?? 'Request failed. Please try again.'))),
     );
   }
 

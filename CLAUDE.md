@@ -61,6 +61,26 @@ instead of silently overriding.
   `--dart-define-from-file=env/dev.json` to carry a real `BASE_URL`/API
   key — it's expected to fail under bare `flutter test` without that
   flag. That failure alone is not a regression.
+- **Never use `Stream.multi()` in a fake/repository stream exercised
+  under `testWidgets`.** Confirmed on this project's toolchain (Flutter
+  3.47.2, Dart 3.13.2): `await someStreamMulti.first` never completes
+  inside a `testWidgets` FakeAsync zone, even with zero widget mounted —
+  a plain `test()` with the identical stream works fine, so this is a
+  `testWidgets`/FakeAsync-specific incompatibility, not a `Stream.multi`
+  bug in general. The hang is silent (0% CPU, no error) until the
+  framework's 10-minute per-test timeout fires, and can cascade into
+  unrelated "Guarded function conflict" errors on every later test in
+  the same file once the abandoned `pumpWidget`/`pump` guard state is
+  left dangling. Found and fixed across 6 occurrences in 4 files during
+  T13 verification. Use a plain `async*` generator instead for any fake
+  stream that needs to replay a current value then forward a broadcast
+  controller's future events:
+  ```dart
+  Stream<List<T>> watchAll() async* {
+    yield List.unmodifiable(_items);
+    yield* _controller.stream;
+  }
+  ```
 
 ## App startup
 

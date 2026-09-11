@@ -6,7 +6,9 @@ import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../accounts/presentation/widgets/bank_icon_avatar.dart';
 import '../../../categories/domain/category.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
+import '../../data/pending_actions_repository.dart';
 import '../../data/transactions_repository.dart';
+import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../pages/transaction_form_page.dart';
 
@@ -159,15 +161,31 @@ class TransactionListTile extends ConsumerWidget {
 
     final result = await ref.read(transactionsRepositoryProvider).delete(transaction.id);
     if (!context.mounted) return;
-    result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Could not delete transaction'))),
+    await result.fold(
+      // T13: a transient failure gets snapshotted into `pending_manual_actions`
+      // (`PendingActionsRepository.recordIfTransient` is the single shared
+      // decision point with `TransactionFormPage`'s create/update failures —
+      // only `RetryPolicy.transient` failures get queued); a permanent one
+      // stays snackbar-only, same as before this ticket.
+      (failure) async {
+        final queued = await ref
+            .read(pendingActionsRepositoryProvider)
+            .recordIfTransient(
+              failure: failure,
+              actionType: PendingActionType.deleteTransaction,
+              payload: deleteTransactionPayload(date: transaction.transactionDate),
+              targetTransactionId: transaction.id,
+            );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(queued ? 'No connection — saved to the retry queue' : (failure.message ?? 'Could not delete transaction'))),
+        );
+      },
       // No dedicated cache table backs the dashboard summary (spec §8/§11) —
       // deleting a transaction changes its month's totals, so that month's
       // in-memory summary must be invalidated by hand, same as
       // TransactionFormPage's own mutation does.
-      (_) => ref.invalidate(dashboardSummaryProvider(transaction.transactionDate.year, transaction.transactionDate.month)),
+      (_) async => ref.invalidate(dashboardSummaryProvider(transaction.transactionDate.year, transaction.transactionDate.month)),
     );
   }
 }

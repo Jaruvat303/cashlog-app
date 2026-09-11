@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../providers/pending_actions_providers.dart';
 import '../providers/transactions_feed_providers.dart';
 import '../widgets/transaction_list_tile.dart';
+import 'pending_actions_page.dart';
 import 'transaction_form_page.dart';
 
 /// How close to the bottom (in pixels) triggers the next page fetch.
@@ -81,10 +83,22 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
     final categoriesById = {for (final category in categories) category.id: category};
     final isLoadingMore = feedMeta?.isLoadingMore ?? false;
+    // T13's entry point: a badge count off the same drift-backed stream
+    // PendingActionsPage itself watches, so it always reflects the queue
+    // exactly, never a stale snapshot.
+    final pendingCount = ref.watch(pendingActionsProvider).value?.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transactions'),
+        actions: [
+          IconButton(
+            key: const Key('pendingActionsButton'),
+            icon: Badge(label: Text('$pendingCount'), isLabelVisible: pendingCount > 0, child: const Icon(Icons.sync_problem)),
+            tooltip: 'Stuck items',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PendingActionsPage())),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
           child: Row(
