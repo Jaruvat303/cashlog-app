@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/cache/cache_invalidator.dart';
-import '../../../../shared/widgets/category_icon.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../accounts/presentation/widgets/bank_icon_avatar.dart';
 import '../../../categories/domain/category.dart';
@@ -11,6 +10,7 @@ import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../pages/transaction_form_page.dart';
+import 'category_quick_assign_sheet.dart';
 
 const List<String> _kMonthAbbreviations = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', //
@@ -18,9 +18,10 @@ const List<String> _kMonthAbbreviations = [
 
 String _dayLabel(DateTime date) => '${_kMonthAbbreviations[date.month - 1]} ${date.day}';
 
-/// One feed row. T18 (tap-to-open the quick category-assign bottom sheet)
-/// still has a single, obvious place to extend later — not built here (out
-/// of scope), the category label below is display-only, not a tap target.
+/// One feed row. T18: the category label in `_buildIncomeOrExpense`'s
+/// subtitle is `CategoryQuickAssignChip` (a real tap target, not display-only
+/// — see that widget for the bottom-sheet flow); transfer rows never show a
+/// category chip since transfers don't take one (BR-5).
 ///
 /// T12 (junk badge): the rule in `computeIsJunk` doesn't key off
 /// [TransactionType], so a junk row can in principle be any of the three
@@ -65,8 +66,6 @@ class TransactionListTile extends ConsumerWidget {
         ? transaction.note
         : account?.name ?? (isIncome ? 'Income' : 'Expense');
 
-    final subtitleText = category == null ? _dayLabel(transaction.transactionDate) : '${_dayLabel(transaction.transactionDate)} · ${category.name}';
-
     final amountColor = isIncome ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
     final amountText = '${isIncome ? '+' : '-'}${transaction.amount.toStringAsFixed(2)}';
 
@@ -80,11 +79,15 @@ class TransactionListTile extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (category != null) ...[
-              Icon(resolveCategoryIcon(category.iconKey), size: 14, color: colorFromHex(category.colorHex)),
-              const SizedBox(width: 4),
-            ],
-            Flexible(child: Text(subtitleText, overflow: TextOverflow.ellipsis)),
+            Text(_dayLabel(transaction.transactionDate)),
+            const SizedBox(width: 6),
+            const Text('·'),
+            const SizedBox(width: 6),
+            // T18/BR-9/FR-5.3: the primary way to assign/change a category —
+            // tap opens the quick-assign bottom sheet, no navigation away
+            // from the feed. T6's full edit form is the escape hatch, not
+            // this.
+            Flexible(child: CategoryQuickAssignChip(transaction: transaction, category: category)),
           ],
         ),
       ),
