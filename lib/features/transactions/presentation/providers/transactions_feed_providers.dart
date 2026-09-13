@@ -11,9 +11,14 @@ part 'transactions_feed_providers.g.dart';
 /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
 /// so it paints instantly from cache and updates reactively as
 /// [TransactionsFeedSync] upserts more pages in.
+///
+/// [categoryId] (ticket 07) is an optional narrowing of the same family
+/// instance space, not a second provider — omitting it (the existing call
+/// shape everywhere else in the app) is exactly equivalent to passing `null`,
+/// so every pre-existing caller/override is unaffected.
 @riverpod
-Stream<List<Transaction>> monthTransactions(Ref ref, int year, int month) =>
-    ref.watch(transactionsRepositoryProvider).watchMonth(year: year, month: month);
+Stream<List<Transaction>> monthTransactions(Ref ref, int year, int month, {int? categoryId}) =>
+    ref.watch(transactionsRepositoryProvider).watchMonth(year: year, month: month, categoryId: categoryId);
 
 /// Pagination progress for one (year, month) — separate from the list
 /// itself so switching pages never re-renders/re-fetches the whole list,

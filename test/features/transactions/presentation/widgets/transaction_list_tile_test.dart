@@ -95,7 +95,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void> deleteResult = const Right(null);
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) =>
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
       throw UnimplementedError('not exercised by this tile test');
 
   @override

@@ -87,7 +87,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final List<Transaction> transactions;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.value(transactions);
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) => Stream.value(transactions);
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
       throw UnimplementedError('not exercised by this page test');

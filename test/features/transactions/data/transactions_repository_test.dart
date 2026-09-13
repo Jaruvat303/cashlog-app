@@ -222,10 +222,17 @@ void main() {
   });
 
   group('watchMonth', () {
-    Future<void> seed(int id, DateTime date) => db
+    Future<void> seed(int id, DateTime date, {int? categoryId}) => db
         .into(db.cachedTransactions)
         .insert(
-          CachedTransactionsCompanion.insert(id: Value(id), amount: 10, transactionType: 'expense', source: 'manual', transactionDate: date),
+          CachedTransactionsCompanion.insert(
+            id: Value(id),
+            amount: 10,
+            transactionType: 'expense',
+            source: 'manual',
+            transactionDate: date,
+            categoryId: Value(categoryId),
+          ),
         );
 
     test('only emits rows within the given month, newest first', () async {
@@ -246,6 +253,37 @@ void main() {
       final rows = await repository.watchMonth(year: 2026, month: 12).first;
 
       expect(rows.map((t) => t.id).toList(), [1]);
+    });
+
+    group('categoryId (ticket 07: Transaction List category drill-through)', () {
+      test('narrows to only rows matching the given categoryId, within the same month', () async {
+        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
+        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
+        await seed(3, DateTime.utc(2026, 9, 3)); // uncategorized — excluded
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+
+      test('still respects the month bounds even when categoryId matches outside them', () async {
+        await seed(1, DateTime.utc(2026, 9, 30, 23, 59, 59), categoryId: 10);
+        await seed(2, DateTime.utc(2026, 10, 1), categoryId: 10); // next month, same category — excluded
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+
+      test('omitting categoryId (the default) returns every row regardless of category, unchanged from before', () async {
+        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
+        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
+        await seed(3, DateTime.utc(2026, 9, 3));
+
+        final rows = await repository.watchMonth(year: 2026, month: 9).first;
+
+        expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
+      });
     });
   });
 

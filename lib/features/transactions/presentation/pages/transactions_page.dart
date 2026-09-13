@@ -5,8 +5,11 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/money.dart';
+import '../../../../shared/widgets/category_icon.dart';
 import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../../../dashboard/domain/dashboard_summary.dart';
+import '../../../dashboard/presentation/providers/dashboard_providers.dart';
 import '../../domain/transaction.dart';
 import '../providers/pending_actions_providers.dart';
 import '../providers/transactions_feed_providers.dart';
@@ -25,6 +28,11 @@ enum _TxFilter { all, income, expense, uncategorized }
 
 bool _isUncategorized(Transaction t) => t.type != TransactionType.transfer && t.categoryId == null;
 
+/// Ticket 07's summary tabs — Transfer's real content (a flat, ungrouped
+/// list) is ticket 08, blocked on this one; `_SummarySection` below only
+/// renders a placeholder for it here.
+enum _SummaryTab { income, expense, transfer }
+
 class TransactionsPage extends ConsumerStatefulWidget {
   const TransactionsPage({super.key});
 
@@ -35,6 +43,15 @@ class TransactionsPage extends ConsumerStatefulWidget {
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   final _scrollController = ScrollController();
   _TxFilter _filter = _TxFilter.all;
+  _SummaryTab _summaryTab = _SummaryTab.expense;
+
+  /// Ticket 07's drill-through state: which category (if any) the
+  /// transaction list below the summary is currently narrowed to. `null`
+  /// means "no filter" — the same call shape every other
+  /// `monthTransactionsProvider` caller already uses, so this is additive,
+  /// not a parallel query path.
+  int? _categoryFilterId;
+  String? _categoryFilterName;
 
   @override
   void initState() {
@@ -85,6 +102,26 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
   }
 
+  /// Ticket 07's drill-through: a tapped category row in the summary section
+  /// narrows the list below to just that category — resets the old type
+  /// chip filter back to "all" since a categoryId already implies a single
+  /// type (a category is only ever income- or expense-typed), so the two
+  /// filters would otherwise double up on the same axis.
+  void _selectCategoryFilter(int categoryId, String categoryName) {
+    setState(() {
+      _categoryFilterId = categoryId;
+      _categoryFilterName = categoryName;
+      _filter = _TxFilter.all;
+    });
+  }
+
+  void _clearCategoryFilter() {
+    setState(() {
+      _categoryFilterId = null;
+      _categoryFilterName = null;
+    });
+  }
+
   List<Transaction> _applyFilter(List<Transaction> transactions) => switch (_filter) {
     _TxFilter.all => transactions,
     _TxFilter.income => transactions.where((t) => t.type == TransactionType.income).toList(),
@@ -98,7 +135,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final year = month.year;
     final monthNum = month.month;
 
-    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
+    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId));
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
     final categoriesById = {for (final category in categories) category.id: category};
@@ -155,20 +192,26 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               const SizedBox(height: 10),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _filterChip('ทั้งหมด', _TxFilter.all),
-                      const SizedBox(width: 7),
-                      _filterChip('รายรับ', _TxFilter.income),
-                      const SizedBox(width: 7),
-                      _filterChip('รายจ่าย', _TxFilter.expense),
-                      const SizedBox(width: 7),
-                      _uncategorizedChip(transactionsAsync.value ?? const []),
-                    ],
-                  ),
-                ),
+                // Ticket 07: an active category drill-through replaces the
+                // type chip row with a single clearable filter chip — both
+                // filter the same list, so showing them side by side would
+                // just be two controls fighting over one axis.
+                child: _categoryFilterId == null
+                    ? SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _filterChip('ทั้งหมด', _TxFilter.all),
+                            const SizedBox(width: 7),
+                            _filterChip('รายรับ', _TxFilter.income),
+                            const SizedBox(width: 7),
+                            _filterChip('รายจ่าย', _TxFilter.expense),
+                            const SizedBox(width: 7),
+                            _uncategorizedChip(transactionsAsync.value ?? const []),
+                          ],
+                        ),
+                      )
+                    : Align(alignment: Alignment.centerLeft, child: _categoryFilterChip()),
               ),
               const SizedBox(height: 8),
             ],
@@ -182,9 +225,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
           data: (transactions) {
             final filtered = _applyFilter(transactions);
+            final summarySection = _SummarySection(
+              year: year,
+              month: monthNum,
+              tab: _summaryTab,
+              onTabChanged: (tab) => setState(() => _summaryTab = tab),
+              selectedCategoryId: _categoryFilterId,
+              onCategoryTap: _selectCategoryFilter,
+            );
+
             if (filtered.isEmpty) {
               return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
+                  summarySection,
+                  const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.all(32),
                     child: Center(child: Text(transactions.isEmpty ? 'ไม่มีรายการในเดือนนี้' : 'ไม่มีรายการตรงตามตัวกรอง')),
@@ -197,12 +252,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              itemCount: groups.length + (isLoadingMore ? 1 : 0),
+              // +1 for the summary section header at index 0 — everything
+              // else keeps its previous index math shifted by one.
+              itemCount: 1 + groups.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
-                if (index >= groups.length) {
+                if (index == 0) {
+                  return Padding(padding: const EdgeInsets.only(bottom: 14), child: summarySection);
+                }
+                final groupIndex = index - 1;
+                if (groupIndex >= groups.length) {
                   return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
                 }
-                final group = groups[index];
+                final group = groups[groupIndex];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: Column(
@@ -308,6 +369,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
+  /// Ticket 07's "a way exists to clear the filter" requirement — a single
+  /// clearable chip standing in for the whole type-chip row while a category
+  /// drill-through is active.
+  Widget _categoryFilterChip() {
+    return InkWell(
+      key: const Key('categoryFilterChip'),
+      onTap: _clearCategoryFilter,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(color: AppColors.chipSelectedBg, borderRadius: BorderRadius.circular(999)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('หมวดหมู่: ${_categoryFilterName ?? ''}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: Colors.white)),
+            const SizedBox(width: 6),
+            const Icon(RemixIcon.closeLine, size: 13, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<_DayGroup> _groupByDay(List<Transaction> transactions) {
     final groups = <DateTime, List<Transaction>>{};
     for (final t in transactions) {
@@ -344,4 +428,189 @@ class _DayGroup {
   final DateTime date;
   final List<Transaction> transactions;
   final double total;
+}
+
+/// Ticket 07 (Design 3, summary half): the category/amount summary that
+/// ticket 06 detached from the Home page, relocated here as a tabbed
+/// section above the transaction list. Sources the exact same
+/// `dashboardSummaryProvider(year, month)` the old Dashboard pie chart used
+/// — no new backend call, per spec. Income/Expense render a plain
+/// `{category_name, total_amount}` list (replacing the old
+/// pie-chart-with-labels approach); Transfer is a placeholder only —
+/// its real flat-list content is ticket 08, blocked on this one.
+class _SummarySection extends ConsumerWidget {
+  const _SummarySection({
+    required this.year,
+    required this.month,
+    required this.tab,
+    required this.onTabChanged,
+    required this.selectedCategoryId,
+    required this.onCategoryTap,
+  });
+
+  final int year;
+  final int month;
+  final _SummaryTab tab;
+  final ValueChanged<_SummaryTab> onTabChanged;
+  final int? selectedCategoryId;
+  final void Function(int categoryId, String categoryName) onCategoryTap;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final summaryAsync = ref.watch(dashboardSummaryProvider(year, month));
+
+    return Container(
+      key: const Key('transactionsSummarySection'),
+      decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(20)),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _tabButton('รายรับ', _SummaryTab.income),
+              const SizedBox(width: 8),
+              _tabButton('รายจ่าย', _SummaryTab.expense),
+              const SizedBox(width: 8),
+              _tabButton('ย้ายเงิน', _SummaryTab.transfer),
+            ],
+          ),
+          const SizedBox(height: 12),
+          summaryAsync.when(
+            loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
+            error: (error, _) =>
+                Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดสรุปไม่สำเร็จ: $error')),
+            data: (summary) => switch (tab) {
+              _SummaryTab.income => _CategoryTotalsList(
+                breakdown: summary.income,
+                selectedCategoryId: selectedCategoryId,
+                onTap: onCategoryTap,
+                emptyMessage: 'ไม่มีรายรับในเดือนนี้',
+              ),
+              _SummaryTab.expense => _CategoryTotalsList(
+                breakdown: summary.expense,
+                selectedCategoryId: selectedCategoryId,
+                onTap: onCategoryTap,
+                emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
+              ),
+              _SummaryTab.transfer => const _TransferTabPlaceholder(),
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabButton(String label, _SummaryTab value) {
+    final selected = tab == value;
+    return Expanded(
+      child: InkWell(
+        key: Key('summaryTab-${value.name}'),
+        onTap: () => onTabChanged(value),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.chipSelectedBg : AppColors.screenBackground,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: selected ? Colors.white : AppColors.textSecondary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Plain text rows (spec: "category names shown in the list, not on the
+/// chart itself"), sorted descending by amount — same DoD `ExpensePieChart`
+/// already followed, just without the chart.
+class _CategoryTotalsList extends StatelessWidget {
+  const _CategoryTotalsList({
+    required this.breakdown,
+    required this.selectedCategoryId,
+    required this.onTap,
+    required this.emptyMessage,
+  });
+
+  final List<CategoryBreakdown> breakdown;
+  final int? selectedCategoryId;
+  final void Function(int categoryId, String categoryName) onTap;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (breakdown.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text(emptyMessage, style: const TextStyle(color: AppColors.textMuted))),
+      );
+    }
+
+    final sorted = [...breakdown]..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    return Column(
+      children: [
+        for (var i = 0; i < sorted.length; i++) ...[
+          if (i > 0) const Divider(height: 1, color: AppColors.divider),
+          _CategoryTotalRow(
+            breakdown: sorted[i],
+            selected: sorted[i].categoryId == selectedCategoryId,
+            onTap: () => onTap(sorted[i].categoryId, sorted[i].categoryName),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _CategoryTotalRow extends StatelessWidget {
+  const _CategoryTotalRow({required this.breakdown, required this.selected, required this.onTap});
+
+  final CategoryBreakdown breakdown;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      key: ValueKey('categoryTotalRow-${breakdown.categoryId}'),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primarySurface : null,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+            ),
+            Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ticket 08 (blocked on this ticket) fills this in with a flat, ungrouped
+/// transfer list — deliberately not implemented here.
+class _TransferTabPlaceholder extends StatelessWidget {
+  const _TransferTabPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Center(child: Text('สรุปรายการย้ายเงินจะเพิ่มเข้ามาเร็ว ๆ นี้', style: TextStyle(color: AppColors.textMuted))),
+    );
+  }
 }

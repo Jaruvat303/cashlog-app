@@ -12,6 +12,11 @@ part of 'transactions_feed_providers.dart';
 /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
 /// so it paints instantly from cache and updates reactively as
 /// [TransactionsFeedSync] upserts more pages in.
+///
+/// [categoryId] (ticket 07) is an optional narrowing of the same family
+/// instance space, not a second provider — omitting it (the existing call
+/// shape everywhere else in the app) is exactly equivalent to passing `null`,
+/// so every pre-existing caller/override is unaffected.
 
 @ProviderFor(monthTransactions)
 final monthTransactionsProvider = MonthTransactionsFamily._();
@@ -20,6 +25,11 @@ final monthTransactionsProvider = MonthTransactionsFamily._();
 /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
 /// so it paints instantly from cache and updates reactively as
 /// [TransactionsFeedSync] upserts more pages in.
+///
+/// [categoryId] (ticket 07) is an optional narrowing of the same family
+/// instance space, not a second provider — omitting it (the existing call
+/// shape everywhere else in the app) is exactly equivalent to passing `null`,
+/// so every pre-existing caller/override is unaffected.
 
 final class MonthTransactionsProvider
     extends
@@ -35,9 +45,14 @@ final class MonthTransactionsProvider
   /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
   /// so it paints instantly from cache and updates reactively as
   /// [TransactionsFeedSync] upserts more pages in.
+  ///
+  /// [categoryId] (ticket 07) is an optional narrowing of the same family
+  /// instance space, not a second provider — omitting it (the existing call
+  /// shape everywhere else in the app) is exactly equivalent to passing `null`,
+  /// so every pre-existing caller/override is unaffected.
   MonthTransactionsProvider._({
     required MonthTransactionsFamily super.from,
-    required (int, int) super.argument,
+    required (int, int, {int? categoryId}) super.argument,
   }) : super(
          retry: null,
          name: r'monthTransactionsProvider',
@@ -64,8 +79,13 @@ final class MonthTransactionsProvider
 
   @override
   Stream<List<Transaction>> create(Ref ref) {
-    final argument = this.argument as (int, int);
-    return monthTransactions(ref, argument.$1, argument.$2);
+    final argument = this.argument as (int, int, {int? categoryId});
+    return monthTransactions(
+      ref,
+      argument.$1,
+      argument.$2,
+      categoryId: argument.categoryId,
+    );
   }
 
   @override
@@ -79,15 +99,24 @@ final class MonthTransactionsProvider
   }
 }
 
-String _$monthTransactionsHash() => r'82adb8b0df552bee127a1a2d7c17dab16136fc66';
+String _$monthTransactionsHash() => r'a44c984a269521163f9f7b5f7fbaedd3cc0aa316';
 
 /// The feed's list source — always reads from the `cached_transactions`
 /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
 /// so it paints instantly from cache and updates reactively as
 /// [TransactionsFeedSync] upserts more pages in.
+///
+/// [categoryId] (ticket 07) is an optional narrowing of the same family
+/// instance space, not a second provider — omitting it (the existing call
+/// shape everywhere else in the app) is exactly equivalent to passing `null`,
+/// so every pre-existing caller/override is unaffected.
 
 final class MonthTransactionsFamily extends $Family
-    with $FunctionalFamilyOverride<Stream<List<Transaction>>, (int, int)> {
+    with
+        $FunctionalFamilyOverride<
+          Stream<List<Transaction>>,
+          (int, int, {int? categoryId})
+        > {
   MonthTransactionsFamily._()
     : super(
         retry: null,
@@ -101,9 +130,17 @@ final class MonthTransactionsFamily extends $Family
   /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
   /// so it paints instantly from cache and updates reactively as
   /// [TransactionsFeedSync] upserts more pages in.
+  ///
+  /// [categoryId] (ticket 07) is an optional narrowing of the same family
+  /// instance space, not a second provider — omitting it (the existing call
+  /// shape everywhere else in the app) is exactly equivalent to passing `null`,
+  /// so every pre-existing caller/override is unaffected.
 
-  MonthTransactionsProvider call(int year, int month) =>
-      MonthTransactionsProvider._(argument: (year, month), from: this);
+  MonthTransactionsProvider call(int year, int month, {int? categoryId}) =>
+      MonthTransactionsProvider._(
+        argument: (year, month, categoryId: categoryId),
+        from: this,
+      );
 
   @override
   String toString() => r'monthTransactionsProvider';

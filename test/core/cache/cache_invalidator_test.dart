@@ -20,7 +20,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final List<(int, int)> watchMonthCalls = [];
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) {
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) {
     watchMonthCalls.add((year, month));
     return Stream.value(const []);
   }

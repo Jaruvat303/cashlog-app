@@ -128,7 +128,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void>? nextDeleteResult;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) =>
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
       throw UnimplementedError('not exercised by this wiring test');
 
   @override

@@ -30,7 +30,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => throw UnimplementedError('not exercised by this test');
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) => throw UnimplementedError('not exercised by this test');
 
   @override
   Future<Either<Failure, Transaction>> create({

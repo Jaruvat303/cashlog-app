@@ -10,6 +10,8 @@ import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
+import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -17,7 +19,9 @@ import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transactions_page.dart';
+import 'package:cashlog/shared/format/money.dart';
 import 'package:dartz/dartz.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -104,6 +108,13 @@ class _MonthChannel {
     yield* _controller.stream;
   }
 
+  /// Ticket 07: mirrors [TransactionsRepository.watchMonth]'s `categoryId`
+  /// narrowing as a `.map()` over the same underlying stream — a real drift
+  /// `.watch()` re-filters on every emission the same way, so this fake
+  /// stays faithful without needing a second channel per category.
+  Stream<List<Transaction>> streamFor({int? categoryId}) =>
+      stream.map((list) => categoryId == null ? list : list.where((t) => t.categoryId == categoryId).toList());
+
   void append(List<Transaction> page) {
     current = [...current, ...page];
     _controller.add(current);
@@ -122,7 +133,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   _MonthChannel _channelFor(int year, int month) => _channels.putIfAbsent((year, month), () => _MonthChannel());
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => _channelFor(year, month).stream;
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
+      _channelFor(year, month).streamFor(categoryId: categoryId);
 
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
@@ -212,8 +224,26 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> remove(int id) => throw UnimplementedError('not exercised by this feed test');
 }
 
-Transaction _expense(int id, String note, DateTime date) =>
-    Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date);
+/// Ticket 07: the summary section reads `dashboardSummaryProvider`, backed
+/// by a real `ApiClient`/dio call unless overridden — same reasoning as
+/// every other `_Fake*Repository` in this file (CLAUDE.md: never let a real
+/// dio call reach Flutter's test HTTP stub).
+class _FakeDashboardRepository implements DashboardRepository {
+  final Map<(int, int), Either<Failure, DashboardSummary>> results = {};
+
+  @override
+  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async =>
+      results[(year, month)] ?? const Left(UnknownFailure(message: 'no result configured for this month'));
+}
+
+CategoryBreakdown _breakdown(int id, String name, double amount) =>
+    CategoryBreakdown(categoryId: id, categoryName: name, iconKey: '', colorHex: '#EF4444', totalAmount: amount);
+
+Transaction _expense(int id, String note, DateTime date, {int? categoryId}) =>
+    Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
+
+Transaction _income(int id, String note, DateTime date, {int? categoryId}) =>
+    Transaction(id: id, amount: 200, type: TransactionType.income, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
@@ -228,6 +258,7 @@ void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late DateTime thisMonth;
   late _FakePendingActionsRepository pendingActions;
+  late _FakeDashboardRepository fakeDashboard;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
@@ -237,6 +268,7 @@ void main() {
     // watchAll() stream, so seeding rows here exercises the same code path
     // the badge uses, not a stand-in count.
     pendingActions = _FakePendingActionsRepository();
+    fakeDashboard = _FakeDashboardRepository();
   });
 
   Widget buildApp() => ProviderScope(
@@ -245,6 +277,7 @@ void main() {
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
     ],
     child: const MaterialApp(home: TransactionsPage()),
   );
@@ -335,4 +368,134 @@ void main() {
   // T21 manual slip attach button: moved to test/widget_test.dart along with
   // the mockup redesign — it's now the AppShell's raised camera FAB
   // (reachable from every tab), not a Transactions-page-only AppBar action.
+
+  group('ticket 07: summary tabs + category drill-through', () {
+    setUp(() {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        DashboardSummary(
+          totalIncome: 5000,
+          totalExpense: 2500,
+          totalTransfer: 0,
+          year: thisMonth.year,
+          month: thisMonth.month,
+          income: [_breakdown(20, 'เงินเดือน', 5000)],
+          expense: [_breakdown(10, 'อาหาร', 2000), _breakdown(11, 'เดินทาง', 500)],
+        ),
+      );
+    });
+
+    testWidgets('defaults to the Expense tab, listing categories with their totals as text', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.text('อาหาร'), findsOneWidget);
+      expect(find.text('เดินทาง'), findsOneWidget);
+      expect(find.text(formatAmount(2000)), findsOneWidget);
+      expect(find.text(formatAmount(500)), findsOneWidget);
+      expect(find.text('เงินเดือน'), findsNothing); // income row, not shown while Expense tab is active
+      expect(find.byType(PieChart), findsNothing); // ticket 07 replaces the chart with a plain list
+    });
+
+    testWidgets('switching to the Income tab shows income categories and totals instead', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('summaryTab-income')));
+      await _pumpBounded(tester);
+
+      expect(find.text('เงินเดือน'), findsOneWidget);
+      expect(find.text(formatAmount(5000)), findsOneWidget);
+      expect(find.text('อาหาร'), findsNothing);
+    });
+
+    testWidgets('the Transfer tab is a placeholder, not a real transaction list', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('summaryTab-transfer')));
+      await _pumpBounded(tester);
+
+      expect(find.text('สรุปรายการย้ายเงินจะเพิ่มเข้ามาเร็ว ๆ นี้'), findsOneWidget);
+    });
+
+    testWidgets(
+      'tapping a category row filters the list below to only that category, and the chip clears it',
+      (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Uncategorized expense row', thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+
+        await tester.tap(find.text('อาหาร'));
+        await _pumpBounded(tester);
+
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsNothing);
+        expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
+        expect(find.text('ทั้งหมด'), findsNothing); // old type-chip row replaced by the filter chip
+
+        await tester.tap(find.byKey(const Key('categoryFilterChip')));
+        await _pumpBounded(tester);
+
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+        expect(find.text('ทั้งหมด'), findsOneWidget);
+      },
+    );
+
+    testWidgets('tapping a different category from an already-filtered view switches the filter', (tester) async {
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [
+          _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+          _expense(2, 'Transport expense row', thisMonth, categoryId: 11),
+        ],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.text('อาหาร'));
+      await _pumpBounded(tester);
+      expect(find.text('Food expense row'), findsOneWidget);
+      expect(find.text('Transport expense row'), findsNothing);
+
+      await tester.tap(find.byKey(const Key('summaryTab-expense'))); // summary card is still visible/tappable while filtered
+      await _pumpBounded(tester);
+      await tester.tap(find.text('เดินทาง'));
+      await _pumpBounded(tester);
+
+      expect(find.text('Food expense row'), findsNothing);
+      expect(find.text('Transport expense row'), findsOneWidget);
+      expect(find.text('หมวดหมู่: เดินทาง'), findsOneWidget);
+    });
+
+    testWidgets('income transactions are unaffected by an expense category filter', (tester) async {
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [_expense(1, 'Food expense row', thisMonth, categoryId: 10), _income(2, 'Salary row', thisMonth, categoryId: 20)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.text('อาหาร'));
+      await _pumpBounded(tester);
+
+      expect(find.text('Food expense row'), findsOneWidget);
+      expect(find.text('Salary row'), findsNothing);
+    });
+  });
 }

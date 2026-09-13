@@ -28,11 +28,25 @@ class TransactionsRepository {
   /// (`.toUtc()` in [createTransactionBody]/[updateTransactionBody]) —
   /// `DateTime.utc(year, month + 1)` normalizes a December `month=13` into
   /// January of the next year on its own.
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) {
+  /// [categoryId] (ticket 07: Transaction List category drill-through) narrows
+  /// the same month-scoped query with an extra `WHERE`, rather than adding a
+  /// second/parallel query path — the read stays a single reactive drift
+  /// `.watch()`, so it keeps updating live as [fetchPage] upserts more of the
+  /// month in, exactly like the unfiltered case. Deliberately not plumbed
+  /// into [fetchPage]/pagination at all: the network sync for a given
+  /// (year, month) is unconditional and unaffected by which category (if any)
+  /// the UI is currently drilled into, so pagination can't regress once a
+  /// filter is active.
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) {
     final start = DateTime.utc(year, month);
     final end = DateTime.utc(year, month + 1);
     return (_db.select(_db.cachedTransactions)
-          ..where((t) => t.transactionDate.isBiggerOrEqualValue(start) & t.transactionDate.isSmallerThanValue(end))
+          ..where(
+            (t) =>
+                t.transactionDate.isBiggerOrEqualValue(start) &
+                t.transactionDate.isSmallerThanValue(end) &
+                (categoryId == null ? const Constant(true) : t.categoryId.equals(categoryId)),
+          )
           ..orderBy([(t) => OrderingTerm.desc(t.transactionDate), (t) => OrderingTerm.desc(t.id)]))
         .watch()
         .map((rows) => rows.map(transactionFromCached).toList());

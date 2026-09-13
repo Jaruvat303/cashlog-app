@@ -31,7 +31,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void> deleteResult = const Right(null);
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => throw UnimplementedError('not exercised by this page test');
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) => throw UnimplementedError('not exercised by this page test');
 
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
