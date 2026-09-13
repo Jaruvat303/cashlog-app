@@ -1,25 +1,30 @@
-// Before any pumpWidget/pumpAndSettle, dashboardRepositoryProvider is
-// overridden with a hand-written fake (same pattern as
-// _FakeAccountsRepository in test/widget_test.dart) — this is what keeps a
-// real dio call from ever reaching Flutter's test HTTP stub.
+// Before any pumpWidget/pumpAndSettle, every repository this page touches is
+// overridden with a hand-written fake (same pattern as _FakeAccountsRepository
+// in test/widget_test.dart) — this is what keeps a real dio call or a real
+// photo_manager platform-channel call from ever happening in this test
+// environment.
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
-import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
-import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
+import 'package:cashlog/features/slip_scan/domain/gallery_access_level.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
+import 'package:cashlog/features/slip_scan/presentation/providers/slip_scan_pipeline_provider.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
-import 'package:cashlog/shared/format/money.dart';
 import 'package:dartz/dartz.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
   @override
@@ -77,8 +82,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 }
 
 class _FakeTransactionsRepository implements TransactionsRepository {
+  _FakeTransactionsRepository(this.transactions);
+
+  final List<Transaction> transactions;
+
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.value(const []);
+  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.value(transactions);
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
       throw UnimplementedError('not exercised by this page test');
@@ -109,19 +118,96 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this page test');
 }
 
-class _FakeDashboardRepository implements DashboardRepository {
-  final Map<(int, int), Either<Failure, DashboardSummary>> results = {};
-  final List<(int, int)> fetchCalls = [];
+class _FakeSlipGalleryRepository implements SlipGalleryRepository {
+  GalleryAccessLevel requestAccessResult = GalleryAccessLevel.full;
+  int requestAccessCalls = 0;
+  int presentLimitedSelectionCalls = 0;
 
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async {
-    fetchCalls.add((year, month));
-    return results[(year, month)] ?? const Left(UnknownFailure(message: 'no result configured for this month'));
+  Future<GalleryAccessLevel> currentAccess() async => requestAccessResult;
+  @override
+  Future<GalleryAccessLevel> requestAccess() async {
+    requestAccessCalls++;
+    return requestAccessResult;
   }
+  @override
+  Future<void> presentLimitedSelection() async => presentLimitedSelectionCalls++;
+  @override
+  Future<void> openSettings() async {}
+  @override
+  Future<List<SlipCandidate>> queryConfiguredAlbums() async => const [];
+  @override
+  Future<Uint8List?> readBytes(String assetId) async => null;
 }
 
-CategoryBreakdown _breakdown(int id, String name, double amount, {String iconKey = 'restaurant-fill', String colorHex = '#EF4444'}) =>
-    CategoryBreakdown(categoryId: id, categoryName: name, iconKey: iconKey, colorHex: colorHex, totalAmount: amount);
+/// CLAUDE.md: never `Stream.multi()` in a fake exercised under `testWidgets`
+/// — an `async*` generator that replays the current value then forwards the
+/// broadcast controller's future events is the confirmed-safe shape. Needed
+/// here because `TransactionListTile` (rendered by the attention feed) reads
+/// `pendingActionsProvider`, which is otherwise backed by a real drift db.
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  final List<PendingAction> _items = [];
+  final _controller = StreamController<List<PendingAction>>.broadcast();
+
+  @override
+  Stream<List<PendingAction>> watchAll() async* {
+    yield List.unmodifiable(_items);
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) => throw UnimplementedError('not exercised by this page test');
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this page test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by this page test');
+}
+
+/// Seeds `SlipScanPipeline`'s state directly (rather than driving it through
+/// a real `runScan()`) — this ticket's DoD is that the Home banner is a pure
+/// reader of `SlipScanProgress.accessLevel`, so the test only needs to
+/// control that value, not re-exercise the scan pipeline itself (already
+/// covered by slip_scan_pipeline_provider_test.dart).
+class _FakeSlipScanPipeline extends SlipScanPipeline {
+  _FakeSlipScanPipeline(this.initial);
+
+  final SlipScanProgress initial;
+
+  @override
+  SlipScanProgress build() => initial;
+}
+
+SlipScanProgress _progress({GalleryAccessLevel? accessLevel}) => SlipScanProgress(
+  isScanning: false,
+  total: 0,
+  completed: 0,
+  currentFilename: null,
+  results: const [],
+  accessLevel: accessLevel,
+);
+
+Transaction _tx({
+  required int id,
+  TransactionType type = TransactionType.expense,
+  int? categoryId,
+  bool isJunk = false,
+  DateTime? date,
+}) => Transaction(
+  id: id,
+  amount: isJunk ? 0 : 100,
+  type: type,
+  source: 'slip',
+  transactionDate: date ?? DateTime.utc(2026, 9, id),
+  categoryId: categoryId,
+  isJunk: isJunk,
+);
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
@@ -133,109 +219,102 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 }
 
 void main() {
-  late _FakeDashboardRepository fakeRepository;
-  late DateTime thisMonth;
+  Widget buildApp({required SlipScanProgress pipelineState, required _FakeSlipGalleryRepository galleryRepo, List<Transaction> transactions = const []}) =>
+      ProviderScope(
+        overrides: [
+          accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+          categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+          transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository(transactions)),
+          pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
+          slipGalleryRepositoryProvider.overrideWithValue(galleryRepo),
+          slipScanPipelineProvider.overrideWith(() => _FakeSlipScanPipeline(pipelineState)),
+        ],
+        child: const MaterialApp(home: DashboardPage()),
+      );
 
-  setUp(() {
-    fakeRepository = _FakeDashboardRepository();
-    final now = DateTime.now();
-    thisMonth = DateTime.utc(now.year, now.month);
+  testWidgets('full access shows no permission banner', (tester) async {
+    await tester.pumpWidget(
+      buildApp(pipelineState: _progress(accessLevel: GalleryAccessLevel.full), galleryRepo: _FakeSlipGalleryRepository()),
+    );
+    await _pumpBounded(tester);
+
+    expect(find.byKey(const Key('galleryPermissionBanner')), findsNothing);
   });
 
-  Widget buildApp() => ProviderScope(
-    overrides: [
-      dashboardRepositoryProvider.overrideWithValue(fakeRepository),
-      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-      transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
-    ],
-    child: const MaterialApp(home: DashboardPage()),
-  );
+  testWidgets('no scan attempted yet (null accessLevel) shows no permission banner', (tester) async {
+    await tester.pumpWidget(buildApp(pipelineState: _progress(), galleryRepo: _FakeSlipGalleryRepository()));
+    await _pumpBounded(tester);
 
-  testWidgets('renders totals from the summary and never shows total_transfer', (tester) async {
-    fakeRepository.results[(thisMonth.year, thisMonth.month)] = Right(
-      DashboardSummary(
-        totalIncome: 5000,
-        totalExpense: 2000,
-        totalTransfer: 999999,
-        year: thisMonth.year,
-        month: thisMonth.month,
-        income: const [],
-        expense: [_breakdown(1, 'Food', 2000)],
+    expect(find.byKey(const Key('galleryPermissionBanner')), findsNothing);
+  });
+
+  testWidgets('denied access shows a banner whose button triggers requestAccess', (tester) async {
+    final galleryRepo = _FakeSlipGalleryRepository();
+    await tester.pumpWidget(
+      buildApp(pipelineState: _progress(accessLevel: GalleryAccessLevel.denied), galleryRepo: galleryRepo),
+    );
+    await _pumpBounded(tester);
+
+    expect(find.byKey(const Key('galleryPermissionBanner')), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'ให้สิทธิ์เข้าถึง'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'ให้สิทธิ์เข้าถึง'));
+    await _pumpBounded(tester);
+
+    expect(galleryRepo.requestAccessCalls, 1);
+    expect(galleryRepo.presentLimitedSelectionCalls, 0);
+  });
+
+  testWidgets('limited access shows a banner whose button triggers presentLimitedSelection', (tester) async {
+    final galleryRepo = _FakeSlipGalleryRepository();
+    await tester.pumpWidget(
+      buildApp(pipelineState: _progress(accessLevel: GalleryAccessLevel.limited), galleryRepo: galleryRepo),
+    );
+    await _pumpBounded(tester);
+
+    expect(find.byKey(const Key('galleryPermissionBanner')), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'เลือกรูปเพิ่มเติม'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'เลือกรูปเพิ่มเติม'));
+    await _pumpBounded(tester);
+
+    expect(galleryRepo.presentLimitedSelectionCalls, 1);
+    expect(galleryRepo.requestAccessCalls, 0);
+  });
+
+  testWidgets('shows an empty-state message when nothing needs attention', (tester) async {
+    await tester.pumpWidget(
+      buildApp(
+        pipelineState: _progress(accessLevel: GalleryAccessLevel.full),
+        galleryRepo: _FakeSlipGalleryRepository(),
+        transactions: [_tx(id: 1, categoryId: 7)],
       ),
     );
-
-    await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.text(formatAmount(5000)), findsOneWidget);
-    expect(find.text(formatAmount(2000)), findsOneWidget); // total expense card only — the legend shows a % share, not the amount
-    expect(find.text('100%'), findsOneWidget); // the one expense category is 100% of the (2000) total
-    expect(find.text(formatAmount(999999)), findsNothing);
-    expect(find.textContaining('999999'), findsNothing);
+    expect(find.text('ไม่มีรายการที่ต้องดำเนินการ'), findsOneWidget);
   });
 
-  testWidgets('expense rows render sorted descending by amount, with a pie chart', (tester) async {
-    fakeRepository.results[(thisMonth.year, thisMonth.month)] = Right(
-      DashboardSummary(
-        totalIncome: 0,
-        totalExpense: 300,
-        totalTransfer: 0,
-        year: thisMonth.year,
-        month: thisMonth.month,
-        income: const [],
-        expense: [_breakdown(1, 'Small', 50), _breakdown(2, 'Big', 200), _breakdown(3, 'Medium', 50)],
+  testWidgets('attention feed lists junk and uncategorized income/expense rows, most recent first, '
+      'excluding categorized rows and category-less transfers', (tester) async {
+    final categorized = _tx(id: 1, categoryId: 7, date: DateTime.utc(2026, 9, 10));
+    final uncategorized = _tx(id: 2, date: DateTime.utc(2026, 9, 5));
+    final junk = _tx(id: 3, isJunk: true, date: DateTime.utc(2026, 9, 12));
+    final transfer = _tx(id: 4, type: TransactionType.transfer, date: DateTime.utc(2026, 9, 20));
+
+    await tester.pumpWidget(
+      buildApp(
+        pipelineState: _progress(accessLevel: GalleryAccessLevel.full),
+        galleryRepo: _FakeSlipGalleryRepository(),
+        transactions: [categorized, uncategorized, junk, transfer],
       ),
     );
-
-    await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.byType(PieChart), findsOneWidget);
-    final names = tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList();
-    expect(names.indexOf('Big'), lessThan(names.indexOf('Small')));
-  });
+    expect(find.text('ไม่มีรายการที่ต้องดำเนินการ'), findsNothing);
+    expect(find.byType(Divider), findsOneWidget); // exactly 2 rows -> 1 divider between them
 
-  testWidgets('shows an empty-state message instead of a chart when expense is empty', (tester) async {
-    fakeRepository.results[(thisMonth.year, thisMonth.month)] = Right(
-      DashboardSummary(
-        totalIncome: 1000,
-        totalExpense: 0,
-        totalTransfer: 0,
-        year: thisMonth.year,
-        month: thisMonth.month,
-        income: const [],
-        expense: const [],
-      ),
-    );
-
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-
-    expect(find.text('ไม่มีรายจ่ายในเดือนนี้'), findsOneWidget);
-    expect(find.byType(PieChart), findsNothing);
-  });
-
-  testWidgets('switching month via the shared selector refetches and swaps displayed totals', (tester) async {
-    // Expense deliberately nonzero and distinct from income so "net" never
-    // collides in text with "income"/"expense" (net = income - expense).
-    final nextMonth = DateTime.utc(thisMonth.year, thisMonth.month + 1);
-    fakeRepository.results[(thisMonth.year, thisMonth.month)] = Right(
-      DashboardSummary(totalIncome: 100, totalExpense: 30, totalTransfer: 0, year: thisMonth.year, month: thisMonth.month, income: const [], expense: const []),
-    );
-    fakeRepository.results[(nextMonth.year, nextMonth.month)] = Right(
-      DashboardSummary(totalIncome: 700, totalExpense: 200, totalTransfer: 0, year: nextMonth.year, month: nextMonth.month, income: const [], expense: const []),
-    );
-
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-    expect(find.text(formatAmount(100)), findsOneWidget);
-
-    await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
-    await _pumpBounded(tester);
-
-    expect(find.text(formatAmount(100)), findsNothing);
-    expect(find.text(formatAmount(700)), findsOneWidget);
-    expect(fakeRepository.fetchCalls, contains((nextMonth.year, nextMonth.month)));
+    final tileFinder = find.byKey(const Key('transactionRowTapTarget'));
+    expect(tileFinder, findsNWidgets(2));
   });
 }

@@ -3,48 +3,46 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/month/selected_month_provider.dart';
-import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/format/money.dart';
 import '../../../accounts/domain/account.dart';
 import '../../../accounts/domain/bank_icon.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../accounts/presentation/widgets/current_balance_text.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../../../slip_scan/data/slip_gallery_repository.dart';
+import '../../../slip_scan/domain/gallery_access_level.dart';
+import '../../../slip_scan/presentation/providers/slip_scan_pipeline_provider.dart';
+import '../../../transactions/domain/transaction.dart';
 import '../../../transactions/presentation/providers/transactions_feed_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
-import '../../domain/dashboard_summary.dart';
-import '../providers/dashboard_providers.dart';
-import '../widgets/expense_pie_chart.dart';
 
-/// Mockup screen 1a. Deliberately does NOT render `DashboardSummary.
-/// totalTransfer` anywhere (CLAUDE.md/DoD: a transfer moves money between
-/// the user's own accounts, so it must never appear in the main summary —
-/// see that field's doc comment) even though the mockup's own "transfer
-/// this month" strip implies otherwise; the stricter, tested rule wins per
-/// CLAUDE.md's "flag conflicts, don't silently override" instruction — this
-/// is that flag.
+/// Mockup screen 1a, redesigned per the fixes/redesign spec's Design 3 (Home
+/// half): this page is no longer the category/amount summary — that block
+/// (totals card + `ExpensePieChart`) moves to the Transaction List page's new
+/// Income/Expense/Transfer tabs (ticket 07, not yet built; `ExpensePieChart`
+/// and `dashboardSummaryProvider` stay in the codebase for that ticket to
+/// pick up, they're just no longer referenced from here). Home is now a
+/// single actionable feed: the gallery-permission banner (ticket 06 /
+/// spec Bug 1) at the top, an accounts strip, then transactions still
+/// needing attention (junk or missing a category), most recent first.
 ///
 /// Reads/drives the same `selectedMonthProvider` as `TransactionsPage` (DoD:
 /// "shared state, not a second independent selector").
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
-  Future<void> _refresh(WidgetRef ref, int year, int month) async {
-    ref.invalidate(dashboardSummaryProvider(year, month));
-    await ref.read(dashboardSummaryProvider(year, month).future);
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final month = ref.watch(selectedMonthProvider);
     final year = month.year;
     final monthNum = month.month;
-    final summaryAsync = ref.watch(dashboardSummaryProvider(year, monthNum));
     final accountsAsync = ref.watch(activeAccountsProvider);
-    final recentTransactions = ref.watch(monthTransactionsProvider(year, monthNum)).value ?? const [];
+    final monthTransactions = ref.watch(monthTransactionsProvider(year, monthNum)).value ?? const [];
     final categories = ref.watch(allCategoriesProvider).value ?? const [];
     final categoriesById = {for (final c in categories) c.id: c};
+
+    final attentionItems = monthTransactions.where(_needsAttention).toList()
+      ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
 
     return Scaffold(
       appBar: AppBar(
@@ -60,82 +58,56 @@ class DashboardPage extends ConsumerWidget {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: () => _refresh(ref, year, monthNum),
-        child: summaryAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => ListView(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Center(child: Text('โหลดสรุปไม่สำเร็จ: ${_errorMessage(error)}')),
-              ),
-            ],
-          ),
-          data: (summary) => ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _TotalsCard(summary: summary),
-              const SizedBox(height: 12),
-              const Text('บัญชี', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-              const SizedBox(height: 9),
-              accountsAsync.when(
-                loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
-                error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
-                data: (accounts) => accounts.isEmpty
-                    ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textMuted))
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
-                            .expand((w) => [w, const SizedBox(width: 8)])
-                            .take(accounts.length * 2 - 1)
-                            .toList(),
-                      ),
-              ),
-              const SizedBox(height: 12),
+        onRefresh: () => ref.read(accountsRefreshProvider.notifier).refresh(),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const _GalleryPermissionBanner(),
+            const Text('บัญชี', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
+            const SizedBox(height: 9),
+            accountsAsync.when(
+              loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+              error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
+              data: (accounts) => accounts.isEmpty
+                  ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textMuted))
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
+                          .expand((w) => [w, const SizedBox(width: 8)])
+                          .take(accounts.length * 2 - 1)
+                          .toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            const Text('รายการที่ต้องดำเนินการ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
+            const SizedBox(height: 9),
+            if (attentionItems.isEmpty)
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: const Center(child: Text('ไม่มีรายการที่ต้องดำเนินการ', style: TextStyle(color: AppColors.textMuted))),
+              )
+            else
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(18),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('รายจ่ายตามหมวดหมู่', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-                    const SizedBox(height: 12),
-                    if (summary.expense.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(child: Text('ไม่มีรายจ่ายในเดือนนี้', style: TextStyle(color: AppColors.textMuted))),
-                      )
-                    else
-                      ExpensePieChart(expense: summary.expense, total: summary.totalExpense),
+                    for (var i = 0; i < attentionItems.length; i++) ...[
+                      if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
+                      TransactionListTile(transaction: attentionItems[i], categoriesById: categoriesById),
+                    ],
                   ],
                 ),
               ),
-              if (recentTransactions.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text('ธุรกรรมล่าสุด', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-                const SizedBox(height: 9),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < recentTransactions.length.clamp(0, 5); i++) ...[
-                        if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
-                        TransactionListTile(transaction: recentTransactions[i], categoriesById: categoriesById),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -154,70 +126,13 @@ class DashboardPage extends ConsumerWidget {
     );
   }
 
-  // dashboardSummaryProvider surfaces a Left(Failure) as a thrown value (see
-  // dashboard_providers.dart) purely so AsyncValue can carry it — unwrap
-  // back to its message here rather than printing a raw Dart object.
-  String _errorMessage(Object error) => error is Failure ? (error.message ?? 'โหลดสรุปไม่สำเร็จ') : error.toString();
-}
-
-class _TotalsCard extends StatelessWidget {
-  const _TotalsCard({required this.summary});
-
-  final DashboardSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Row(
-        children: [
-          Expanded(
-            child: _TotalColumn(label: 'รายรับ', icon: RemixIcon.arrowDownLine, amount: summary.totalIncome, color: AppColors.income),
-          ),
-          Container(width: 1, height: 40, color: AppColors.divider),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _TotalColumn(label: 'รายจ่าย', icon: RemixIcon.arrowUpLine, amount: summary.totalExpense, color: AppColors.expense),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TotalColumn extends StatelessWidget {
-  const _TotalColumn({required this.label, required this.icon, required this.amount, required this.color});
-
-  final String label;
-  final IconData icon;
-  final double amount;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: color)),
-          ],
-        ),
-        const SizedBox(height: 5),
-        Text(
-          formatAmount(amount),
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 24, color: color),
-        ),
-      ],
-    );
-  }
+  /// Spec Bug 1/Design 3: a row needs attention when it's junk (spec §7.7 —
+  /// any type can be junk) or, for income/expense only, still missing a
+  /// category — transfers never take a category by design (see
+  /// `transaction.dart`), so a `null` `categoryId` there is expected, not a
+  /// gap to flag.
+  static bool _needsAttention(Transaction t) =>
+      t.isJunk || (t.type != TransactionType.transfer && t.categoryId == null);
 }
 
 class _AccountMiniCard extends ConsumerWidget {
@@ -256,6 +171,72 @@ class _AccountMiniCard extends ConsumerWidget {
           ),
           const SizedBox(height: 9),
           CurrentBalanceText(accountId: account.id, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Spec Bug 1 / ticket 06: the only reachable, non-debug entry point for
+/// `SlipGalleryRepository.requestAccess()`/`presentLimitedSelection()` — both
+/// already existed and worked, but before this were only invoked from the
+/// hidden `/debug/slip-scan` route. No change to `SlipGalleryRepository`,
+/// `GalleryAccessLevel`, or the debug page itself; this widget only adds a
+/// new caller.
+///
+/// Sourced from `SlipScanPipeline`'s own `SlipScanProgress.accessLevel`
+/// (set by `runScan()`, fired automatically on cold start/resume by
+/// `slipScanLifecycle` — untouched by this ticket) rather than querying the
+/// gallery itself, so this banner never triggers its own permission check —
+/// it only reacts to whatever the lifecycle-triggered scan already found.
+/// `null` (no scan attempted yet) is treated the same as `full`: no banner,
+/// since there's nothing actionable to show before the first scan has even
+/// run once.
+class _GalleryPermissionBanner extends ConsumerWidget {
+  const _GalleryPermissionBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accessLevel = ref.watch(slipScanPipelineProvider.select((p) => p.accessLevel));
+    if (accessLevel == null || accessLevel == GalleryAccessLevel.full) return const SizedBox.shrink();
+
+    final (title, body, buttonLabel, onPressed) = accessLevel == GalleryAccessLevel.denied
+        ? (
+            'ยังไม่ได้ให้สิทธิ์เข้าถึงคลังภาพ',
+            'แอปต้องใช้สิทธิ์เข้าถึงรูปภาพเพื่อสแกนสลิปธนาคารจากอัลบั้ม SCB EASY และ Dime! โดยอัตโนมัติ',
+            'ให้สิทธิ์เข้าถึง',
+            () => ref.read(slipGalleryRepositoryProvider).requestAccess(),
+          )
+        : (
+            'เข้าถึงรูปภาพแบบจำกัด',
+            'แอปอาจมองไม่เห็นสลิปใหม่ ถ้าอัลบั้ม SCB EASY หรือ Dime! ไม่ได้ถูกเลือกไว้ในรายการรูปที่อนุญาต',
+            'เลือกรูปเพิ่มเติม',
+            () => ref.read(slipGalleryRepositoryProvider).presentLimitedSelection(),
+          );
+
+    return Container(
+      key: const Key('galleryPermissionBanner'),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: AppColors.warningSurface,
+        border: Border.all(color: AppColors.warningBorder),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(RemixIcon.imageLine, size: 18, color: AppColors.warningIcon),
+              const SizedBox(width: 8),
+              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary))),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(body, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onPressed, child: Text(buttonLabel))),
         ],
       ),
     );
