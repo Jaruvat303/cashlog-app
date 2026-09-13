@@ -35,7 +35,7 @@ Future<CategoryPickerResult?> showCategoryGridPicker(
   );
 }
 
-class _CategoryGridSheet extends ConsumerWidget {
+class _CategoryGridSheet extends ConsumerStatefulWidget {
   const _CategoryGridSheet({required this.categoryType, required this.currentCategoryId, required this.subtitle});
 
   final CategoryType categoryType;
@@ -43,104 +43,131 @@ class _CategoryGridSheet extends ConsumerWidget {
   final String subtitle;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_CategoryGridSheet> createState() => _CategoryGridSheetState();
+}
+
+class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
+  final _gridScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _gridScrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(allCategoriesProvider);
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SheetHandle(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('เลือกหมวดหมู่', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.textPrimary)),
-                InkWell(
-                  key: const Key('categoryPickerCloseButton'),
-                  onTap: () => Navigator.of(context).pop(),
-                  customBorder: const CircleBorder(),
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(color: AppColors.screenBackground, shape: BoxShape.circle),
-                    child: const Icon(RemixIcon.closeLine, size: 16, color: AppColors.textSecondary),
+    // Fixed at half the screen height regardless of category count (spec:
+    // Design 2 / ticket 03) — previously this Column sized itself to
+    // content (`mainAxisSize.min` + shrink-wrapped grid), so a long enough
+    // category list grew the sheet past half-screen or overflowed instead
+    // of scrolling. The grid area below is the only part that scrolls; the
+    // header/subtitle/footer stay put.
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.5;
+    return SizedBox(
+      height: sheetHeight,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          child: Column(
+            children: [
+              const SheetHandle(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('เลือกหมวดหมู่', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.textPrimary)),
+                  InkWell(
+                    key: const Key('categoryPickerCloseButton'),
+                    onTap: () => Navigator.of(context).pop(),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: const BoxDecoration(color: AppColors.screenBackground, shape: BoxShape.circle),
+                      child: const Icon(RemixIcon.closeLine, size: 16, color: AppColors.textSecondary),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
-            ),
-            const SizedBox(height: 14),
-            categoriesAsync.when(
-              loading: () => const Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()),
-              error: (error, _) => Padding(padding: const EdgeInsets.all(24), child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
-              data: (categories) {
-                final matching = categories.where((c) => c.type == categoryType).toList();
-                return GridView.count(
-                  crossAxisCount: 4,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.82,
-                  children: [
-                    _GridCell(
-                      key: const Key('categoryOptionUncategorized'),
-                      label: 'ยังไม่ระบุ',
-                      icon: RemixIcon.questionFill,
-                      iconColor: AppColors.textSecondary,
-                      backgroundColor: AppColors.screenBackground,
-                      selected: currentCategoryId == null,
-                      onTap: () => Navigator.of(
-                        context,
-                      ).pop(currentCategoryId == null ? null : const CategoryPickerResult(null)),
-                    ),
-                    for (final category in matching)
-                      _GridCell(
-                        key: Key('categoryOption_${category.id}'),
-                        label: category.name,
-                        icon: resolveCategoryIcon(category.iconKey),
-                        iconColor: colorFromHex(category.colorHex),
-                        backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.12),
-                        selected: currentCategoryId == category.id,
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pop(currentCategoryId == category.id ? null : CategoryPickerResult(category.id)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(widget.subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.textMuted)),
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: categoriesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
+                  data: (categories) {
+                    final matching = categories.where((c) => c.type == widget.categoryType).toList();
+                    return Scrollbar(
+                      controller: _gridScrollController,
+                      thumbVisibility: true,
+                      child: GridView.count(
+                        controller: _gridScrollController,
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 0.82,
+                        children: [
+                          _GridCell(
+                            key: const Key('categoryOptionUncategorized'),
+                            label: 'ยังไม่ระบุ',
+                            icon: RemixIcon.questionFill,
+                            iconColor: AppColors.textSecondary,
+                            backgroundColor: AppColors.screenBackground,
+                            selected: widget.currentCategoryId == null,
+                            onTap: () => Navigator.of(
+                              context,
+                            ).pop(widget.currentCategoryId == null ? null : const CategoryPickerResult(null)),
+                          ),
+                          for (final category in matching)
+                            _GridCell(
+                              key: Key('categoryOption_${category.id}'),
+                              label: category.name,
+                              icon: resolveCategoryIcon(category.iconKey),
+                              iconColor: colorFromHex(category.colorHex),
+                              backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.12),
+                              selected: widget.currentCategoryId == category.id,
+                              onTap: () => Navigator.of(
+                                context,
+                              ).pop(widget.currentCategoryId == category.id ? null : CategoryPickerResult(category.id)),
+                            ),
+                          _GridCell(
+                            key: const Key('categoryOptionAddNew'),
+                            label: 'เพิ่มใหม่',
+                            icon: RemixIcon.addLine,
+                            iconColor: AppColors.textSecondary,
+                            backgroundColor: AppColors.screenBackground,
+                            dashed: true,
+                            selected: false,
+                            onTap: () async {
+                              final navigator = Navigator.of(context);
+                              final created = await Navigator.of(context).push<bool>(
+                                MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: widget.categoryType)),
+                              );
+                              if (created == true) navigator.pop();
+                            },
+                          ),
+                        ],
                       ),
-                    _GridCell(
-                      key: const Key('categoryOptionAddNew'),
-                      label: 'เพิ่มใหม่',
-                      icon: RemixIcon.addLine,
-                      iconColor: AppColors.textSecondary,
-                      backgroundColor: AppColors.screenBackground,
-                      dashed: true,
-                      selected: false,
-                      onTap: () async {
-                        final navigator = Navigator.of(context);
-                        final created = await Navigator.of(
-                          context,
-                        ).push<bool>(MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: categoryType)));
-                        if (created == true) navigator.pop();
-                      },
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 6),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(RemixIcon.flashlightLine, size: 13, color: AppColors.textMuted),
-                SizedBox(width: 7),
-                Text('แตะไอคอนเดียว = บันทึกและปิดทันที ไม่มีปุ่มยืนยัน', style: TextStyle(fontSize: 10.5, color: AppColors.textMuted)),
-              ],
-            ),
-          ],
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(RemixIcon.flashlightLine, size: 13, color: AppColors.textMuted),
+                  SizedBox(width: 7),
+                  Text('แตะไอคอนเดียว = บันทึกและปิดทันที ไม่มีปุ่มยืนยัน', style: TextStyle(fontSize: 10.5, color: AppColors.textMuted)),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
