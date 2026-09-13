@@ -27,10 +27,36 @@ class SelectedMonth extends _$SelectedMonth {
 }
 
 const List<String> _kMonthNames = [
-  'January', 'February', 'March', 'April', 'May', 'June', //
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', //
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
 ];
 
+const List<String> _kMonthAbbreviationsTh = [
+  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', //
+  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
+];
+
+/// Thai calendar convention: Buddhist Era = Gregorian year + 543.
+int buddhistYear(int gregorianYear) => gregorianYear + 543;
+
 /// Shared by `TransactionsPage` and `DashboardPage` so both month selectors
-/// render the exact same label for the exact same shared [SelectedMonth].
-String monthYearLabel(DateTime month) => '${_kMonthNames[month.month - 1]} ${month.year}';
+/// render the exact same label for the exact same shared [SelectedMonth] —
+/// full Thai month name + Buddhist-era year, matching the mockup
+/// ("สิงหาคม 2569").
+String monthYearLabel(DateTime month) => '${_kMonthNames[month.month - 1]} ${buddhistYear(month.year)}';
+
+/// Short form used for the Transactions header chip ("ส.ค. 2569").
+String monthYearShortLabel(DateTime month) => '${_kMonthAbbreviationsTh[month.month - 1]} ${buddhistYear(month.year)}';
+
+/// Mockup screen 1b's date-group headers: "วันนี้"/"เมื่อวาน" for the two most
+/// recent days, a full Thai short date otherwise. Compares by
+/// year/month/day only — [date] may carry a time-of-day component.
+String relativeDayLabel(DateTime date) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final target = DateTime(date.year, date.month, date.day);
+  final diff = today.difference(target).inDays;
+  if (diff == 0) return 'วันนี้';
+  if (diff == 1) return 'เมื่อวาน';
+  return '${date.day} ${_kMonthAbbreviationsTh[date.month - 1]} ${buddhistYear(date.year)}';
+}

@@ -18,7 +18,7 @@ class BankIcon {
 const Map<String, BankIcon> kBankIcons = {
   'scb': BankIcon(code: 'scb', label: 'SCB EASY', icon: Icons.account_balance, color: Color(0xFF4E2A84)),
   'dime': BankIcon(code: 'dime', label: 'Dime!', icon: Icons.savings, color: Color(0xFF7C3AED)),
-  'cash': BankIcon(code: 'cash', label: 'Cash / Other', icon: Icons.payments, color: Color(0xFF6B7280)),
+  'cash': BankIcon(code: 'cash', label: 'เงินสด / อื่นๆ', icon: Icons.payments, color: Color(0xFF6B7280)),
 };
 
 const _fallbackIcon = Icons.account_balance_wallet_outlined;
@@ -33,7 +33,7 @@ BankIcon resolveBankIcon(String code) {
   if (known != null) return known;
   return BankIcon(
     code: code,
-    label: code.isEmpty ? 'Unknown bank' : code,
+    label: code.isEmpty ? 'ไม่ทราบธนาคาร' : code,
     icon: _fallbackIcon,
     color: _fallbackColor,
   );

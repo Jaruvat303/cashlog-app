@@ -44,6 +44,10 @@ dependencies:
   go_router: ^18.0.1
   fl_chart: ^1.2.0
   remix_icons_flutter: ^4.9.3+1
+  # Visual design pass (CashLog Mockups.dc.html): mockup specifies 'IBM Plex
+  # Sans Thai' throughout. Fetched once over network then cached by the
+  # package itself, consistent with the app's online-only network model.
+  google_fonts: ^6.3.2
   photo_manager: ^3.12.0
   flutter_image_compress: ^2.3.0
   # T21: manual slip attach (spec §7.1's second intake channel, camera

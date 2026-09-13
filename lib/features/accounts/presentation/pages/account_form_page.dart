@@ -69,7 +69,7 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
     result.fold(
       (failure) => ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Request failed. Please try again.'))),
+      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       (_) => Navigator.of(context).pop(true),
     );
   }
@@ -77,7 +77,7 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? 'Edit account' : 'New account')),
+      appBar: AppBar(title: Text(widget.isEditing ? 'แก้ไขบัญชี' : 'เพิ่มบัญชี')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -86,12 +86,12 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
             TextFormField(
               controller: _nameController,
               maxLength: 100,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: (value) => (value == null || value.trim().isEmpty) ? 'Name is required' : null,
+              decoration: const InputDecoration(labelText: 'ชื่อบัญชี'),
+              validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
             ),
             DropdownButtonFormField<AccountType>(
               initialValue: _accountType,
-              decoration: const InputDecoration(labelText: 'Account type'),
+              decoration: const InputDecoration(labelText: 'ประเภทบัญชี'),
               items: AccountType.values.map((type) => DropdownMenuItem(value: type, child: Text(type.label))).toList(),
               onChanged: (type) => setState(() => _accountType = type!),
             ),
@@ -100,11 +100,11 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
               TextFormField(
                 controller: _openingBalanceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Opening balance'),
+                decoration: const InputDecoration(labelText: 'ยอดเปิดบัญชี'),
                 validator: (value) {
                   final parsed = double.tryParse(value ?? '');
-                  if (parsed == null) return 'Enter a valid number';
-                  if (parsed < 0) return 'Must be 0 or more';
+                  if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
+                  if (parsed < 0) return 'ต้องมากกว่าหรือเท่ากับ 0';
                   return null;
                 },
               ),
@@ -114,10 +114,10 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
               controller: _matchingKeywordsController,
               minLines: 1,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: 'Matching keywords', helperText: 'Comma-separated, used to auto-match this account from slip text'),
+              decoration: const InputDecoration(labelText: 'คำค้นหาที่ใช้จับคู่', helperText: 'คั่นด้วยจุลภาค ใช้จับคู่บัญชีนี้จากข้อความในสลิป'),
             ),
             const SizedBox(height: 16),
-            const Text('Bank'),
+            const Text('ธนาคาร'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -138,7 +138,7 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
               onPressed: _isSubmitting ? null : _submit,
               child: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(widget.isEditing ? 'Save' : 'Create'),
+                  : Text(widget.isEditing ? 'บันทึก' : 'สร้างบัญชี'),
             ),
           ],
         ),

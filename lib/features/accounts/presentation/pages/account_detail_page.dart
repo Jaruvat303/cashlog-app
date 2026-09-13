@@ -21,11 +21,11 @@ class AccountDetailPage extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Close this account?'),
-        content: const Text('It will stop appearing in the accounts list. Existing transactions keep their history and still show this account.'),
+        title: const Text('ปิดบัญชีนี้ใช่ไหม'),
+        content: const Text('บัญชีนี้จะไม่แสดงในรายการบัญชีอีกต่อไป ธุรกรรมเดิมยังคงอยู่และแสดงบัญชีนี้เหมือนเดิม'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Close account')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('ยกเลิก')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('ปิดบัญชี')),
         ],
       ),
     );
@@ -34,9 +34,9 @@ class AccountDetailPage extends ConsumerWidget {
     final result = await ref.read(accountsRepositoryProvider).close(account.id);
     if (!context.mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'Request failed. Please try again.'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
       (_) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Account closed')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ปิดบัญชีแล้ว')));
         Navigator.of(context).pop();
       },
     );
@@ -47,12 +47,12 @@ class AccountDetailPage extends ConsumerWidget {
     final accountAsync = ref.watch(cachedAccountProvider(accountId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('บัญชี')),
       body: accountAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed to load: $error')),
+        error: (error, _) => Center(child: Text('โหลดไม่สำเร็จ: $error')),
         data: (account) {
-          if (account == null) return const Center(child: Text('Account not found'));
+          if (account == null) return const Center(child: Text('ไม่พบบัญชีนี้'));
 
           final bankIcon = resolveBankIcon(account.bankIcon);
           return ListView(
@@ -72,18 +72,18 @@ class AccountDetailPage extends ConsumerWidget {
                     ),
                   ),
                   if (!account.isActive)
-                    const Padding(padding: EdgeInsets.only(left: 8), child: Chip(label: Text('Closed'))),
+                    const Padding(padding: EdgeInsets.only(left: 8), child: Chip(label: Text('ปิดแล้ว'))),
                 ],
               ),
               const Divider(height: 32),
               ListTile(
-                title: const Text('Current balance'),
+                title: const Text('ยอดคงเหลือปัจจุบัน'),
                 subtitle: CurrentBalanceText(accountId: account.id),
               ),
-              ListTile(title: const Text('Type'), subtitle: Text(account.accountType.label)),
-              ListTile(title: const Text('Opening balance'), subtitle: Text(account.openingBalance.toStringAsFixed(2))),
+              ListTile(title: const Text('ประเภท'), subtitle: Text(account.accountType.label)),
+              ListTile(title: const Text('ยอดเปิดบัญชี'), subtitle: Text(account.openingBalance.toStringAsFixed(2))),
               ListTile(
-                title: const Text('Matching keywords'),
+                title: const Text('คำค้นหาที่ใช้จับคู่'),
                 subtitle: Text(account.matchingKeywords.isEmpty ? '—' : account.matchingKeywords.join(', ')),
               ),
               const SizedBox(height: 24),
@@ -91,11 +91,11 @@ class AccountDetailPage extends ConsumerWidget {
                 onPressed: () => Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => AccountFormPage(initial: account))),
-                child: const Text('Edit'),
+                child: const Text('แก้ไข'),
               ),
               if (account.isActive) ...[
                 const SizedBox(height: 8),
-                OutlinedButton(onPressed: () => _confirmClose(context, ref, account), child: const Text('Close account')),
+                OutlinedButton(onPressed: () => _confirmClose(context, ref, account), child: const Text('ปิดบัญชี')),
               ],
             ],
           );

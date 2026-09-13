@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../data/categories_repository.dart';
 import '../../domain/category.dart';
 import '../providers/categories_providers.dart';
 import 'category_form_page.dart';
 
+/// Mockup screen 1f's "category settings behind the modal" — Tab
+/// รายรับ/รายจ่าย over a grid of icon cards, "+ เพิ่มหมวดหมู่" in the header
+/// rather than a FAB (matches the mockup exactly; the FAB slot on this tab
+/// is otherwise empty since AppShell's own FAB is the camera button).
 class CategoriesPage extends ConsumerStatefulWidget {
   const CategoriesPage({super.key});
 
@@ -14,7 +19,9 @@ class CategoriesPage extends ConsumerStatefulWidget {
   ConsumerState<CategoriesPage> createState() => _CategoriesPageState();
 }
 
-class _CategoriesPageState extends ConsumerState<CategoriesPage> {
+class _CategoriesPageState extends ConsumerState<CategoriesPage> with SingleTickerProviderStateMixin {
+  late final _tabController = TabController(length: 2, vsync: this);
+
   @override
   void initState() {
     super.initState();
@@ -26,16 +33,24 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(showErrorSnackBar: false));
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   Future<void> _refresh({bool showErrorSnackBar = true}) async {
     final result = await ref.read(categoriesRefreshProvider.notifier).refresh();
     if (!mounted || !showErrorSnackBar) return;
     result.fold(
       (failure) => ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Could not refresh categories'))),
+      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'รีเฟรชหมวดหมู่ไม่สำเร็จ'))),
       (_) {},
     );
   }
+
+  CategoryType get _selectedType => _tabController.index == 0 ? CategoryType.income : CategoryType.expense;
 
   /// Delete guard (spec §12.4 / FR-2.2): count linked transactions from the
   /// local cache first and warn with that count before the delete is ever
@@ -47,17 +62,15 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Delete "${category.name}"?'),
+        title: Text('ลบ "${category.name}" ใช่ไหม'),
         content: Text(
           count == 0
-              ? 'This category has no transactions linked to it.'
-              : '$count transaction${count == 1 ? '' : 's'} use this category. '
-                    'Deleting it will leave ${count == 1 ? 'that transaction' : 'them'} uncategorized — '
-                    'they will not be deleted.',
+              ? 'ไม่มีธุรกรรมที่ใช้หมวดหมู่นี้อยู่'
+              : 'มี $count รายการที่ใช้หมวดหมู่นี้อยู่ — รายการเหล่านั้นจะกลายเป็น "ยังไม่ระบุหมวดหมู่" ยืนยันลบไหม',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('ยกเลิก')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('ลบ')),
         ],
       ),
     );
@@ -66,8 +79,8 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     final result = await ref.read(categoriesRepositoryProvider).delete(category.id);
     if (!mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'Request failed. Please try again.'))),
-      (_) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Category deleted'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      (_) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ลบหมวดหมู่แล้ว'))),
     );
   }
 
@@ -76,42 +89,76 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     final categoriesAsync = ref.watch(allCategoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Categories')),
+      appBar: AppBar(
+        title: const Text('หมวดหมู่'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: _selectedType))),
+            child: const Text('+ เพิ่มหมวดหมู่'),
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          onTap: (_) => setState(() {}),
+          tabs: const [Tab(text: 'รายรับ'), Tab(text: 'รายจ่าย')],
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: categoriesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('Failed to load categories: $error')),
+          error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
           data: (categories) {
-            if (categories.isEmpty) {
+            final matching = categories.where((c) => c.type == _selectedType).toList();
+            if (matching.isEmpty) {
               return ListView(
                 children: const [
-                  Padding(padding: EdgeInsets.all(32), child: Center(child: Text('No categories yet — tap + to add one'))),
+                  Padding(padding: EdgeInsets.all(32), child: Center(child: Text('ยังไม่มีหมวดหมู่ — แตะ "+ เพิ่มหมวดหมู่" เพื่อเริ่ม'))),
                 ],
               );
             }
-            return ListView.builder(
-              itemCount: categories.length,
+            return GridView.builder(
+              padding: const EdgeInsets.all(20),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 18,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.8,
+              ),
+              itemCount: matching.length,
               itemBuilder: (context, index) {
-                final category = categories[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.15),
-                    child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex)),
-                  ),
-                  title: Text(category.name),
-                  subtitle: Text(category.type.label),
-                  trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: () => _confirmDelete(category)),
+                final category = matching[index];
+                return InkWell(
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initial: category))),
+                  onLongPress: () => _confirmDelete(category),
+                  borderRadius: BorderRadius.circular(17),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: colorFromHex(category.colorHex).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(17),
+                        ),
+                        child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 22),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        category.name,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 10.5, color: AppColors.chipUnselectedText),
+                      ),
+                    ],
+                  ),
                 );
               },
             );
           },
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CategoryFormPage())),
-        child: const Icon(Icons.add),
       ),
     );
   }

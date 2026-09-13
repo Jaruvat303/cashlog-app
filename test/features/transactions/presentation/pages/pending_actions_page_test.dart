@@ -173,16 +173,16 @@ void main() {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.text('Delete transaction'), findsOneWidget);
-    expect(find.textContaining('Retries: 0'), findsOneWidget);
-    expect(find.textContaining('Last error: DATABASE_TIMEOUT'), findsOneWidget);
+    expect(find.text('ลบรายการ'), findsOneWidget);
+    expect(find.textContaining('ลองใหม่แล้ว: 0'), findsOneWidget);
+    expect(find.textContaining('ข้อผิดพลาดล่าสุด: DATABASE_TIMEOUT'), findsOneWidget);
   });
 
   testWidgets('shows the empty state once the queue is empty', (tester) async {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.text('No stuck items'), findsOneWidget);
+    expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
   });
 
   testWidgets('tapping retry on a row that now succeeds removes it from the queue', (tester) async {
@@ -196,8 +196,8 @@ void main() {
     await _pumpBounded(tester);
 
     expect(fakeTransactions.deleteCalls, [42]);
-    expect(find.text('Retried successfully'), findsOneWidget);
-    expect(find.text('No stuck items'), findsOneWidget);
+    expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
+    expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
     expect(await pendingActions.watchAll().first, isEmpty);
   });
 
@@ -227,19 +227,19 @@ void main() {
 
     await tester.tap(find.byKey(Key('dismissButton_$id')));
     await _pumpBounded(tester);
-    expect(find.text('Discard this item?'), findsOneWidget);
+    expect(find.text('ทิ้งรายการนี้ใช่ไหม'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
     await _pumpBounded(tester);
     expect(await pendingActions.watchAll().first, hasLength(1), reason: 'canceling the dialog must not discard the row');
 
     await tester.tap(find.byKey(Key('dismissButton_$id')));
     await _pumpBounded(tester);
-    await tester.tap(find.widgetWithText(TextButton, 'Discard'));
+    await tester.tap(find.widgetWithText(TextButton, 'ทิ้ง'));
     await _pumpBounded(tester);
 
     expect(fakeTransactions.deleteCalls, isEmpty);
     expect(await pendingActions.watchAll().first, isEmpty);
-    expect(find.text('No stuck items'), findsOneWidget);
+    expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
   });
 }

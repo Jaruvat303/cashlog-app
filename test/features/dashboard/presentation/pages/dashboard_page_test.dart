@@ -3,14 +3,111 @@
 // _FakeAccountsRepository in test/widget_test.dart) — this is what keeps a
 // real dio call from ever reaching Flutter's test HTTP stub.
 import 'package:cashlog/core/network/failure.dart';
+import 'package:cashlog/features/accounts/data/accounts_repository.dart';
+import 'package:cashlog/features/accounts/domain/account.dart';
+import 'package:cashlog/features/categories/data/categories_repository.dart';
+import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/transaction.dart';
+import 'package:cashlog/features/transactions/domain/transaction_page.dart';
+import 'package:cashlog/shared/format/money.dart';
 import 'package:dartz/dartz.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
+
+class _FakeAccountsRepository implements AccountsRepository {
+  @override
+  Stream<List<Account>> watchActiveAccounts() => Stream.value(const []);
+  @override
+  Stream<Account?> watchCached(int id) => Stream.value(null);
+  @override
+  Stream<double> watchCurrentBalance(int accountId) => Stream.value(0);
+  @override
+  Future<Either<Failure, void>> refreshFromApi() async => const Right(null);
+  @override
+  Future<Either<Failure, Account>> create({
+    required String name,
+    required AccountType accountType,
+    required double openingBalance,
+    required List<String> matchingKeywords,
+    required String bankIcon,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, Account>> update(
+    int id, {
+    required String name,
+    required AccountType accountType,
+    required List<String> matchingKeywords,
+    required String bankIcon,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this page test');
+}
+
+class _FakeCategoriesRepository implements CategoriesRepository {
+  @override
+  Stream<List<Category>> watchAll() => Stream.value(const []);
+  @override
+  Future<Either<Failure, void>> refreshFromApi() async => const Right(null);
+  @override
+  Future<Either<Failure, Category>> create({
+    required String name,
+    required CategoryType type,
+    required String iconKey,
+    required String colorHex,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, Category>> update(
+    int id, {
+    required String name,
+    required CategoryType type,
+    required String iconKey,
+    required String colorHex,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this page test');
+}
+
+class _FakeTransactionsRepository implements TransactionsRepository {
+  @override
+  Stream<List<Transaction>> watchMonth({required int year, required int month}) => Stream.value(const []);
+  @override
+  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
+      throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, Transaction>> create({
+    required TransactionType type,
+    required double amount,
+    required DateTime date,
+    String? note,
+    int? accountId,
+    int? fromAccountId,
+    int? toAccountId,
+    int? categoryId,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, Transaction>> update(
+    int id, {
+    required TransactionType type,
+    required double amount,
+    required DateTime date,
+    String? note,
+    int? accountId,
+    int? fromAccountId,
+    int? toAccountId,
+    int? categoryId,
+  }) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this page test');
+}
 
 class _FakeDashboardRepository implements DashboardRepository {
   final Map<(int, int), Either<Failure, DashboardSummary>> results = {};
@@ -46,7 +143,12 @@ void main() {
   });
 
   Widget buildApp() => ProviderScope(
-    overrides: [dashboardRepositoryProvider.overrideWithValue(fakeRepository)],
+    overrides: [
+      dashboardRepositoryProvider.overrideWithValue(fakeRepository),
+      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+      transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
+    ],
     child: const MaterialApp(home: DashboardPage()),
   );
 
@@ -66,10 +168,10 @@ void main() {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.text('5000.00'), findsOneWidget);
-    expect(find.text('2000.00'), findsNWidgets(2)); // total expense card + the one expense row
-    expect(find.text('3000.00'), findsOneWidget); // net
-    expect(find.text('999999.00'), findsNothing);
+    expect(find.text(formatAmount(5000)), findsOneWidget);
+    expect(find.text(formatAmount(2000)), findsOneWidget); // total expense card only — the legend shows a % share, not the amount
+    expect(find.text('100%'), findsOneWidget); // the one expense category is 100% of the (2000) total
+    expect(find.text(formatAmount(999999)), findsNothing);
     expect(find.textContaining('999999'), findsNothing);
   });
 
@@ -110,7 +212,7 @@ void main() {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
-    expect(find.text('No expenses this month'), findsOneWidget);
+    expect(find.text('ไม่มีรายจ่ายในเดือนนี้'), findsOneWidget);
     expect(find.byType(PieChart), findsNothing);
   });
 
@@ -127,13 +229,13 @@ void main() {
 
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
-    expect(find.text('100.00'), findsOneWidget);
+    expect(find.text(formatAmount(100)), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.chevron_right));
+    await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
     await _pumpBounded(tester);
 
-    expect(find.text('100.00'), findsNothing);
-    expect(find.text('700.00'), findsOneWidget);
+    expect(find.text(formatAmount(100)), findsNothing);
+    expect(find.text(formatAmount(700)), findsOneWidget);
     expect(fakeRepository.fetchCalls, contains((nextMonth.year, nextMonth.month)));
   });
 }

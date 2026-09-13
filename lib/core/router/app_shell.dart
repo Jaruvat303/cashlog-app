@@ -1,8 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
-/// Bottom nav scaffold for the 4 top-level tabs. Each branch keeps its own
-/// Navigator stack via [StatefulShellRoute.indexedStack] in app_router.dart.
+import '../../features/slip_scan/presentation/widgets/manual_slip_attach_button.dart';
+import '../theme/app_theme.dart';
+
+/// Bottom nav scaffold for the 4 top-level tabs (mockup screens 1a/1b's nav
+/// bar). Each branch keeps its own Navigator stack via
+/// `StatefulShellRoute.indexedStack` in app_router.dart.
+///
+/// The mockup's 5th visual slot — the raised center camera button — isn't a
+/// branch: it's [ManualSlipAttachButton] (T21's manual capture entry point,
+/// moved here from the Transactions AppBar per the mockup, since the design
+/// treats it as a single global entry point reachable from every tab, not a
+/// per-page action) rendered as a [FloatingActionButton] and docked over the
+/// nav bar via `centerDocked`, which — with exactly 4 destinations — lands
+/// it dead center between "รายการ" and "บัญชี", matching the mockup's layout
+/// without needing a dummy 5th destination slot.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -10,18 +24,35 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = navigationShell.currentIndex;
+
     return Scaffold(
       body: navigationShell,
+      floatingActionButton: const ManualSlipAttachButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+        height: 74,
+        backgroundColor: AppColors.surface,
+        indicatorColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        selectedIndex: currentIndex,
         onDestinationSelected: navigationShell.goBranch,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Transactions'),
-          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), selectedIcon: Icon(Icons.account_balance_wallet), label: 'Accounts'),
-          NavigationDestination(icon: Icon(Icons.category_outlined), selectedIcon: Icon(Icons.category), label: 'Categories'),
+        destinations: [
+          _destination(RemixIcon.home5Line, RemixIcon.home5Fill, 'หน้าแรก', currentIndex == 0),
+          _destination(RemixIcon.listCheck2, RemixIcon.listCheck2, 'รายการ', currentIndex == 1),
+          _destination(RemixIcon.wallet3Line, RemixIcon.wallet3Fill, 'บัญชี', currentIndex == 2),
+          _destination(RemixIcon.moreLine, RemixIcon.moreFill, 'เพิ่มเติม', currentIndex == 3),
         ],
       ),
+    );
+  }
+
+  NavigationDestination _destination(IconData icon, IconData selectedIcon, String label, bool selected) {
+    final color = selected ? AppColors.primary : AppColors.textMuted;
+    return NavigationDestination(
+      icon: Icon(icon, color: color),
+      selectedIcon: Icon(selectedIcon, color: color),
+      label: label,
     );
   }
 }

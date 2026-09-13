@@ -4,8 +4,8 @@ enum CategoryType { income, expense }
 
 extension CategoryTypeLabel on CategoryType {
   String get label => switch (this) {
-    CategoryType.income => 'Income',
-    CategoryType.expense => 'Expense',
+    CategoryType.income => 'รายรับ',
+    CategoryType.expense => 'รายจ่าย',
   };
 }
 

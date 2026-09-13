@@ -223,7 +223,7 @@ void main() {
 
       // Lands on Dashboard by default — go straight to Transactions,
       // deliberately never tapping Categories.
-      await tester.tap(find.widgetWithText(NavigationDestination, 'Transactions'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'รายการ'));
       await _pumpBounded(tester);
 
       expect(find.textContaining('Food'), findsOneWidget, reason: 'category name should be visible without ever visiting Categories tab');
@@ -245,10 +245,10 @@ void main() {
     );
     await _pumpBounded(tester);
 
-    await tester.tap(find.widgetWithText(NavigationDestination, 'Transactions'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'รายการ'));
     await _pumpBounded(tester);
 
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.tap(find.byKey(const Key('newTransactionButton')));
     await _pumpBounded(tester);
 
     // The category dropdown is the only DropdownButtonFormField<int?> on

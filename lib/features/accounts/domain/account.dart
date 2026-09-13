@@ -4,10 +4,10 @@ enum AccountType { cash, bank, investment, ewallet }
 
 extension AccountTypeLabel on AccountType {
   String get label => switch (this) {
-    AccountType.cash => 'Cash',
-    AccountType.bank => 'Bank',
-    AccountType.investment => 'Investment',
-    AccountType.ewallet => 'E-Wallet',
+    AccountType.cash => 'เงินสด',
+    AccountType.bank => 'ธนาคาร',
+    AccountType.investment => 'ลงทุน',
+    AccountType.ewallet => 'อีวอลเล็ท',
   };
 }
 

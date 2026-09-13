@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../core/network/failure.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../data/pending_actions_repository.dart';
@@ -153,7 +155,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
         );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(queued ? 'No connection — saved to the retry queue' : (failure.message ?? 'Request failed. Please try again.'))),
+      SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
     );
   }
 
@@ -166,13 +168,62 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial?.transactionDate, _date));
   }
 
+  /// Mockup 1d's "ลบรายการ" button — same delete path
+  /// `TransactionListTile._confirmDelete` already uses for junk rows (real
+  /// delete → invalidate the transaction's month → transient failures queue
+  /// into `pending_manual_actions`), just reached from the edit sheet too.
+  Future<void> _confirmDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ลบรายการนี้ใช่ไหม'),
+        content: const Text('การลบไม่สามารถกู้คืนได้'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ลบ')),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final transaction = widget.initial!;
+    final result = await ref.read(transactionsRepositoryProvider).delete(transaction.id);
+    if (!context.mounted) return;
+
+    await result.fold(
+      (failure) async {
+        final queued = await ref
+            .read(pendingActionsRepositoryProvider)
+            .recordIfTransient(
+              failure: failure,
+              actionType: PendingActionType.deleteTransaction,
+              payload: deleteTransactionPayload(date: transaction.transactionDate),
+              targetTransactionId: transaction.id,
+            );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ลบรายการไม่สำเร็จ'))),
+        );
+      },
+      (_) async {
+        ref.read(cacheInvalidatorProvider).invalidateMonth(transaction.transactionDate.year, transaction.transactionDate.month);
+        if (context.mounted) Navigator.of(context).pop(true);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(activeAccountsProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
 
+    // Mockup 1d: the category field gets a highlighted (amber) treatment
+    // when this row still has no category — purely a decoration around the
+    // existing dropdown, not a structural change.
+    final categoryUnset = widget.isEditing && _type != TransactionType.transfer && _categoryId == null;
+
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? 'Edit transaction' : 'New transaction')),
+      appBar: AppBar(title: Text(widget.isEditing ? 'แก้ไขรายการ' : 'สร้างรายการเอง')),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -181,7 +232,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
             DropdownButtonFormField<TransactionType>(
               key: const Key('transactionTypeDropdown'),
               initialValue: _type,
-              decoration: const InputDecoration(labelText: 'Type'),
+              decoration: const InputDecoration(labelText: 'ประเภท'),
               items: TransactionType.values.map((type) => DropdownMenuItem(value: type, child: Text(type.label))).toList(),
               onChanged: (type) => setState(() {
                 _type = type!;
@@ -200,28 +251,30 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
               key: const Key('amountField'),
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Amount'),
+              decoration: const InputDecoration(labelText: 'จำนวนเงิน'),
               validator: (value) {
                 final parsed = double.tryParse(value ?? '');
-                if (parsed == null) return 'Enter a valid number';
-                if (parsed <= 0) return 'Must be greater than 0';
+                if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
+                if (parsed <= 0) return 'ต้องมากกว่า 0';
                 return null;
               },
             ),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Date'),
+              tileColor: AppColors.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: AppColors.inputBorder)),
+              title: const Text('วันที่'),
               subtitle: Text(
                 '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
               ),
-              trailing: const Icon(Icons.calendar_today),
+              trailing: const Icon(RemixIcon.calendarLine),
               onTap: _pickDate,
             ),
             const SizedBox(height: 8),
             accountsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load accounts: $error'),
+              error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
               data: (accounts) {
                 if (_type == TransactionType.transfer) {
                   return Column(
@@ -229,25 +282,25 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                       DropdownButtonFormField<int>(
                         key: const Key('fromAccountDropdown'),
                         initialValue: _fromAccountId,
-                        decoration: const InputDecoration(labelText: 'From account'),
+                        decoration: const InputDecoration(labelText: 'บัญชีต้นทาง'),
                         items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                         onChanged: (id) => setState(() {
                           _fromAccountId = id;
                           _transferError = null;
                         }),
-                        validator: (value) => value == null ? 'Required' : null,
+                        validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
                         key: const Key('toAccountDropdown'),
                         initialValue: _toAccountId,
-                        decoration: InputDecoration(labelText: 'To account', errorText: _transferError),
+                        decoration: InputDecoration(labelText: 'บัญชีปลายทาง', errorText: _transferError),
                         items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                         onChanged: (id) => setState(() {
                           _toAccountId = id;
                           _transferError = null;
                         }),
-                        validator: (value) => value == null ? 'Required' : null,
+                        validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
                       ),
                     ],
                   );
@@ -255,44 +308,62 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                 return DropdownButtonFormField<int>(
                   key: const Key('accountDropdown'),
                   initialValue: _accountId,
-                  decoration: const InputDecoration(labelText: 'Account'),
+                  decoration: const InputDecoration(labelText: 'บัญชี'),
                   items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                   onChanged: (id) => setState(() => _accountId = id),
-                  validator: (value) => value == null ? 'Required' : null,
+                  validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
                 );
               },
             ),
             if (_type != TransactionType.transfer) ...[
               const SizedBox(height: 8),
-              categoriesAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Text('Failed to load categories: $error'),
-                data: (categories) {
-                  // Only offer categories matching this transaction's type
-                  // (e.g. an expense never offers an income category).
-                  final matching = categories.where((c) => c.type.name == _type.name).toList();
-                  return DropdownButtonFormField<int?>(
-                    initialValue: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Category (optional)'),
-                    items: [
-                      const DropdownMenuItem<int?>(child: Text('Uncategorized')),
-                      ...matching.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                    ],
-                    onChanged: (id) => setState(() => _categoryId = id),
-                  );
-                },
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: categoryUnset ? Border.all(color: AppColors.warningBorder, width: 1.5) : null,
+                ),
+                child: categoriesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Text('โหลดหมวดหมู่ไม่สำเร็จ: $error'),
+                  data: (categories) {
+                    // Only offer categories matching this transaction's type
+                    // (e.g. an expense never offers an income category).
+                    final matching = categories.where((c) => c.type.name == _type.name).toList();
+                    return DropdownButtonFormField<int?>(
+                      initialValue: _categoryId,
+                      decoration: InputDecoration(labelText: categoryUnset ? 'แตะเพื่อเลือกหมวดหมู่' : 'หมวดหมู่ (ไม่บังคับ)'),
+                      items: [
+                        const DropdownMenuItem<int?>(child: Text('ยังไม่ระบุหมวดหมู่')),
+                        ...matching.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
+                      ],
+                      onChanged: (id) => setState(() => _categoryId = id),
+                    );
+                  },
+                ),
               ),
             ],
             const SizedBox(height: 8),
-            TextFormField(controller: _noteController, decoration: const InputDecoration(labelText: 'Note'), minLines: 1, maxLines: 3),
+            TextFormField(controller: _noteController, decoration: const InputDecoration(labelText: 'โน้ต'), minLines: 1, maxLines: 3),
             const SizedBox(height: 24),
             FilledButton(
               key: const Key('submitButton'),
               onPressed: _isSubmitting ? null : _submit,
               child: _isSubmitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(widget.isEditing ? 'Save' : 'Create'),
+                  : Text(widget.isEditing ? 'บันทึก' : 'สร้างรายการ'),
             ),
+            if (widget.isEditing) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton(
+                  key: const Key('deleteTransactionButton'),
+                  onPressed: _isSubmitting ? null : () => _confirmDelete(context),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+                  child: const Text('ลบรายการ'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

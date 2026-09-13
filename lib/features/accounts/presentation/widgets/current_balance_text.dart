@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/format/money.dart';
 import '../providers/accounts_providers.dart';
 
 /// BR-7: current_balance is always a client-side estimate derived from
 /// locally cached transactions, never a backend-confirmed figure — this
 /// disclaimer must sit next to every balance shown, with no exceptions.
-const currentBalanceDisclaimer = 'Estimated from recorded data';
+const currentBalanceDisclaimer = 'ประมาณการจากรายการที่บันทึกไว้';
 
 /// Renders one account's current_balance (see
 /// `AccountsRepository.watchCurrentBalance`) plus its mandatory disclaimer.
@@ -26,9 +27,9 @@ class CurrentBalanceText extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         balanceAsync.when(
-          loading: () => const Text('Calculating balance…'),
-          error: (error, _) => const Text('Balance unavailable'),
-          data: (balance) => Text(balance.toStringAsFixed(2), style: style),
+          loading: () => const Text('กำลังคำนวณยอดคงเหลือ…'),
+          error: (error, _) => const Text('ไม่สามารถแสดงยอดคงเหลือ'),
+          data: (balance) => Text(formatAmount(balance), style: style),
         ),
         Text(currentBalanceDisclaimer, style: Theme.of(context).textTheme.bodySmall),
       ],

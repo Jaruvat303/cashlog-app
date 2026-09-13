@@ -1,7 +1,9 @@
 # CLAUDE.md — Cashlog Mobile (Flutter client)
 
 This file is project-wide context for Claude Code. It reflects decisions already
-finalized in `cashlog-frontend-spec.md` and `cashlog-frontend-tickets.md`.
+finalized in `cashlog-frontend-spec.md` and `cashlog-frontend-tickets.md`, plus
+the follow-up bug-fix/redesign round in `cashlog-fixes-redesign-spec.md` and
+`cashlog-fixes-redesign-tickets.md`.
 Do not re-litigate these — if something here conflicts with a request, flag it
 instead of silently overriding.
 

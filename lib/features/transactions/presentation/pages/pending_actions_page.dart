@@ -11,10 +11,10 @@ import '../providers/pending_actions_providers.dart';
 String _dateLabel(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 String _actionLabel(PendingActionType type) => switch (type) {
-  PendingActionType.createTransaction => 'Create transaction',
-  PendingActionType.createTransfer => 'Create transfer',
-  PendingActionType.updateTransaction => 'Edit transaction',
-  PendingActionType.deleteTransaction => 'Delete transaction',
+  PendingActionType.createTransaction => 'สร้างรายการ',
+  PendingActionType.createTransfer => 'สร้างการย้ายเงิน',
+  PendingActionType.updateTransaction => 'แก้ไขรายการ',
+  PendingActionType.deleteTransaction => 'ลบรายการ',
 };
 
 String _summary(PendingAction action) => switch (action.actionType) {
@@ -24,7 +24,7 @@ String _summary(PendingAction action) => switch (action.actionType) {
   }(),
   PendingActionType.createTransfer => () {
     final args = readCreateTransferPayload(action.payload);
-    return 'Transfer · ${args.amount.toStringAsFixed(2)} · ${_dateLabel(args.date)}';
+    return 'ย้ายเงิน · ${args.amount.toStringAsFixed(2)} · ${_dateLabel(args.date)}';
   }(),
   PendingActionType.updateTransaction => () {
     final args = readUpdateTransactionPayload(action.payload);
@@ -32,7 +32,7 @@ String _summary(PendingAction action) => switch (action.actionType) {
   }(),
   PendingActionType.deleteTransaction => () {
     final args = readDeleteTransactionPayload(action.payload);
-    return 'Transaction from ${_dateLabel(args.date)}';
+    return 'รายการจาก ${_dateLabel(args.date)}';
   }(),
 };
 
@@ -63,10 +63,10 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
     result.fold(
       (failure) => ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'Still failing — stays in the queue'))),
+      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'ยังไม่สำเร็จ — อยู่ในคิวต่อไป'))),
       (_) {
         _invalidateAffectedMonths(action);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Retried successfully')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ลองใหม่สำเร็จ')));
       },
     );
   }
@@ -101,11 +101,11 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Discard this item?'),
-        content: const Text('It will be removed from the retry queue for good — this cannot be undone.'),
+        title: const Text('ทิ้งรายการนี้ใช่ไหม'),
+        content: const Text('รายการนี้จะถูกลบออกจากคิวลองใหม่อย่างถาวร ไม่สามารถกู้คืนได้'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Discard')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ทิ้ง')),
         ],
       ),
     );
@@ -118,13 +118,13 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
     final actionsAsync = ref.watch(pendingActionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Stuck items')),
+      appBar: AppBar(title: const Text('รายการค้าง')),
       body: actionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed to load: $error')),
+        error: (error, _) => Center(child: Text('โหลดไม่สำเร็จ: $error')),
         data: (actions) {
           if (actions.isEmpty) {
-            return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('No stuck items')));
+            return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('ไม่มีรายการค้าง')));
           }
           return ListView.builder(
             itemCount: actions.length,
@@ -137,8 +137,8 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
                 isThreeLine: true,
                 subtitle: Text(
                   '${_summary(action)}\n'
-                  'Retries: ${action.retryCount}'
-                  '${action.lastErrorCode != null ? ' · Last error: ${action.lastErrorCode}' : ''}',
+                  'ลองใหม่แล้ว: ${action.retryCount}'
+                  '${action.lastErrorCode != null ? ' · ข้อผิดพลาดล่าสุด: ${action.lastErrorCode}' : ''}',
                 ),
                 onTap: isRetrying ? null : () => _retry(action),
                 trailing: Row(
@@ -153,13 +153,13 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
                       IconButton(
                         key: Key('retryButton_${action.id}'),
                         icon: const Icon(Icons.refresh),
-                        tooltip: 'Retry',
+                        tooltip: 'ลองใหม่',
                         onPressed: () => _retry(action),
                       ),
                     IconButton(
                       key: Key('dismissButton_${action.id}'),
                       icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Discard',
+                      tooltip: 'ทิ้ง',
                       onPressed: () => _dismiss(action),
                     ),
                   ],

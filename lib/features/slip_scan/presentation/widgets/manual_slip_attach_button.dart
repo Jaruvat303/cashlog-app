@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../../../core/theme/app_theme.dart';
 import '../../domain/slip_upload_outcome.dart';
 import '../providers/slip_scan_pipeline_provider.dart';
 
@@ -27,12 +29,12 @@ class _RealManualSlipImageSource implements ManualSlipImageSource {
 @riverpod
 ManualSlipImageSource manualSlipImageSource(Ref ref) => _RealManualSlipImageSource();
 
-/// T21/spec §7.1's manual-attach entry point. Lives only on the Transactions
-/// feed page (T7) by construction — this widget is instantiated nowhere
-/// else in the app. Feeds into the exact same `SlipScanPipeline.
-/// uploadManual` → `SlipUploadRepository.uploadManual` → `POST
-/// /upload-slip` pipeline T10 built; the pipeline itself (not this widget)
-/// serializes this against any in-progress auto-scan batch.
+/// T21/spec §7.1's manual-attach entry point — the mockup's raised center
+/// camera button on the bottom nav (see `app_shell.dart`), reachable from
+/// every tab rather than only the Transactions feed. Feeds into the exact
+/// same `SlipScanPipeline.uploadManual` → `SlipUploadRepository.uploadManual`
+/// → `POST /upload-slip` pipeline T10 built; the pipeline itself (not this
+/// widget) serializes this against any in-progress auto-scan batch.
 class ManualSlipAttachButton extends ConsumerWidget {
   const ManualSlipAttachButton({super.key});
 
@@ -40,13 +42,20 @@ class ManualSlipAttachButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isBusy = ref.watch(slipScanPipelineProvider.select((s) => s.isManualUploading));
 
-    return IconButton(
+    return FloatingActionButton(
       key: const Key('manualSlipAttachButton'),
-      tooltip: 'Attach slip',
-      icon: isBusy
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-          : const Icon(Icons.add_a_photo_outlined),
+      tooltip: 'สแกนสลิป',
+      backgroundColor: AppColors.primary,
+      elevation: 8,
+      shape: const CircleBorder(),
       onPressed: isBusy ? null : () => _attach(context, ref),
+      child: isBusy
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            )
+          : const Icon(RemixIcon.cameraLine, color: Colors.white, size: 25),
     );
   }
 
@@ -59,14 +68,14 @@ class ManualSlipAttachButton extends ConsumerWidget {
           children: [
             ListTile(
               key: const Key('manualSlipAttachCameraOption'),
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
+              leading: const Icon(RemixIcon.cameraLine),
+              title: const Text('ถ่ายรูป'),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
             ListTile(
               key: const Key('manualSlipAttachGalleryOption'),
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from gallery'),
+              leading: const Icon(RemixIcon.imageLine),
+              title: const Text('เลือกจากคลังภาพ'),
               onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
           ],
@@ -85,10 +94,10 @@ class ManualSlipAttachButton extends ConsumerWidget {
     if (!context.mounted) return;
 
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'Could not upload slip'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'อัปโหลดสลิปไม่สำเร็จ'))),
       (outcome) => ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(outcome is SlipUploaded ? 'Slip uploaded' : 'This slip was already processed'))),
+      ).showSnackBar(SnackBar(content: Text(outcome is SlipUploaded ? 'อัปโหลดสลิปแล้ว' : 'สลิปนี้ถูกประมวลผลไปแล้ว'))),
     );
   }
 }

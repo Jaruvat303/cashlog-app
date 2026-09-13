@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/startup/app_startup_provider.dart';
+import 'core/theme/app_theme.dart';
 import 'features/slip_scan/presentation/providers/slip_scan_lifecycle_provider.dart';
 
 void main() {
@@ -35,7 +36,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'Cashlog',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
+      theme: AppTheme.light(),
       routerConfig: ref.watch(appRouterProvider),
     );
   }

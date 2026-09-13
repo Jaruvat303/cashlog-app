@@ -5,9 +5,9 @@ enum TransactionType { income, expense, transfer }
 
 extension TransactionTypeLabel on TransactionType {
   String get label => switch (this) {
-    TransactionType.income => 'Income',
-    TransactionType.expense => 'Expense',
-    TransactionType.transfer => 'Transfer',
+    TransactionType.income => 'รายรับ',
+    TransactionType.expense => 'รายจ่าย',
+    TransactionType.transfer => 'ย้ายเงิน',
   };
 }
 

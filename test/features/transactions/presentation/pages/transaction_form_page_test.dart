@@ -301,7 +301,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
     await _pumpBounded(tester);
-    await tester.tap(find.text('Transfer').last);
+    await tester.tap(find.text('ย้ายเงิน').last);
     await _pumpBounded(tester);
 
     await tester.tap(find.byKey(const Key('fromAccountDropdown')));
@@ -318,7 +318,7 @@ void main() {
     await tester.tap(find.byKey(const Key('submitButton')));
     await _pumpBounded(tester);
 
-    expect(find.text('Source and destination account must be different'), findsOneWidget);
+    expect(find.text('บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน'), findsOneWidget);
     expect(fakeTransactions.createCallCount, 0);
     // Still on the form — a blocked submit never pops.
     expect(find.byType(TransactionFormPage), findsOneWidget);
@@ -331,7 +331,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
     await _pumpBounded(tester);
-    await tester.tap(find.text('Income').last);
+    await tester.tap(find.text('รายรับ').last);
     await _pumpBounded(tester);
 
     await tester.tap(find.byKey(const Key('accountDropdown')));
@@ -397,7 +397,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
       await _pumpBounded(tester);
-      await tester.tap(find.text('Income').last);
+      await tester.tap(find.text('รายรับ').last);
       await _pumpBounded(tester);
 
       await tester.tap(find.byKey(const Key('accountDropdown')));
@@ -414,7 +414,7 @@ void main() {
       fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
       await fillAndSubmitIncome(tester);
 
-      expect(find.text('No connection — saved to the retry queue'), findsOneWidget);
+      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
       // A blocked/failed submit never pops — the form stays open with the
       // typed data still visible, same as any other failed submit today.
       expect(find.byType(TransactionFormPage), findsOneWidget);
