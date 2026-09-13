@@ -5,6 +5,7 @@
 // the network so `ApiClient.delete` succeeds without a real request, exactly
 // the same "don't let a real dio call happen in a test" concern noted for
 // widget tests, just for a plain unit test instead.
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cashlog/core/db/app_database.dart';
@@ -19,6 +20,39 @@ class _FakeSuccessAdapter implements HttpClientAdapter {
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     return ResponseBody.fromString('', 200);
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
+/// Returns a canned list of categories keyed by the request's `type` query
+/// param, and records every request path/query it saw — this is what lets
+/// the sync test assert both `type=income` and `type=expense` were actually
+/// requested, not just that the cache ended up populated somehow.
+class _FakeCategoriesByTypeAdapter implements HttpClientAdapter {
+  final List<RequestOptions> requests = [];
+
+  @override
+  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    requests.add(options);
+    final type = options.queryParameters['type'];
+    final data = switch (type) {
+      'income' => [
+        {'id': 1, 'name': 'Salary', 'type': 'income', 'icon_key': 'salary', 'color_hex': '#22C55E'},
+      ],
+      'expense' => [
+        {'id': 2, 'name': 'Food', 'type': 'expense', 'icon_key': 'food', 'color_hex': '#EF4444'},
+      ],
+      _ => throw StateError('unexpected/missing type query param: $type'),
+    };
+    return ResponseBody.fromString(
+      jsonEncode({'data': data}),
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
   }
 
   @override
@@ -81,5 +115,22 @@ void main() {
     final transactions = await db.select(db.cachedTransactions).get();
     expect(transactions, hasLength(3));
     expect(transactions.every((t) => t.categoryId == null), isTrue);
+  });
+
+  test('refreshFromApi fetches both income and expense categories and upserts both into the cache', () async {
+    final adapter = _FakeCategoriesByTypeAdapter();
+    final dio = Dio()..httpClientAdapter = adapter;
+    final syncingRepository = CategoriesRepository(ApiClient(dio), db);
+
+    final result = await syncingRepository.refreshFromApi();
+
+    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    expect(adapter.requests.map((r) => r.path).toSet(), {'/api/v1/categories'});
+    expect(adapter.requests.map((r) => r.queryParameters['type']).toSet(), {'income', 'expense'});
+
+    final cached = await db.select(db.cachedCategories).get();
+    expect(cached.map((c) => c.type).toSet(), {'income', 'expense'});
+    expect(cached.firstWhere((c) => c.type == 'income').name, 'Salary');
+    expect(cached.firstWhere((c) => c.type == 'expense').name, 'Food');
   });
 }

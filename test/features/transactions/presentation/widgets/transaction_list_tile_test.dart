@@ -181,7 +181,10 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this tile test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by this tile test');
+  Future<void> remove(int id) async {
+    _items.removeWhere((action) => action.id == id);
+    _controller.add(List.unmodifiable(_items));
+  }
 }
 
 /// T14: records exactly which months this tile's delete path asked to
@@ -262,7 +265,7 @@ void main() {
     await tester.pumpWidget(buildApp(_junkTransaction));
     await _pumpBounded(tester);
 
-    expect(find.text("Couldn't read slip data"), findsOneWidget);
+    expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
     expect(find.byKey(const Key('junkEditButton')), findsOneWidget);
     expect(find.byKey(const Key('junkDeleteButton')), findsOneWidget);
   });
@@ -296,15 +299,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('junkDeleteButton')));
     await _pumpBounded(tester);
-    expect(find.text('Delete transaction?'), findsOneWidget);
+    expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
     await _pumpBounded(tester);
     expect(fakeTransactions.deleteCalls, isEmpty);
 
     await tester.tap(find.byKey(const Key('junkDeleteButton')));
     await _pumpBounded(tester);
-    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
     await _pumpBounded(tester);
 
     expect(fakeTransactions.deleteCalls, [_junkTransaction.id]);
@@ -319,15 +322,71 @@ void main() {
 
     await tester.tap(find.byKey(const Key('junkDeleteButton')));
     await _pumpBounded(tester);
-    await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+    await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
     await _pumpBounded(tester);
 
     expect(fakeTransactions.deleteCalls, [_junkTransaction.id]);
     expect(find.text('Could not delete transaction'), findsOneWidget);
     // Still junk (delete failed) — badge stays visible.
-    expect(find.text("Couldn't read slip data"), findsOneWidget);
+    expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
     // T14: a failed delete must never invalidate any cache.
     expect(cacheInvalidator.invalidatedMonths, isEmpty);
+  });
+
+  group('pending-sync indicator (ticket 02)', () {
+    testWidgets('a transaction with an open queued action shows the indicator', (tester) async {
+      await pendingActions.recordIfTransient(
+        failure: const TimeoutFailure(),
+        actionType: PendingActionType.deleteTransaction,
+        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
+        targetTransactionId: _editedTransaction.id,
+      );
+
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+    });
+
+    testWidgets('a transaction with no queued action shows no indicator', (tester) async {
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
+    });
+
+    testWidgets('a queued action for a different transaction id does not show the indicator on this row', (tester) async {
+      await pendingActions.recordIfTransient(
+        failure: const TimeoutFailure(),
+        actionType: PendingActionType.deleteTransaction,
+        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
+        targetTransactionId: 999,
+      );
+
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
+    });
+
+    testWidgets('removing the pending action (successful manual retry) removes the indicator reactively', (tester) async {
+      final queuedId = 1;
+      await pendingActions.recordIfTransient(
+        failure: const TimeoutFailure(),
+        actionType: PendingActionType.deleteTransaction,
+        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
+        targetTransactionId: _editedTransaction.id,
+      );
+
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
+      expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+
+      await pendingActions.remove(queuedId);
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
+    });
   });
 
   group('T13 pending-actions queue', () {
@@ -338,10 +397,10 @@ void main() {
 
       await tester.tap(find.byKey(const Key('junkDeleteButton')));
       await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
       await _pumpBounded(tester);
 
-      expect(find.text('No connection — saved to the retry queue'), findsOneWidget);
+      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
       final queued = await pendingActions.watchAll().first;
       expect(queued, hasLength(1));
       expect(queued.single.actionType, PendingActionType.deleteTransaction);
@@ -355,7 +414,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('junkDeleteButton')));
       await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
       await _pumpBounded(tester);
 
       expect(find.text('Could not delete transaction'), findsOneWidget);

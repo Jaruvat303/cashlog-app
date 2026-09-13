@@ -27,16 +27,26 @@ class CategoriesRepository {
   Stream<List<Category>> watchAll() =>
       _db.select(_db.cachedCategories).watch().map((rows) => rows.map(categoryFromCached).toList());
 
+  Future<Either<Failure, List<Category>>> _fetchByType(CategoryType type) => _apiClient.get<List<Category>>(
+    '/api/v1/categories',
+    queryParameters: {'type': type.name},
+    parse: (data) => ((data as Map)['data'] as List).map((e) => categoryFromJson(e as Map<String, dynamic>)).toList(),
+  );
+
+  /// Unparameterized `GET /api/v1/categories` only ever returns one type, so
+  /// both types are fetched explicitly and merged before the cache upsert
+  /// (spec: Bug 2).
   Future<Either<Failure, void>> refreshFromApi() async {
-    final result = await _apiClient.get<List<Category>>(
-      '/api/v1/categories',
-      parse: (data) => ((data as Map)['data'] as List).map((e) => categoryFromJson(e as Map<String, dynamic>)).toList(),
-    );
-    return result.fold(
+    final incomeResult = await _fetchByType(CategoryType.income);
+    return incomeResult.fold(
       (failure) async => Left(failure),
-      (categories) async {
-        await _db.batch((b) => b.insertAllOnConflictUpdate(_db.cachedCategories, categories.map(categoryToCompanion)));
-        return const Right(null);
+      (incomeCategories) async {
+        final expenseResult = await _fetchByType(CategoryType.expense);
+        return expenseResult.fold((failure) async => Left(failure), (expenseCategories) async {
+          final categories = [...incomeCategories, ...expenseCategories];
+          await _db.batch((b) => b.insertAllOnConflictUpdate(_db.cachedCategories, categories.map(categoryToCompanion)));
+          return const Right(null);
+        });
       },
     );
   }

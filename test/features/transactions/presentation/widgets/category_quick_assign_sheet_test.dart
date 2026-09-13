@@ -3,13 +3,17 @@
 // transaction_list_tile_test.dart — every repository the tile (or the sheet
 // it opens) touches is overridden before any pumpWidget, so a real dio call
 // never reaches Flutter's test HTTP stub (T4's hang).
+import 'dart:async';
+
 import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
+import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/widgets/transaction_list_tile.dart';
@@ -123,6 +127,38 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
 }
 
+/// In-memory stand-in — same reasoning as transaction_list_tile_test.dart's
+/// own `_FakePendingActionsRepository`: `TransactionListTile` now carries a
+/// live `ref.watch(pendingActionsProvider)` (ticket 02's pending-sync
+/// indicator), so every test mounting it needs *some* override here, never
+/// the real drift-backed repository. `watchAll` is a plain `async*`
+/// generator, not `Stream.multi()`, per CLAUDE.md's testWidgets/FakeAsync
+/// note.
+class _FakePendingActionsRepository implements PendingActionsRepository {
+  final List<PendingAction> _items = [];
+  final _controller = StreamController<List<PendingAction>>.broadcast();
+
+  @override
+  Stream<List<PendingAction>> watchAll() async* {
+    yield List.unmodifiable(_items);
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<bool> recordIfTransient({
+    required Failure failure,
+    required PendingActionType actionType,
+    required Map<String, dynamic> payload,
+    int? targetTransactionId,
+  }) => throw UnimplementedError('not exercised by this test');
+
+  @override
+  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this test');
+
+  @override
+  Future<void> remove(int id) => throw UnimplementedError('not exercised by this test');
+}
+
 class _RecordingCacheInvalidator implements CacheInvalidator {
   final List<(int, int)> invalidatedMonths = [];
   @override
@@ -170,6 +206,7 @@ void main() {
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
       categoriesRepositoryProvider.overrideWithValue(fakeCategories),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+      pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
     ],
     child: MaterialApp(
@@ -258,10 +295,10 @@ void main() {
     expect(cacheInvalidator.invalidatedMonths, isEmpty);
   });
 
-  testWidgets('an uncategorized transaction shows an "Add category" prompt as its tap target', (tester) async {
+  testWidgets('an uncategorized transaction shows the "ยังไม่ระบุหมวดหมู่" badge', (tester) async {
     await tester.pumpWidget(buildApp(_expenseTransaction));
     await _pumpBounded(tester);
 
-    expect(find.text('Add category'), findsOneWidget);
+    expect(find.text('ยังไม่ระบุหมวดหมู่'), findsOneWidget);
   });
 }

@@ -233,7 +233,7 @@ void main() {
     await db.close();
   });
 
-  group('form/tile call sites against a real PendingActionsRepository (one-shot insert only — no live .watch(), so the drift/testWidgets teardown hang this codebase avoids elsewhere does not apply)', () {
+  group('form call sites against a real PendingActionsRepository (TransactionFormPage: one-shot insert only — no live .watch(), so the drift/testWidgets teardown hang this codebase avoids elsewhere does not apply)', () {
     testWidgets('a real transient create failure lands a real row in pending_manual_actions', (tester) async {
       fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
 
@@ -252,7 +252,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
       await _pumpBounded(tester);
-      await tester.tap(find.text('Income').last);
+      await tester.tap(find.text('รายรับ').last);
       await _pumpBounded(tester);
 
       await tester.tap(find.byKey(const Key('accountDropdown')));
@@ -264,7 +264,7 @@ void main() {
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
-      expect(find.text('No connection — saved to the retry queue'), findsOneWidget);
+      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
       // A blocked/failed submit never pops.
       expect(find.byType(TransactionFormPage), findsOneWidget);
 
@@ -274,33 +274,43 @@ void main() {
       expect(rows.single.lastErrorCode, 'DATABASE_TIMEOUT');
     });
 
+  });
+
+  group('tile call site against a real PendingActionsRepository (TransactionListTile: carries ticket 02\'s live ref.watch(pendingActionsProvider) pending-sync indicator, so this needs the same tester.runAsync() treatment as the PendingActionsPage groups below)', () {
     testWidgets('a real transient delete failure lands a real row in pending_manual_actions', (tester) async {
       fakeTransactions.nextDeleteResult = const Left(TimeoutFailure());
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-            categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-            transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-            pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-          ],
-          child: MaterialApp(home: Scaffold(body: TransactionListTile(transaction: _junkTransaction, categoriesById: const {}))),
-        ),
-      );
-      await _pumpBounded(tester);
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+              categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+              transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
+            ],
+            child: MaterialApp(home: Scaffold(body: TransactionListTile(transaction: _junkTransaction, categoriesById: const {}))),
+          ),
+        );
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('junkDeleteButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'Delete'));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('junkDeleteButton')));
+        await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+        await _pumpBounded(tester);
 
-      expect(find.text('No connection — saved to the retry queue'), findsOneWidget);
+        expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
 
-      final rows = await db.select(db.pendingManualActions).get();
-      expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
-      expect(rows.single.actionType, 'delete_transaction');
-      expect(rows.single.targetTransactionId, 7);
+        final rows = await db.select(db.pendingManualActions).get();
+        expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
+        expect(rows.single.actionType, 'delete_transaction');
+        expect(rows.single.targetTransactionId, 7);
+
+        // Force disposal (and the live pendingActionsProvider subscription's
+        // cancellation) to happen here, inside runAsync's real zone — same
+        // reasoning as the PendingActionsPage groups below.
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
     });
   });
 
@@ -333,13 +343,13 @@ void main() {
         );
         await _pumpBounded(tester);
 
-        expect(find.text('Delete transaction'), findsOneWidget);
+        expect(find.text('ลบรายการ'), findsOneWidget);
         final row = (await db.select(db.pendingManualActions).get()).single;
 
         await tester.tap(find.byKey(Key('retryButton_${row.id}')));
         await _pumpBounded(tester);
 
-        expect(find.text('Retried successfully'), findsOneWidget);
+        expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
         expect(await db.select(db.pendingManualActions).get(), isEmpty);
 
         // Force disposal (and therefore stream-subscription cancellation)
@@ -375,7 +385,7 @@ void main() {
         );
         await _pumpBounded(tester);
 
-        expect(find.text('Create transaction'), findsOneWidget);
+        expect(find.text('สร้างรายการ'), findsOneWidget);
         final row = (await db.select(db.pendingManualActions).get()).single;
 
         await tester.tap(find.byKey(Key('retryButton_${row.id}')));
@@ -389,7 +399,7 @@ void main() {
         await Future<void>.delayed(const Duration(seconds: 2));
         await _pumpBounded(tester);
 
-        expect(find.text('Retried successfully'), findsOneWidget);
+        expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
         expect(await db.select(db.pendingManualActions).get(), isEmpty, reason: 'a real successful retry must remove the queued row');
 
         final cached = await db.select(db.cachedTransactions).get();
