@@ -171,8 +171,14 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     );
   }
 
+  final List<int> deleteCalls = [];
+  Either<Failure, void> deleteResult = const Right(null);
+
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
+  Future<Either<Failure, void>> delete(int id) async {
+    deleteCalls.add(id);
+    return deleteResult;
+  }
 }
 
 /// T14: records exactly which months this form's mutation asked to
@@ -430,6 +436,111 @@ void main() {
       await fillAndSubmitIncome(tester);
 
       expect(find.text('Invalid input'), findsOneWidget);
+      expect(await pendingActions.watchAll().first, isEmpty);
+    });
+  });
+
+  /// Ticket 04: delete moved off `TransactionListTile`'s junk-only icon
+  /// onto this page, for any transaction (junk or not). Same confirm-dialog
+  /// copy, delete/invalidate/queue flow this page already had pre-ticket —
+  /// this group is the test coverage that flow never had until now.
+  group('delete action (ticket 04)', () {
+    final existing = Transaction(
+      id: 7,
+      amount: 500,
+      type: TransactionType.expense,
+      source: 'manual',
+      transactionDate: DateTime.utc(2026, 9, 5),
+    );
+
+    testWidgets('no delete button when creating a new transaction', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('deleteTransactionButton')), findsNothing);
+    });
+
+    testWidgets('delete button appears when editing an existing transaction', (tester) async {
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('deleteTransactionButton')), findsOneWidget);
+    });
+
+    testWidgets('tapping delete shows the confirm dialog; canceling does not delete', (tester) async {
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+      await _pumpBounded(tester);
+      expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
+      expect(find.text('การลบไม่สามารถกู้คืนได้'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+      await _pumpBounded(tester);
+
+      expect(fakeTransactions.deleteCalls, isEmpty);
+    });
+
+    testWidgets('confirming delete calls the repository and invalidates the deleted transaction\'s month', (tester) async {
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await _pumpBounded(tester);
+
+      expect(fakeTransactions.deleteCalls, [existing.id]);
+      expect(cacheInvalidator.invalidatedMonthSets, [
+        {(existing.transactionDate.year, existing.transactionDate.month)},
+      ]);
+    });
+
+    testWidgets('a failed delete shows an error and never invalidates the cache', (tester) async {
+      fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await _pumpBounded(tester);
+
+      expect(fakeTransactions.deleteCalls, [existing.id]);
+      expect(find.text('Could not delete transaction'), findsOneWidget);
+      expect(cacheInvalidator.invalidatedMonthSets, isEmpty);
+    });
+
+    testWidgets('a transient delete failure gets queued and shows the retry-queue snackbar', (tester) async {
+      fakeTransactions.deleteResult = const Left(TimeoutFailure());
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await _pumpBounded(tester);
+
+      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
+      final queued = await pendingActions.watchAll().first;
+      expect(queued, hasLength(1));
+      expect(queued.single.actionType, PendingActionType.deleteTransaction);
+      expect(queued.single.targetTransactionId, existing.id);
+    });
+
+    testWidgets('a permanent delete failure is not queued — snackbar only', (tester) async {
+      fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+      await _pumpBounded(tester);
+      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+      await _pumpBounded(tester);
+
+      expect(find.text('Could not delete transaction'), findsOneWidget);
       expect(await pendingActions.watchAll().first, isEmpty);
     });
   });

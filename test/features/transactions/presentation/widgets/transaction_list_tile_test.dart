@@ -240,10 +240,10 @@ void main() {
   late _RecordingCacheInvalidator cacheInvalidator;
 
   setUp(() {
+    // Delete moved to TransactionFormPage (ticket 04) — this repository is
+    // wired in purely so the form page the tile pushes doesn't blow up if
+    // built; delete-path assertions now live in transaction_form_page_test.dart.
     fakeTransactions = _FakeTransactionsRepository();
-    // T13's tests below assert against this repository's own state after
-    // driving a failure through the actual delete path, not a pre-seeded
-    // stand-in.
     pendingActions = _FakePendingActionsRepository();
     cacheInvalidator = _RecordingCacheInvalidator();
   });
@@ -261,16 +261,16 @@ void main() {
     ),
   );
 
-  testWidgets('a junk transaction shows the warning badge and edit/delete actions', (tester) async {
+  testWidgets('a junk transaction shows the warning badge and no edit/delete icons (ticket 04)', (tester) async {
     await tester.pumpWidget(buildApp(_junkTransaction));
     await _pumpBounded(tester);
 
     expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
-    expect(find.byKey(const Key('junkEditButton')), findsOneWidget);
-    expect(find.byKey(const Key('junkDeleteButton')), findsOneWidget);
+    expect(find.byKey(const Key('junkEditButton')), findsNothing);
+    expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
   });
 
-  testWidgets('a normal (non-junk) transaction shows neither the badge nor the junk actions', (tester) async {
+  testWidgets('a normal (non-junk) transaction shows neither the badge nor edit/delete icons', (tester) async {
     await tester.pumpWidget(buildApp(_editedTransaction));
     await _pumpBounded(tester);
 
@@ -279,11 +279,11 @@ void main() {
     expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
   });
 
-  testWidgets('tapping the edit action opens T6\'s full edit form prefilled with this transaction', (tester) async {
+  testWidgets('tapping a junk row opens the edit form prefilled with this transaction (ticket 04)', (tester) async {
     await tester.pumpWidget(buildApp(_junkTransaction));
     await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('junkEditButton')));
+    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
     await _pumpBounded(tester);
 
     final formFinder = find.byType(TransactionFormPage);
@@ -293,44 +293,18 @@ void main() {
     expect(form.isEditing, isTrue);
   });
 
-  testWidgets('tapping delete then confirming calls the repository; canceling does not', (tester) async {
-    await tester.pumpWidget(buildApp(_junkTransaction));
+  testWidgets('tapping a non-junk row opens the edit form prefilled with this transaction (ticket 04)', (tester) async {
+    await tester.pumpWidget(buildApp(_editedTransaction));
     await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('junkDeleteButton')));
-    await _pumpBounded(tester);
-    expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
-    await _pumpBounded(tester);
-    expect(fakeTransactions.deleteCalls, isEmpty);
-
-    await tester.tap(find.byKey(const Key('junkDeleteButton')));
-    await _pumpBounded(tester);
-    await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
     await _pumpBounded(tester);
 
-    expect(fakeTransactions.deleteCalls, [_junkTransaction.id]);
-    // T14: a successful delete invalidates the deleted transaction's month.
-    expect(cacheInvalidator.invalidatedMonths, [(_junkTransaction.transactionDate.year, _junkTransaction.transactionDate.month)]);
-  });
-
-  testWidgets('a failed delete shows an error and never crashes the tile', (tester) async {
-    fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
-    await tester.pumpWidget(buildApp(_junkTransaction));
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('junkDeleteButton')));
-    await _pumpBounded(tester);
-    await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-    await _pumpBounded(tester);
-
-    expect(fakeTransactions.deleteCalls, [_junkTransaction.id]);
-    expect(find.text('Could not delete transaction'), findsOneWidget);
-    // Still junk (delete failed) — badge stays visible.
-    expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
-    // T14: a failed delete must never invalidate any cache.
-    expect(cacheInvalidator.invalidatedMonths, isEmpty);
+    final formFinder = find.byType(TransactionFormPage);
+    expect(formFinder, findsOneWidget);
+    final form = tester.widget<TransactionFormPage>(formFinder);
+    expect(form.initial?.id, _editedTransaction.id);
+    expect(form.isEditing, isTrue);
   });
 
   group('pending-sync indicator (ticket 02)', () {
@@ -386,39 +360,6 @@ void main() {
       await _pumpBounded(tester);
 
       expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
-    });
-  });
-
-  group('T13 pending-actions queue', () {
-    testWidgets('a transient delete failure gets queued and shows the retry-queue snackbar', (tester) async {
-      fakeTransactions.deleteResult = const Left(TimeoutFailure());
-      await tester.pumpWidget(buildApp(_junkTransaction));
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('junkDeleteButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-      await _pumpBounded(tester);
-
-      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-      final queued = await pendingActions.watchAll().first;
-      expect(queued, hasLength(1));
-      expect(queued.single.actionType, PendingActionType.deleteTransaction);
-      expect(queued.single.targetTransactionId, _junkTransaction.id);
-    });
-
-    testWidgets('a permanent delete failure is not queued — snackbar only, same as before this ticket', (tester) async {
-      fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
-      await tester.pumpWidget(buildApp(_junkTransaction));
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('junkDeleteButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-      await _pumpBounded(tester);
-
-      expect(find.text('Could not delete transaction'), findsOneWidget);
-      expect(await pendingActions.watchAll().first, isEmpty);
     });
   });
 }

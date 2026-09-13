@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
-import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/money.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/domain/category.dart';
-import '../../data/pending_actions_repository.dart';
-import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../pages/transaction_form_page.dart';
@@ -17,14 +14,15 @@ import 'category_quick_assign_sheet.dart';
 
 /// One feed row (mockup screen 1b). Two independent tap targets, per
 /// spec §3.2: tapping [CategoryQuickAssignChip] (the leading icon) opens the
-/// quick-assign grid sheet immediately; tapping anywhere else on the row
-/// opens the full edit sheet (T6) — `_edit` below, wired to every row
-/// (including transfers) now, not just junk rows.
+/// quick-assign grid sheet immediately; tapping anywhere else on the row —
+/// junk or not — opens the full edit page (`_edit` below). Ticket 04
+/// supersedes the old junk-only edit/delete icon pair: delete now lives
+/// exclusively on `TransactionFormPage`, reached the same way editing is.
 ///
 /// T12 (junk badge): the rule in `computeIsJunk` doesn't key off
 /// [TransactionType], so a junk row can in principle be any of the three
-/// types — the warning row and edit/delete actions below are shared across
-/// both builders rather than added to just one.
+/// types — the warning row below is shared across both builders rather than
+/// added to just one.
 class TransactionListTile extends ConsumerWidget {
   const TransactionListTile({super.key, required this.transaction, required this.categoriesById});
 
@@ -45,7 +43,7 @@ class TransactionListTile extends ConsumerWidget {
     final toAccount = transaction.toAccountId == null ? null : ref.watch(cachedAccountProvider(transaction.toAccountId!)).value;
 
     return _Row(
-      onTap: transaction.isJunk ? null : () => _edit(context),
+      onTap: () => _edit(context),
       leading: Container(
         width: 38,
         height: 38,
@@ -69,7 +67,6 @@ class TransactionListTile extends ConsumerWidget {
         ),
       ),
       trailing: _trailing(
-        context,
         ref,
         Text(
           formatAmount(transaction.amount),
@@ -94,7 +91,7 @@ class TransactionListTile extends ConsumerWidget {
     final amountText = formatAmount(transaction.amount, sign: isIncome ? '+' : '-');
 
     return _Row(
-      onTap: transaction.isJunk ? null : () => _edit(context),
+      onTap: () => _edit(context),
       leading: CategoryQuickAssignChip(transaction: transaction, category: category),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.textPrimary)),
       subtitle: _subtitle(
@@ -111,7 +108,6 @@ class TransactionListTile extends ConsumerWidget {
         ),
       ),
       trailing: _trailing(
-        context,
         ref,
         Text(amountText, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: amountColor)),
       ),
@@ -160,35 +156,15 @@ class TransactionListTile extends ConsumerWidget {
     );
   }
 
-  /// Spec §7.7: junk rows swap the (uninformative — always 0) amount for
-  /// explicit edit/delete actions; non-junk rows keep showing the amount.
-  /// Bug 3 follow-up: a queued-but-not-yet-retried mutation shows a small
-  /// sync indicator ahead of either, independent of junk status — a junk
-  /// row's own delete can itself be the thing sitting in the queue.
-  Widget _trailing(BuildContext context, WidgetRef ref, Widget normal) {
+  /// Ticket 04: every row just shows its amount now, junk included — the
+  /// old junk-only edit/delete icon pair is gone, since the whole row is a
+  /// tap target and delete moved to `TransactionFormPage`. Bug 3 follow-up:
+  /// a queued-but-not-yet-retried mutation shows a small sync indicator
+  /// ahead of the amount, independent of junk status.
+  Widget _trailing(WidgetRef ref, Widget normal) {
     final pendingIndicator = _pendingSyncIndicator(ref);
-    if (!transaction.isJunk) {
-      if (pendingIndicator == null) return normal;
-      return Row(mainAxisSize: MainAxisSize.min, children: [pendingIndicator, const SizedBox(width: 6), normal]);
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (pendingIndicator != null) ...[pendingIndicator, const SizedBox(width: 4)],
-        IconButton(
-          key: const Key('junkEditButton'),
-          icon: const Icon(Icons.edit_outlined),
-          tooltip: 'แก้ไข',
-          onPressed: () => _edit(context),
-        ),
-        IconButton(
-          key: const Key('junkDeleteButton'),
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'ลบ',
-          onPressed: () => _confirmDelete(context, ref),
-        ),
-      ],
-    );
+    if (pendingIndicator == null) return normal;
+    return Row(mainAxisSize: MainAxisSize.min, children: [pendingIndicator, const SizedBox(width: 6), normal]);
   }
 
   /// Sourced from `PendingActionsRepository.watchAll()` (spec: Bug 3
@@ -207,59 +183,13 @@ class TransactionListTile extends ConsumerWidget {
     );
   }
 
-  /// T6's full edit sheet is the escape hatch for junk rows (CLAUDE.md/spec
-  /// §12.3) and now the primary way to reach it for every other row too
-  /// (spec §3.2: tap anywhere on the row besides the category icon) —
-  /// fixing the amount alone is enough to clear `isJunk` once the PATCH
-  /// response is re-parsed through `transactionFromJson`, since the rule is
-  /// an AND across amount/senderName/receiverName.
+  /// Opens `TransactionFormPage` for every row now, junk included (ticket
+  /// 04) — fixing the amount alone is enough to clear `isJunk` once the
+  /// PATCH response is re-parsed through `transactionFromJson`, since the
+  /// rule is an AND across amount/senderName/receiverName. Delete for any
+  /// transaction, junk or not, now lives on that page instead of here.
   void _edit(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => TransactionFormPage(initial: transaction)));
-  }
-
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('ลบรายการนี้ใช่ไหม'),
-        content: const Text('ข้อมูลจากสลิปของรายการนี้อ่านไม่ได้ การลบไม่สามารถกู้คืนได้'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ลบ')),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    final result = await ref.read(transactionsRepositoryProvider).delete(transaction.id);
-    if (!context.mounted) return;
-    await result.fold(
-      // T13: a transient failure gets snapshotted into `pending_manual_actions`
-      // (`PendingActionsRepository.recordIfTransient` is the single shared
-      // decision point with `TransactionFormPage`'s create/update failures —
-      // only `RetryPolicy.transient` failures get queued); a permanent one
-      // stays snackbar-only, same as before this ticket.
-      (failure) async {
-        final queued = await ref
-            .read(pendingActionsRepositoryProvider)
-            .recordIfTransient(
-              failure: failure,
-              actionType: PendingActionType.deleteTransaction,
-              payload: deleteTransactionPayload(date: transaction.transactionDate),
-              targetTransactionId: transaction.id,
-            );
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ลบรายการไม่สำเร็จ'))),
-        );
-      },
-      // T14: deleting a transaction changes its month's feed and dashboard
-      // totals, so that month must be invalidated by hand, same as
-      // TransactionFormPage's own mutation does.
-      (_) async => ref
-          .read(cacheInvalidatorProvider)
-          .invalidateMonth(transaction.transactionDate.year, transaction.transactionDate.month),
-    );
   }
 }
 
@@ -279,6 +209,7 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      key: const Key('transactionRowTapTarget'),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

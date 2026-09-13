@@ -276,11 +276,41 @@ void main() {
 
   });
 
-  group('tile call site against a real PendingActionsRepository (TransactionListTile: carries ticket 02\'s live ref.watch(pendingActionsProvider) pending-sync indicator, so this needs the same tester.runAsync() treatment as the PendingActionsPage groups below)', () {
-    testWidgets('a real transient delete failure lands a real row in pending_manual_actions', (tester) async {
+  group('form delete call site (ticket 04 moved delete off TransactionListTile) against a real PendingActionsRepository, then TransactionListTile\'s live ref.watch(pendingActionsProvider) pending-sync indicator (ticket 02) picking up the same real row — needs tester.runAsync() once the tile mounts, same reasoning as the PendingActionsPage groups below', () {
+    testWidgets('a real transient delete failure via TransactionFormPage lands a real row, and the tile shows the indicator for it', (tester) async {
       fakeTransactions.nextDeleteResult = const Left(TimeoutFailure());
 
       await tester.runAsync(() async {
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+              categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+              transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
+            ],
+            child: MaterialApp(home: TransactionFormPage(initial: _junkTransaction)),
+          ),
+        );
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+        await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+        await _pumpBounded(tester);
+
+        expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
+
+        final rows = await db.select(db.pendingManualActions).get();
+        expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
+        expect(rows.single.actionType, 'delete_transaction');
+        expect(rows.single.targetTransactionId, 7);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await _pumpBounded(tester);
+
+        // Ticket 02's indicator is unaffected by ticket 04's move — this
+        // mounts the tile fresh against the same real db-backed row.
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -294,17 +324,7 @@ void main() {
         );
         await _pumpBounded(tester);
 
-        await tester.tap(find.byKey(const Key('junkDeleteButton')));
-        await _pumpBounded(tester);
-        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-        await _pumpBounded(tester);
-
-        expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-
-        final rows = await db.select(db.pendingManualActions).get();
-        expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
-        expect(rows.single.actionType, 'delete_transaction');
-        expect(rows.single.targetTransactionId, 7);
+        expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
 
         // Force disposal (and the live pendingActionsProvider subscription's
         // cancellation) to happen here, inside runAsync's real zone — same

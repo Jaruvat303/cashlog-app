@@ -168,10 +168,11 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial?.transactionDate, _date));
   }
 
-  /// Mockup 1d's "ลบรายการ" button — same delete path
-  /// `TransactionListTile._confirmDelete` already uses for junk rows (real
-  /// delete → invalidate the transaction's month → transient failures queue
-  /// into `pending_manual_actions`), just reached from the edit sheet too.
+  /// Mockup 1d's "ลบรายการ" button — ticket 04's sole delete path for any
+  /// transaction, junk or not (the old junk-row delete icon on
+  /// `TransactionListTile` is gone): real delete → invalidate the
+  /// transaction's month → transient failures queue into
+  /// `pending_manual_actions`.
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
