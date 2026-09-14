@@ -245,6 +245,9 @@ Transaction _expense(int id, String note, DateTime date, {int? categoryId}) =>
 Transaction _income(int id, String note, DateTime date, {int? categoryId}) =>
     Transaction(id: id, amount: 200, type: TransactionType.income, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
 
+Transaction _transfer(int id, double amount, DateTime date) =>
+    Transaction(id: id, amount: amount, type: TransactionType.transfer, source: 'manual', transactionDate: date);
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
 /// test/widget_test.dart's `_pumpBounded`).
@@ -408,16 +411,6 @@ void main() {
       expect(find.text('อาหาร'), findsNothing);
     });
 
-    testWidgets('the Transfer tab is a placeholder, not a real transaction list', (tester) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('summaryTab-transfer')));
-      await _pumpBounded(tester);
-
-      expect(find.text('สรุปรายการย้ายเงินจะเพิ่มเข้ามาเร็ว ๆ นี้'), findsOneWidget);
-    });
-
     testWidgets(
       'tapping a category row filters the list below to only that category, and the chip clears it',
       (tester) async {
@@ -496,6 +489,105 @@ void main() {
 
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Salary row'), findsNothing);
+    });
+  });
+
+  group('ticket 08: Transfer summary tab', () {
+    setUp(() {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = const Right(
+        DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: 0, month: 0, income: [], expense: []),
+      );
+    });
+
+    testWidgets('shows every transfer transaction for the month, flat and ungrouped', (tester) async {
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [
+          _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+          _transfer(2, 1234, thisMonth),
+          _transfer(3, 5678, thisMonth),
+        ],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('summaryTab-transfer')));
+      await _pumpBounded(tester);
+
+      // Ticket 08 acceptance: every transfer for the scope appears in the
+      // tab's own list — scoped to `transferTabList` since the unfiltered
+      // day-grouped feed below the summary card also renders these same two
+      // transfers today (unrelated pre-existing behavior, not this tab).
+      final transferList = find.byKey(const Key('transferTabList'));
+      expect(find.descendant(of: transferList, matching: find.text(formatAmount(1234))), findsOneWidget);
+      expect(find.descendant(of: transferList, matching: find.text(formatAmount(5678))), findsOneWidget);
+      // ...the non-transfer transaction never leaks into this tab...
+      expect(find.descendant(of: transferList, matching: find.text('Food expense row')), findsNothing);
+      // ...and no aggregation/grouping is applied: exactly one row per
+      // transfer, with a plain divider between them, not e.g. a single
+      // account-pair total.
+      final list = tester.widget<Column>(transferList);
+      expect(list.children.whereType<Divider>().length, 1); // 2 rows => 1 separating divider
+    });
+
+    testWidgets('shows a "no transfers" empty state distinct from the placeholder copy', (tester) async {
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(transactions: [], currentPage: 1, totalPages: 1);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('summaryTab-transfer')));
+      await _pumpBounded(tester);
+
+      expect(find.text('ไม่มีรายการย้ายเงินในเดือนนี้'), findsOneWidget);
+    });
+
+    testWidgets('an Expense category drill-through does not empty the Transfer tab, and survives visiting it', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        DashboardSummary(
+          totalIncome: 0,
+          totalExpense: 2000,
+          totalTransfer: 0,
+          year: thisMonth.year,
+          month: thisMonth.month,
+          income: const [],
+          expense: [_breakdown(10, 'อาหาร', 2000)],
+        ),
+      );
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [
+          _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+          _expense(2, 'Uncategorized expense row', thisMonth),
+          _transfer(3, 999, thisMonth),
+        ],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      // Drill into the Food category from the Expense tab.
+      await tester.tap(find.text('อาหาร'));
+      await _pumpBounded(tester);
+      expect(find.text('Food expense row'), findsOneWidget);
+      expect(find.text('Uncategorized expense row'), findsNothing);
+
+      // Ticket 08: switching to Transfer must not inherit that category
+      // filter — the tab's own transfer still shows.
+      await tester.tap(find.byKey(const Key('summaryTab-transfer')));
+      await _pumpBounded(tester);
+      expect(find.text(formatAmount(999)), findsOneWidget);
+
+      // ...and switching back to Expense preserves the drill-through
+      // filter exactly as it was, independent of the Transfer visit.
+      await tester.tap(find.byKey(const Key('summaryTab-expense')));
+      await _pumpBounded(tester);
+      expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
+      expect(find.text('Food expense row'), findsOneWidget);
+      expect(find.text('Uncategorized expense row'), findsNothing);
     });
   });
 }

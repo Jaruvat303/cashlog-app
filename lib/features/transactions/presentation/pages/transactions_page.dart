@@ -232,6 +232,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               onTabChanged: (tab) => setState(() => _summaryTab = tab),
               selectedCategoryId: _categoryFilterId,
               onCategoryTap: _selectCategoryFilter,
+              categoriesById: categoriesById,
             );
 
             if (filtered.isEmpty) {
@@ -432,12 +433,14 @@ class _DayGroup {
 
 /// Ticket 07 (Design 3, summary half): the category/amount summary that
 /// ticket 06 detached from the Home page, relocated here as a tabbed
-/// section above the transaction list. Sources the exact same
+/// section above the transaction list. Income/Expense source the exact same
 /// `dashboardSummaryProvider(year, month)` the old Dashboard pie chart used
-/// — no new backend call, per spec. Income/Expense render a plain
+/// — no new backend call, per spec — and render a plain
 /// `{category_name, total_amount}` list (replacing the old
-/// pie-chart-with-labels approach); Transfer is a placeholder only —
-/// its real flat-list content is ticket 08, blocked on this one.
+/// pie-chart-with-labels approach). Ticket 08: Transfer instead sources
+/// `monthTransactionsProvider` directly (transfers carry no `category_id`,
+/// so the dashboard summary's per-category breakdown has nothing to offer
+/// it) and renders a flat, ungrouped list of transfer transactions.
 class _SummarySection extends ConsumerWidget {
   const _SummarySection({
     required this.year,
@@ -446,6 +449,7 @@ class _SummarySection extends ConsumerWidget {
     required this.onTabChanged,
     required this.selectedCategoryId,
     required this.onCategoryTap,
+    required this.categoriesById,
   });
 
   final int year;
@@ -454,11 +458,10 @@ class _SummarySection extends ConsumerWidget {
   final ValueChanged<_SummaryTab> onTabChanged;
   final int? selectedCategoryId;
   final void Function(int categoryId, String categoryName) onCategoryTap;
+  final Map<int, Category> categoriesById;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final summaryAsync = ref.watch(dashboardSummaryProvider(year, month));
-
     return Container(
       key: const Key('transactionsSummarySection'),
       decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(20)),
@@ -476,26 +479,39 @@ class _SummarySection extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          summaryAsync.when(
-            loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
-            error: (error, _) =>
-                Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดสรุปไม่สำเร็จ: $error')),
-            data: (summary) => switch (tab) {
-              _SummaryTab.income => _CategoryTotalsList(
-                breakdown: summary.income,
-                selectedCategoryId: selectedCategoryId,
-                onTap: onCategoryTap,
-                emptyMessage: 'ไม่มีรายรับในเดือนนี้',
-              ),
-              _SummaryTab.expense => _CategoryTotalsList(
-                breakdown: summary.expense,
-                selectedCategoryId: selectedCategoryId,
-                onTap: onCategoryTap,
-                emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
-              ),
-              _SummaryTab.transfer => const _TransferTabPlaceholder(),
-            },
-          ),
+          // Ticket 08: Transfer is built outside the dashboard-summary
+          // `.when` below — it has its own independent data source
+          // (`monthTransactionsProvider`, not `dashboardSummaryProvider`),
+          // so a loading/error state on the dashboard summary must never
+          // block or blank out the Transfer tab.
+          if (tab == _SummaryTab.transfer)
+            _TransferList(year: year, month: month, categoriesById: categoriesById)
+          else
+            Consumer(
+              builder: (context, ref, _) {
+                final summaryAsync = ref.watch(dashboardSummaryProvider(year, month));
+                return summaryAsync.when(
+                  loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
+                  error: (error, _) =>
+                      Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดสรุปไม่สำเร็จ: $error')),
+                  data: (summary) => switch (tab) {
+                    _SummaryTab.income => _CategoryTotalsList(
+                      breakdown: summary.income,
+                      selectedCategoryId: selectedCategoryId,
+                      onTap: onCategoryTap,
+                      emptyMessage: 'ไม่มีรายรับในเดือนนี้',
+                    ),
+                    _SummaryTab.expense => _CategoryTotalsList(
+                      breakdown: summary.expense,
+                      selectedCategoryId: selectedCategoryId,
+                      onTap: onCategoryTap,
+                      emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
+                    ),
+                    _SummaryTab.transfer => const SizedBox.shrink(),
+                  },
+                );
+              },
+            ),
         ],
       ),
     );
@@ -601,16 +617,51 @@ class _CategoryTotalRow extends StatelessWidget {
   }
 }
 
-/// Ticket 08 (blocked on this ticket) fills this in with a flat, ungrouped
-/// transfer list — deliberately not implemented here.
-class _TransferTabPlaceholder extends StatelessWidget {
-  const _TransferTabPlaceholder();
+/// Ticket 08: a flat, ungrouped list of the current scope's transfer
+/// transactions — deliberately sourced from `monthTransactionsProvider`
+/// directly (never with a `categoryId` argument) rather than
+/// `dashboardSummaryProvider`, since transfers carry no `category_id` for
+/// that endpoint's per-category breakdown to report. Reusing the plain,
+/// non-`categoryId` call also keeps this tab's content independent of
+/// whatever category drill-through (ticket 07) is active on the Income/
+/// Expense tabs — switching to Transfer and back never loses or corrupts
+/// that filter, and the Transfer tab is never emptied by it either. No
+/// grouping by account pair or any other dimension (spec: Design 3) — same
+/// `TransactionListTile` row used by the plain feed below, just without the
+/// day-grouping headers that list applies.
+class _TransferList extends ConsumerWidget {
+  const _TransferList({required this.year, required this.month, required this.categoriesById});
+
+  final int year;
+  final int month;
+  final Map<int, Category> categoriesById;
 
   @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: Text('สรุปรายการย้ายเงินจะเพิ่มเข้ามาเร็ว ๆ นี้', style: TextStyle(color: AppColors.textMuted))),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final transactionsAsync = ref.watch(monthTransactionsProvider(year, month));
+
+    return transactionsAsync.when(
+      loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
+      error: (error, _) =>
+          Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดรายการย้ายเงินไม่สำเร็จ: $error')),
+      data: (transactions) {
+        final transfers = transactions.where((t) => t.type == TransactionType.transfer).toList();
+        if (transfers.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: Text('ไม่มีรายการย้ายเงินในเดือนนี้', style: TextStyle(color: AppColors.textMuted))),
+          );
+        }
+        return Column(
+          key: const Key('transferTabList'),
+          children: [
+            for (var i = 0; i < transfers.length; i++) ...[
+              if (i > 0) const Divider(height: 1, color: AppColors.divider),
+              TransactionListTile(transaction: transfers[i], categoriesById: categoriesById),
+            ],
+          ],
+        );
+      },
     );
   }
 }
