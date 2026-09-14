@@ -4,6 +4,7 @@
 // real dio call from ever reaching Flutter's test HTTP stub, the exact
 // thing that caused a hang in T4.
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
@@ -11,6 +12,9 @@ import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
+import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
+import 'package:cashlog/features/slip_scan/domain/gallery_access_level.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
 import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -93,6 +97,48 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 
   @override
   Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
+}
+
+/// A minimal valid 1x1 transparent PNG — `Image.memory` in the slip preview
+/// widget actually decodes whatever bytes `readBytes` returns, so an
+/// arbitrary byte list (as used by the upload-path fakes elsewhere in this
+/// codebase, which never render the bytes) isn't enough here.
+final _fakeSlipImageBytes = Uint8List.fromList(const [
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+  0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x42, 0x60, 0x82,
+]);
+
+/// Ticket 05: fakes `SlipGalleryRepository` the same way
+/// `slip_gallery_debug_page_test.dart` does — no real `photo_manager`
+/// platform-channel call from ever happening under `flutter test`.
+class _FakeSlipGalleryRepository implements SlipGalleryRepository {
+  List<SlipCandidate> candidates = const [];
+  final Map<String, Uint8List?> bytesById = {};
+  int queryCalls = 0;
+
+  @override
+  Future<GalleryAccessLevel> currentAccess() async => GalleryAccessLevel.full;
+
+  @override
+  Future<GalleryAccessLevel> requestAccess() async => GalleryAccessLevel.full;
+
+  @override
+  Future<void> presentLimitedSelection() async {}
+
+  @override
+  Future<void> openSettings() async {}
+
+  @override
+  Future<List<SlipCandidate>> queryConfiguredAlbums() async {
+    queryCalls++;
+    return candidates;
+  }
+
+  @override
+  Future<Uint8List?> readBytes(String assetId) async => bytesById[assetId];
 }
 
 class _FakeTransactionsRepository implements TransactionsRepository {
@@ -255,10 +301,18 @@ Future<void> _pumpBounded(WidgetTester tester) async {
   }
 }
 
+/// Ticket 05's slip-image section makes the edit-mode form taller than the
+/// test viewport, so fields further down the `ListView` (submit/delete) are
+/// no longer built until scrolled into view — the sliver list only builds
+/// visible (+cache-extent) children, same as any other scrollable list.
+Future<void> _scrollToKey(WidgetTester tester, Key key) =>
+    tester.scrollUntilVisible(find.byKey(key), 300, scrollable: find.byType(Scrollable).first);
+
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late _FakePendingActionsRepository pendingActions;
   late _RecordingCacheInvalidator cacheInvalidator;
+  late _FakeSlipGalleryRepository fakeSlipGallery;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
@@ -267,6 +321,7 @@ void main() {
     // stand-in.
     pendingActions = _FakePendingActionsRepository();
     cacheInvalidator = _RecordingCacheInvalidator();
+    fakeSlipGallery = _FakeSlipGalleryRepository();
   });
 
   Widget buildApp() => ProviderScope(
@@ -276,6 +331,7 @@ void main() {
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
+      slipGalleryRepositoryProvider.overrideWithValue(fakeSlipGallery),
     ],
     child: MaterialApp(
       home: Scaffold(
@@ -296,6 +352,7 @@ void main() {
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
+      slipGalleryRepositoryProvider.overrideWithValue(fakeSlipGallery),
     ],
     child: MaterialApp(home: TransactionFormPage(initial: initial)),
   );
@@ -385,6 +442,7 @@ void main() {
       await tester.tap(find.text('Cash').last);
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('submitButton'));
       await tester.tap(find.byKey(const Key('submitButton')));
       await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
 
@@ -464,6 +522,7 @@ void main() {
     testWidgets('delete button appears when editing an existing transaction', (tester) async {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
 
       expect(find.byKey(const Key('deleteTransactionButton')), findsOneWidget);
     });
@@ -472,6 +531,7 @@ void main() {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
       await tester.tap(find.byKey(const Key('deleteTransactionButton')));
       await _pumpBounded(tester);
       expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
@@ -487,6 +547,7 @@ void main() {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
       await tester.tap(find.byKey(const Key('deleteTransactionButton')));
       await _pumpBounded(tester);
       await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
@@ -503,6 +564,7 @@ void main() {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
       await tester.tap(find.byKey(const Key('deleteTransactionButton')));
       await _pumpBounded(tester);
       await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
@@ -518,6 +580,7 @@ void main() {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
       await tester.tap(find.byKey(const Key('deleteTransactionButton')));
       await _pumpBounded(tester);
       await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
@@ -535,6 +598,7 @@ void main() {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
+      await _scrollToKey(tester, const Key('deleteTransactionButton'));
       await tester.tap(find.byKey(const Key('deleteTransactionButton')));
       await _pumpBounded(tester);
       await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
@@ -542,6 +606,83 @@ void main() {
 
       expect(find.text('Could not delete transaction'), findsOneWidget);
       expect(await pendingActions.watchAll().first, isEmpty);
+    });
+  });
+
+  group('slip image preview (ticket 05)', () {
+    testWidgets('no localImageName shows the placeholder immediately with no gallery query attempted', (tester) async {
+      final noSlip = Transaction(
+        id: 1,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'manual',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(noSlip));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+      expect(fakeSlipGallery.queryCalls, 0);
+    });
+
+    testWidgets('a matching filename in a configured album renders the slip image', (tester) async {
+      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+      final withSlip = Transaction(
+        id: 2,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'auto_scan',
+        localImageName: 'scb_001.jpg',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(withSlip));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('slipImagePlaceholder')), findsNothing);
+      expect(find.byType(Image), findsOneWidget);
+      expect(fakeSlipGallery.queryCalls, 1);
+    });
+
+    testWidgets('a filename with no matching gallery candidate falls back to the placeholder, not an error', (tester) async {
+      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_999.jpg', sourceAlbum: 'SCB EASY')];
+      final withStaleSlip = Transaction(
+        id: 3,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'auto_scan',
+        localImageName: 'scb_001.jpg',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(withStaleSlip));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets('a matching filename whose asset was deleted (readBytes returns null) falls back to the placeholder', (tester) async {
+      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+      // bytesById intentionally left without an entry for 'asset-1' — the
+      // fake's readBytes returns null for unknown ids, mirroring the real
+      // repository's null-on-deleted-asset contract.
+      final withDeletedAsset = Transaction(
+        id: 4,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'auto_scan',
+        localImageName: 'scb_001.jpg',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(withDeletedAsset));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
     });
   });
 }

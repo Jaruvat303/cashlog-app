@@ -294,6 +294,14 @@ void main() {
         );
         await _pumpBounded(tester);
 
+        // Ticket 05's slip-image section makes the edit-mode form taller
+        // than the test viewport, so the delete button (further down the
+        // ListView) needs scrolling into view before it's built/tappable.
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('deleteTransactionButton')),
+          300,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.tap(find.byKey(const Key('deleteTransactionButton')));
         await _pumpBounded(tester);
         await tester.tap(find.widgetWithText(TextButton, 'ลบ'));

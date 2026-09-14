@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
@@ -7,6 +9,7 @@ import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
+import '../../../slip_scan/data/slip_gallery_repository.dart';
 import '../../data/pending_actions_repository.dart';
 import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
@@ -40,6 +43,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   int? _categoryId;
   bool _isSubmitting = false;
   String? _transferError;
+  Future<Uint8List?>? _slipImageFuture;
 
   @override
   void initState() {
@@ -48,6 +52,25 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     _fromAccountId = widget.initial?.fromAccountId;
     _toAccountId = widget.initial?.toAccountId;
     _categoryId = widget.initial?.categoryId;
+
+    final imageName = widget.initial?.localImageName;
+    if (imageName != null && imageName.isNotEmpty) {
+      _slipImageFuture = _lookupSlipImageBytes(ref.read(slipGalleryRepositoryProvider), imageName);
+    }
+  }
+
+  /// Ticket 05: best-effort, on-device-only lookup, re-run every time this
+  /// page opens — no caching/persistence of the result (spec's Slip image
+  /// preview §Addition). A miss at either step (no matching filename, or the
+  /// asset was deleted since it was scanned) resolves to `null` rather than
+  /// throwing, so the image section can fall back to the placeholder
+  /// silently instead of surfacing an error state.
+  Future<Uint8List?> _lookupSlipImageBytes(SlipGalleryRepository repo, String filename) async {
+    final candidates = await repo.queryConfiguredAlbums();
+    for (final candidate in candidates) {
+      if (candidate.filename == filename) return repo.readBytes(candidate.id);
+    }
+    return null;
   }
 
   @override
@@ -230,6 +253,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.isEditing) ...[_SlipImageSection(future: _slipImageFuture), const SizedBox(height: 16)],
             DropdownButtonFormField<TransactionType>(
               key: const Key('transactionTypeDropdown'),
               initialValue: _type,
@@ -365,6 +389,72 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ticket 05: `future` is `null` when [Transaction.localImageName] was
+/// null/empty at page open — that case renders the placeholder immediately
+/// with no gallery query ever attempted (acceptance criterion 2). Otherwise
+/// a `FutureBuilder` drives a brief loading state while the on-device lookup
+/// resolves; any non-success outcome (no filename match, or a `null` from
+/// `readBytes` because the asset was deleted since scanning) collapses to
+/// the same placeholder — no error state, no retry button.
+class _SlipImageSection extends StatelessWidget {
+  const _SlipImageSection({required this.future});
+
+  final Future<Uint8List?>? future;
+
+  static const _height = 200.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final pendingFuture = future;
+    if (pendingFuture == null) return const _SlipImagePlaceholder(height: _height);
+
+    return FutureBuilder<Uint8List?>(
+      future: pendingFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(height: _height, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+        }
+        final bytes = snapshot.data;
+        if (bytes == null) return const _SlipImagePlaceholder(height: _height);
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Image.memory(bytes, height: _height, width: double.infinity, fit: BoxFit.cover),
+        );
+      },
+    );
+  }
+}
+
+class _SlipImagePlaceholder extends StatelessWidget {
+  const _SlipImagePlaceholder({required this.height});
+
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('slipImagePlaceholder'),
+      height: height,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.inputBorder),
+      ),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(RemixIcon.imageLine, size: 28, color: AppColors.textFaint),
+            SizedBox(height: 8),
+            Text('ไม่มีรูปสลิป', style: TextStyle(color: AppColors.textMuted)),
           ],
         ),
       ),
