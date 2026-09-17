@@ -6,9 +6,11 @@ import '../../../../shared/format/money.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../domain/dashboard_summary.dart';
 
-/// Mockup 1a's donut + legend. One slice per `expense[]` entry, sorted
-/// descending by [CategoryBreakdown.totalAmount] (DoD requirement) — the
-/// caller (`DashboardPage`) is expected to only build this when `expense`
+/// Mockup 1a's donut + legend. One slice per `expense`/`income` entry
+/// (generic despite the name — ticket 03 reinstates it on both the
+/// Income and Expense summary tabs), sorted descending by
+/// [CategoryBreakdown.totalAmount] (DoD requirement) — the caller
+/// (`TransactionsPage`) is expected to only build this when the breakdown
 /// is non-empty; the empty-state message is a page-level concern (same
 /// split as `TransactionsPage`'s own empty check), not this widget's.
 class ExpensePieChart extends StatelessWidget {
@@ -64,9 +66,16 @@ class ExpensePieChart extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-            children: sorted.map((entry) {
-              final pct = total == 0 ? 0 : (entry.totalAmount / total * 100).round();
+            // Ticket 03: a legend row is dropped entirely once its share
+            // falls under 10% of the total, to keep the legend from getting
+            // cluttered with slivers — the `sections` above are built from
+            // the full, unfiltered `sorted` list, so the slices themselves
+            // always keep summing to a true 100%, regardless of which rows
+            // are hidden here.
+            children: sorted.where((entry) => total != 0 && entry.totalAmount / total >= 0.1).map((entry) {
+              final pct = (entry.totalAmount / total * 100).round();
               return Padding(
+                key: ValueKey('pieChartLegendRow-${entry.categoryId}'),
                 padding: const EdgeInsets.symmetric(vertical: 3.5),
                 child: Row(
                   children: [

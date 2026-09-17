@@ -391,12 +391,16 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      expect(find.text('อาหาร'), findsOneWidget);
-      expect(find.text('เดินทาง'), findsOneWidget);
+      // Both the ticket 03 pie chart legend and the text list below it can
+      // render a category's name, so scope these to the list row's own key
+      // (the chart's own legend-omission behavior is covered by
+      // expense_pie_chart_test.dart) to keep each assertion unambiguous.
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-11')), matching: find.text('เดินทาง')), findsOneWidget);
       expect(find.text(formatAmount(2000)), findsOneWidget);
       expect(find.text(formatAmount(500)), findsOneWidget);
       expect(find.text('เงินเดือน'), findsNothing); // income row, not shown while Expense tab is active
-      expect(find.byType(PieChart), findsNothing); // ticket 07 replaces the chart with a plain list
+      expect(find.byType(PieChart), findsOneWidget); // ticket 03: pie chart restored above the list
     });
 
     testWidgets('switching to the Income tab shows income categories and totals instead', (tester) async {
@@ -406,7 +410,7 @@ void main() {
       await tester.tap(find.byKey(const Key('summaryTab-income')));
       await _pumpBounded(tester);
 
-      expect(find.text('เงินเดือน'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-20')), matching: find.text('เงินเดือน')), findsOneWidget);
       expect(find.text(formatAmount(5000)), findsOneWidget);
       expect(find.text('อาหาร'), findsNothing);
     });
@@ -429,7 +433,9 @@ void main() {
         expect(find.text('Food expense row'), findsOneWidget);
         expect(find.text('Uncategorized expense row'), findsOneWidget);
 
-        await tester.tap(find.text('อาหาร'));
+        // Tap the list row specifically (not `find.text`) since ticket 03's
+        // pie chart legend can render the same category name above it.
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
         await _pumpBounded(tester);
 
         expect(find.text('Food expense row'), findsOneWidget);
@@ -459,14 +465,14 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      await tester.tap(find.text('อาหาร'));
+      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Transport expense row'), findsNothing);
 
       await tester.tap(find.byKey(const Key('summaryTab-expense'))); // summary card is still visible/tappable while filtered
       await _pumpBounded(tester);
-      await tester.tap(find.text('เดินทาง'));
+      await tester.tap(find.byKey(const Key('categoryTotalRow-11')));
       await _pumpBounded(tester);
 
       expect(find.text('Food expense row'), findsNothing);
@@ -484,7 +490,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      await tester.tap(find.text('อาหาร'));
+      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
 
       expect(find.text('Food expense row'), findsOneWidget);
@@ -570,7 +576,7 @@ void main() {
       await _pumpBounded(tester);
 
       // Drill into the Food category from the Expense tab.
-      await tester.tap(find.text('อาหาร'));
+      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Uncategorized expense row'), findsNothing);

@@ -10,6 +10,7 @@ import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../dashboard/domain/dashboard_summary.dart';
 import '../../../dashboard/presentation/providers/dashboard_providers.dart';
+import '../../../dashboard/presentation/widgets/expense_pie_chart.dart';
 import '../../domain/transaction.dart';
 import '../providers/pending_actions_providers.dart';
 import '../providers/transactions_feed_providers.dart';
@@ -435,9 +436,9 @@ class _DayGroup {
 /// ticket 06 detached from the Home page, relocated here as a tabbed
 /// section above the transaction list. Income/Expense source the exact same
 /// `dashboardSummaryProvider(year, month)` the old Dashboard pie chart used
-/// — no new backend call, per spec — and render a plain
-/// `{category_name, total_amount}` list (replacing the old
-/// pie-chart-with-labels approach). Ticket 08: Transfer instead sources
+/// — no new backend call, per spec — and render a `{category_name,
+/// total_amount}` list; ticket 03 puts the pie chart itself back above that
+/// list (see `_CategoryBreakdownSection`). Ticket 08: Transfer instead sources
 /// `monthTransactionsProvider` directly (transfers carry no `category_id`,
 /// so the dashboard summary's per-category breakdown has nothing to offer
 /// it) and renders a flat, ungrouped list of transfer transactions.
@@ -495,14 +496,16 @@ class _SummarySection extends ConsumerWidget {
                   error: (error, _) =>
                       Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดสรุปไม่สำเร็จ: $error')),
                   data: (summary) => switch (tab) {
-                    _SummaryTab.income => _CategoryTotalsList(
+                    _SummaryTab.income => _CategoryBreakdownSection(
                       breakdown: summary.income,
+                      total: summary.totalIncome,
                       selectedCategoryId: selectedCategoryId,
                       onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายรับในเดือนนี้',
                     ),
-                    _SummaryTab.expense => _CategoryTotalsList(
+                    _SummaryTab.expense => _CategoryBreakdownSection(
                       breakdown: summary.expense,
+                      total: summary.totalExpense,
                       selectedCategoryId: selectedCategoryId,
                       onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
@@ -542,9 +545,47 @@ class _SummarySection extends ConsumerWidget {
   }
 }
 
+/// Ticket 03: the restored `ExpensePieChart` (already built, previously
+/// unused — see its own file) sits above the existing `_CategoryTotalsList`
+/// text list for the Income/Expense tabs; the list itself, and its
+/// tap-to-filter behavior, are untouched. The chart is only built when
+/// there's a breakdown to show it for — an empty breakdown falls straight
+/// through to `_CategoryTotalsList`'s own empty-state message, same as
+/// before this ticket.
+class _CategoryBreakdownSection extends StatelessWidget {
+  const _CategoryBreakdownSection({
+    required this.breakdown,
+    required this.total,
+    required this.selectedCategoryId,
+    required this.onTap,
+    required this.emptyMessage,
+  });
+
+  final List<CategoryBreakdown> breakdown;
+  final double total;
+  final int? selectedCategoryId;
+  final void Function(int categoryId, String categoryName) onTap;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (breakdown.isNotEmpty) ...[
+          ExpensePieChart(expense: breakdown, total: total),
+          const SizedBox(height: 14),
+        ],
+        _CategoryTotalsList(breakdown: breakdown, selectedCategoryId: selectedCategoryId, onTap: onTap, emptyMessage: emptyMessage),
+      ],
+    );
+  }
+}
+
 /// Plain text rows (spec: "category names shown in the list, not on the
-/// chart itself"), sorted descending by amount — same DoD `ExpensePieChart`
-/// already followed, just without the chart.
+/// chart itself"), sorted descending by amount — restored above by
+/// `_CategoryBreakdownSection`'s `ExpensePieChart` (ticket 03), unchanged
+/// itself.
 class _CategoryTotalsList extends StatelessWidget {
   const _CategoryTotalsList({
     required this.breakdown,

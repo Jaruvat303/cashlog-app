@@ -18,11 +18,11 @@ import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
 
 /// Mockup screen 1a, redesigned per the fixes/redesign spec's Design 3 (Home
 /// half): this page is no longer the category/amount summary — that block
-/// (totals card + `ExpensePieChart`) moves to the Transaction List page's new
-/// Income/Expense/Transfer tabs (ticket 07, not yet built; `ExpensePieChart`
-/// and `dashboardSummaryProvider` stay in the codebase for that ticket to
-/// pick up, they're just no longer referenced from here). Home is now a
-/// single actionable feed: the gallery-permission banner (ticket 06 /
+/// (totals card + `ExpensePieChart`) moved to the Transaction List page's
+/// Income/Expense/Transfer tabs (ticket 07's list, ticket 03's chart — see
+/// `TransactionsPage`'s `_CategoryBreakdownSection`); neither is referenced
+/// from here anymore. Home is now a single actionable feed: the
+/// gallery-permission banner (ticket 06 /
 /// spec Bug 1) at the top, an accounts strip, then transactions still
 /// needing attention (junk or missing a category), most recent first.
 ///
