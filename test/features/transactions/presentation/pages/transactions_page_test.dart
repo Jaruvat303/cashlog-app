@@ -5,6 +5,7 @@
 // HTTP stub, the exact thing that caused a hang in T4.
 import 'dart:async';
 
+import 'package:cashlog/core/month/selected_month_provider.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
@@ -28,14 +29,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
-  @override
-  Stream<List<Account>> watchActiveAccounts() => Stream.value(const []);
+  _FakeAccountsRepository({this.accounts = const [], this.balances = const {}});
+
+  final List<Account> accounts;
+  final Map<int, double> balances;
 
   @override
-  Stream<Account?> watchCached(int id) => Stream.value(null);
+  Stream<List<Account>> watchActiveAccounts() => Stream.value(accounts);
 
   @override
-  Stream<double> watchCurrentBalance(int accountId) => Stream.value(0);
+  Stream<Account?> watchCached(int id) {
+    for (final account in accounts) {
+      if (account.id == id) return Stream.value(account);
+    }
+    return Stream.value(null);
+  }
+
+  @override
+  Stream<double> watchCurrentBalance(int accountId) => Stream.value(balances[accountId] ?? 0);
 
   @override
   Future<Either<Failure, void>> refreshFromApi() async => const Right(null);
@@ -274,9 +285,9 @@ void main() {
     fakeDashboard = _FakeDashboardRepository();
   });
 
-  Widget buildApp() => ProviderScope(
+  Widget buildApp({AccountsRepository? accountsRepository}) => ProviderScope(
     overrides: [
-      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+      accountsRepositoryProvider.overrideWithValue(accountsRepository ?? _FakeAccountsRepository()),
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
@@ -594,6 +605,129 @@ void main() {
       expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Uncategorized expense row'), findsNothing);
+    });
+  });
+
+  group('ticket 04: summary page consolidation', () {
+    setUp(() {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = const Right(
+        DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: 0, month: 0, income: [], expense: []),
+      );
+    });
+
+    const account = Account(
+      id: 1,
+      name: 'Main Wallet',
+      accountType: AccountType.bank,
+      openingBalance: 0,
+      matchingKeywords: [],
+      bankIcon: 'scb',
+      isActive: true,
+    );
+
+    testWidgets('the page-level "+" button is gone; the pending-actions button remains', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('newTransactionButton')), findsNothing);
+      expect(find.byKey(const Key('pendingActionsButton')), findsOneWidget);
+    });
+
+    testWidgets('the account-info strip renders on this page, showing each account and its balance', (tester) async {
+      await tester.pumpWidget(
+        buildApp(accountsRepository: _FakeAccountsRepository(accounts: const [account], balances: const {1: 2500})),
+      );
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('accountInfoStrip')), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text('Main Wallet')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text(formatAmount(2500))),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the month switcher lives in the AppBar title, not a secondary row below it', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.title, isNotNull, reason: 'the month switcher should be the AppBar title, matching Home');
+      expect(
+        find.descendant(of: find.byWidget(appBar.title!), matching: find.text(monthYearShortLabel(thisMonth))),
+        findsOneWidget,
+      );
+      // Only ever rendered once on screen — proof it moved rather than
+      // being duplicated between the title and a leftover secondary row.
+      expect(find.text(monthYearShortLabel(thisMonth)), findsOneWidget);
+    });
+
+    testWidgets('switching months updates the account info, the summary tabs, and the list below together', (tester) async {
+      final nextMonth = DateTime.utc(thisMonth.year, thisMonth.month + 1);
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        DashboardSummary(
+          totalIncome: 0,
+          totalExpense: 2000,
+          totalTransfer: 0,
+          year: thisMonth.year,
+          month: thisMonth.month,
+          income: const [],
+          expense: [_breakdown(10, 'อาหาร', 2000)],
+        ),
+      );
+      fakeDashboard.results[(nextMonth.year, nextMonth.month)] = Right(
+        DashboardSummary(
+          totalIncome: 0,
+          totalExpense: 900,
+          totalTransfer: 0,
+          year: nextMonth.year,
+          month: nextMonth.month,
+          income: const [],
+          expense: [_breakdown(11, 'เดินทาง', 900)],
+        ),
+      );
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [_expense(1, 'This month row', thisMonth, categoryId: 10)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+      fakeTransactions.pages[(nextMonth.year, nextMonth.month, 1)] = TransactionPage(
+        transactions: [_expense(2, 'Next month row', nextMonth, categoryId: 11)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(
+        buildApp(accountsRepository: _FakeAccountsRepository(accounts: const [account], balances: const {1: 2500})),
+      );
+      await _pumpBounded(tester);
+
+      // Scoped to the list row's own key (both the ticket 03 pie chart
+      // legend and the text list below it can render a category's name) —
+      // same pattern the ticket 07 group above already establishes.
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
+      expect(find.text('This month row'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text('Main Wallet')), findsOneWidget);
+
+      await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
+      await _pumpBounded(tester);
+
+      // Summary tab (still Expense, the default) now reflects next month's
+      // breakdown...
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-11')), matching: find.text('เดินทาง')), findsOneWidget);
+      expect(find.text('อาหาร'), findsNothing);
+      // ...the list below is next month's data too...
+      expect(find.text('Next month row'), findsOneWidget);
+      expect(find.text('This month row'), findsNothing);
+      // ...and the account-info strip (month-independent) is still correct.
+      expect(find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text('Main Wallet')), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text(formatAmount(2500))),
+        findsOneWidget,
+      );
     });
   });
 }

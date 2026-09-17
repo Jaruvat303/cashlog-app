@@ -305,7 +305,7 @@ void main() {
     // confirm the tab itself is reachable, per this smoke test's scope.
     expect(find.byType(DashboardPage), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(NavigationDestination, 'รายการ'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
     await _pumpBounded(tester);
     // T7 replaced the placeholder with the real transaction feed — just
     // confirm the tab itself is reachable, per this smoke test's scope.

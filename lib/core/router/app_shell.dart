@@ -15,7 +15,7 @@ import '../theme/app_theme.dart';
 /// treats it as a single global entry point reachable from every tab, not a
 /// per-page action) rendered as a [FloatingActionButton] and docked over the
 /// nav bar via `centerDocked`, which — with exactly 4 destinations — lands
-/// it dead center between "รายการ" and "บัญชี", matching the mockup's layout
+/// it dead center between "ดูสรุป" and "บัญชี", matching the mockup's layout
 /// without needing a dummy 5th destination slot.
 class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.navigationShell});
@@ -39,7 +39,7 @@ class AppShell extends StatelessWidget {
         onDestinationSelected: navigationShell.goBranch,
         destinations: [
           _destination(RemixIcon.home5Line, RemixIcon.home5Fill, 'หน้าแรก', currentIndex == 0),
-          _destination(RemixIcon.listCheck2, RemixIcon.listCheck2, 'รายการ', currentIndex == 1),
+          _destination(RemixIcon.listCheck2, RemixIcon.listCheck2, 'ดูสรุป', currentIndex == 1),
           _destination(RemixIcon.wallet3Line, RemixIcon.wallet3Fill, 'บัญชี', currentIndex == 2),
           _destination(RemixIcon.moreLine, RemixIcon.moreFill, 'เพิ่มเติม', currentIndex == 3),
         ],

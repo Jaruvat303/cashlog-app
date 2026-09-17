@@ -6,6 +6,10 @@ import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/money.dart';
 import '../../../../shared/widgets/category_icon.dart';
+import '../../../accounts/domain/account.dart';
+import '../../../accounts/domain/bank_icon.dart';
+import '../../../accounts/presentation/providers/accounts_providers.dart';
+import '../../../accounts/presentation/widgets/current_balance_text.dart';
 import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../dashboard/domain/dashboard_summary.dart';
@@ -16,7 +20,6 @@ import '../providers/pending_actions_providers.dart';
 import '../providers/transactions_feed_providers.dart';
 import '../widgets/transaction_list_tile.dart';
 import 'pending_actions_page.dart';
-import 'transaction_form_page.dart';
 
 /// How close to the bottom (in pixels) triggers the next page fetch.
 const double _kLoadMoreThreshold = 300;
@@ -148,17 +151,32 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('รายการ'),
+        // Post-launch redesign ticket 04: the month switcher moves out of
+        // the secondary row below and into the title slot, matching how
+        // `DashboardPage`'s own month switcher is already positioned.
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _monthArrow(
+              icon: RemixIcon.arrowLeftSLine,
+              onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).previous()),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(11)),
+              child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+            ),
+            const SizedBox(width: 10),
+            _monthArrow(
+              icon: RemixIcon.arrowRightSLine,
+              onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).next()),
+            ),
+          ],
+        ),
         actions: [
-          // T6's manual-entry entry point (mockup 1e) — the AppShell's FAB
-          // slot is taken by the camera/auto-scan button (T21), so this
-          // stays a page-level action rather than a second FAB.
-          IconButton(
-            key: const Key('newTransactionButton'),
-            icon: const Icon(RemixIcon.addLine),
-            tooltip: 'สร้างรายการเอง',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionFormPage())),
-          ),
+          // Ticket 04: the page-level manual-entry "+" button is removed —
+          // the same action is now reachable from the global FAB (ticket 05).
           IconButton(
             key: const Key('pendingActionsButton'),
             icon: Badge(label: Text('$pendingCount'), isLabelVisible: pendingCount > 0, child: const Icon(RemixIcon.errorWarningLine)),
@@ -167,55 +185,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(96),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _monthArrow(
-                    icon: RemixIcon.arrowLeftSLine,
-                    onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).previous()),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(11)),
-                    child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                  ),
-                  const SizedBox(width: 10),
-                  _monthArrow(
-                    icon: RemixIcon.arrowRightSLine,
-                    onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).next()),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                // Ticket 07: an active category drill-through replaces the
-                // type chip row with a single clearable filter chip — both
-                // filter the same list, so showing them side by side would
-                // just be two controls fighting over one axis.
-                child: _categoryFilterId == null
-                    ? SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _filterChip('ทั้งหมด', _TxFilter.all),
-                            const SizedBox(width: 7),
-                            _filterChip('รายรับ', _TxFilter.income),
-                            const SizedBox(width: 7),
-                            _filterChip('รายจ่าย', _TxFilter.expense),
-                            const SizedBox(width: 7),
-                            _uncategorizedChip(transactionsAsync.value ?? const []),
-                          ],
-                        ),
-                      )
-                    : Align(alignment: Alignment.centerLeft, child: _categoryFilterChip()),
-              ),
-              const SizedBox(height: 8),
-            ],
+          preferredSize: const Size.fromHeight(52),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            // Ticket 07: an active category drill-through replaces the
+            // type chip row with a single clearable filter chip — both
+            // filter the same list, so showing them side by side would
+            // just be two controls fighting over one axis.
+            child: _categoryFilterId == null
+                ? SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _filterChip('ทั้งหมด', _TxFilter.all),
+                        const SizedBox(width: 7),
+                        _filterChip('รายรับ', _TxFilter.income),
+                        const SizedBox(width: 7),
+                        _filterChip('รายจ่าย', _TxFilter.expense),
+                        const SizedBox(width: 7),
+                        _uncategorizedChip(transactionsAsync.value ?? const []),
+                      ],
+                    ),
+                  )
+                : Align(alignment: Alignment.centerLeft, child: _categoryFilterChip()),
           ),
         ),
       ),
@@ -240,6 +232,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
+                  const _AccountInfoStrip(),
+                  const SizedBox(height: 16),
                   summarySection,
                   const SizedBox(height: 14),
                   Padding(
@@ -254,14 +248,18 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              // +1 for the summary section header at index 0 — everything
-              // else keeps its previous index math shifted by one.
-              itemCount: 1 + groups.length + (isLoadingMore ? 1 : 0),
+              // +2 for the account-info strip and summary section header at
+              // indices 0/1 — everything else keeps its previous index math
+              // shifted accordingly.
+              itemCount: 2 + groups.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
+                  return const Padding(padding: EdgeInsets.only(bottom: 16), child: _AccountInfoStrip());
+                }
+                if (index == 1) {
                   return Padding(padding: const EdgeInsets.only(bottom: 14), child: summarySection);
                 }
-                final groupIndex = index - 1;
+                final groupIndex = index - 2;
                 if (groupIndex >= groups.length) {
                   return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
                 }
@@ -430,6 +428,84 @@ class _DayGroup {
   final DateTime date;
   final List<Transaction> transactions;
   final double total;
+}
+
+/// Post-launch redesign ticket 04: the accounts strip (mini balance cards)
+/// moved here from `DashboardPage` — this page is the single place it
+/// renders now, not a second copy. `current_balance` is a derived stream
+/// (`AccountsRepository.watchCurrentBalance`), so it stays correct across a
+/// month switch on its own without needing to watch `selectedMonthProvider`
+/// itself.
+class _AccountInfoStrip extends ConsumerWidget {
+  const _AccountInfoStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accountsAsync = ref.watch(activeAccountsProvider);
+    return Column(
+      key: const Key('accountInfoStrip'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('บัญชี', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
+        const SizedBox(height: 9),
+        accountsAsync.when(
+          loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+          error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
+          data: (accounts) => accounts.isEmpty
+              ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textMuted))
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
+                      .expand((w) => [w, const SizedBox(width: 8)])
+                      .take(accounts.length * 2 - 1)
+                      .toList(),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountMiniCard extends ConsumerWidget {
+  const _AccountMiniCard({required this.account});
+
+  final Account account;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bankIcon = resolveBankIcon(account.bankIcon);
+    final name = account.name;
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(color: bankIcon.color, borderRadius: BorderRadius.circular(6)),
+                child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600))),
+              ),
+              const SizedBox(width: 7),
+              Expanded(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+            ],
+          ),
+          const SizedBox(height: 9),
+          CurrentBalanceText(accountId: account.id, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        ],
+      ),
+    );
+  }
 }
 
 /// Ticket 07 (Design 3, summary half): the category/amount summary that

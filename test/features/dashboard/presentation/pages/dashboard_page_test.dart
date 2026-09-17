@@ -27,8 +27,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
+  _FakeAccountsRepository({this.accounts = const []});
+
+  final List<Account> accounts;
+
   @override
-  Stream<List<Account>> watchActiveAccounts() => Stream.value(const []);
+  Stream<List<Account>> watchActiveAccounts() => Stream.value(accounts);
   @override
   Stream<Account?> watchCached(int id) => Stream.value(null);
   @override
@@ -219,10 +223,14 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 }
 
 void main() {
-  Widget buildApp({required SlipScanProgress pipelineState, required _FakeSlipGalleryRepository galleryRepo, List<Transaction> transactions = const []}) =>
-      ProviderScope(
+  Widget buildApp({
+    required SlipScanProgress pipelineState,
+    required _FakeSlipGalleryRepository galleryRepo,
+    List<Transaction> transactions = const [],
+    List<Account> accounts = const [],
+  }) => ProviderScope(
         overrides: [
-          accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+          accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository(accounts: accounts)),
           categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
           transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository(transactions)),
           pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
@@ -316,5 +324,25 @@ void main() {
 
     final tileFinder = find.byKey(const Key('transactionRowTapTarget'));
     expect(tileFinder, findsNWidgets(2));
+  });
+
+  testWidgets('ticket 04: the account-info strip no longer renders here — it moved to the summary page', (tester) async {
+    const account = Account(
+      id: 1,
+      name: 'Main Wallet',
+      accountType: AccountType.bank,
+      openingBalance: 0,
+      matchingKeywords: [],
+      bankIcon: 'scb',
+      isActive: true,
+    );
+
+    await tester.pumpWidget(
+      buildApp(pipelineState: _progress(accessLevel: GalleryAccessLevel.full), galleryRepo: _FakeSlipGalleryRepository(), accounts: const [account]),
+    );
+    await _pumpBounded(tester);
+
+    expect(find.byKey(const Key('accountInfoStrip')), findsNothing);
+    expect(find.text('Main Wallet'), findsNothing);
   });
 }

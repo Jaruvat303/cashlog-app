@@ -4,10 +4,7 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../accounts/domain/account.dart';
-import '../../../accounts/domain/bank_icon.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
-import '../../../accounts/presentation/widgets/current_balance_text.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../slip_scan/data/slip_gallery_repository.dart';
 import '../../../slip_scan/domain/gallery_access_level.dart';
@@ -21,10 +18,12 @@ import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
 /// (totals card + `ExpensePieChart`) moved to the Transaction List page's
 /// Income/Expense/Transfer tabs (ticket 07's list, ticket 03's chart — see
 /// `TransactionsPage`'s `_CategoryBreakdownSection`); neither is referenced
-/// from here anymore. Home is now a single actionable feed: the
-/// gallery-permission banner (ticket 06 /
-/// spec Bug 1) at the top, an accounts strip, then transactions still
-/// needing attention (junk or missing a category), most recent first.
+/// from here anymore. The accounts strip (mini balance cards) has since
+/// moved off this page too — post-launch redesign ticket 04 relocated it to
+/// `TransactionsPage`/"ดูสรุป" — so Home is now a single actionable feed: the
+/// gallery-permission banner (ticket 06 / spec Bug 1) at the top, then
+/// transactions still needing attention (junk or missing a category), most
+/// recent first.
 ///
 /// Reads/drives the same `selectedMonthProvider` as `TransactionsPage` (DoD:
 /// "shared state, not a second independent selector").
@@ -36,7 +35,6 @@ class DashboardPage extends ConsumerWidget {
     final month = ref.watch(selectedMonthProvider);
     final year = month.year;
     final monthNum = month.month;
-    final accountsAsync = ref.watch(activeAccountsProvider);
     final monthTransactions = ref.watch(monthTransactionsProvider(year, monthNum)).value ?? const [];
     final categories = ref.watch(allCategoriesProvider).value ?? const [];
     final categoriesById = {for (final c in categories) c.id: c};
@@ -63,22 +61,6 @@ class DashboardPage extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             const _GalleryPermissionBanner(),
-            const Text('บัญชี', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-            const SizedBox(height: 9),
-            accountsAsync.when(
-              loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
-              error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
-              data: (accounts) => accounts.isEmpty
-                  ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textMuted))
-                  : Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
-                          .expand((w) => [w, const SizedBox(width: 8)])
-                          .take(accounts.length * 2 - 1)
-                          .toList(),
-                    ),
-            ),
-            const SizedBox(height: 16),
             const Text('รายการที่ต้องดำเนินการ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
             const SizedBox(height: 9),
             if (attentionItems.isEmpty)
@@ -133,48 +115,6 @@ class DashboardPage extends ConsumerWidget {
   /// gap to flag.
   static bool _needsAttention(Transaction t) =>
       t.isJunk || (t.type != TransactionType.transfer && t.categoryId == null);
-}
-
-class _AccountMiniCard extends ConsumerWidget {
-  const _AccountMiniCard({required this.account});
-
-  final Account account;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bankIcon = resolveBankIcon(account.bankIcon);
-    final name = account.name;
-    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(color: bankIcon.color, borderRadius: BorderRadius.circular(6)),
-                child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600))),
-              ),
-              const SizedBox(width: 7),
-              Expanded(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-            ],
-          ),
-          const SizedBox(height: 9),
-          CurrentBalanceText(accountId: account.id, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        ],
-      ),
-    );
-  }
 }
 
 /// Spec Bug 1 / ticket 06: the only reachable, non-debug entry point for

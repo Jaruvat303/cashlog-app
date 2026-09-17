@@ -223,14 +223,14 @@ void main() {
 
       // Lands on Dashboard by default — go straight to Transactions,
       // deliberately never tapping Categories.
-      await tester.tap(find.widgetWithText(NavigationDestination, 'รายการ'));
+      await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
       await _pumpBounded(tester);
 
       expect(find.textContaining('Food'), findsOneWidget, reason: 'category name should be visible without ever visiting Categories tab');
     },
   );
 
-  testWidgets("T6's create-transaction form category dropdown is populated on cold start too (same root cause/fix)", (tester) async {
+  testWidgets("T6's transaction form category dropdown is populated on cold start too (same root cause/fix)", (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -245,18 +245,30 @@ void main() {
     );
     await _pumpBounded(tester);
 
-    await tester.tap(find.widgetWithText(NavigationDestination, 'รายการ'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
     await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('newTransactionButton')));
+    // Post-launch redesign ticket 04 removed the page-level "+" button (the
+    // same manual-entry action moves to the global FAB in ticket 05) — the
+    // seeded "Groceries" row's edit path exercises the exact same form/
+    // dropdown code this regression test cares about.
+    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
     await _pumpBounded(tester);
 
     // The category dropdown is the only DropdownButtonFormField<int?> on
-    // this form (account pickers are DropdownButtonFormField<int>) — a new
-    // transaction defaults to type expense, so it's already visible.
-    await tester.tap(find.byType(DropdownButtonFormField<int?>));
+    // this form (account pickers are DropdownButtonFormField<int>). Edit
+    // mode renders the slip-image section above it, pushing it below the
+    // test viewport's fold — same "scroll before interacting" requirement
+    // transaction_form_page_test.dart's own `_scrollToKey` documents.
+    final categoryDropdown = find.byType(DropdownButtonFormField<int?>);
+    await tester.scrollUntilVisible(categoryDropdown, 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(categoryDropdown);
     await _pumpBounded(tester);
 
-    expect(find.text('Food'), findsOneWidget, reason: 'category options should be populated without ever visiting Categories tab');
+    // findsWidgets (not findsOneWidget): the edited "Groceries" row is
+    // already categorized as "Food", so it renders both as the field's
+    // already-selected value and as a menu option once the dropdown opens —
+    // either presence proves the category cache was populated pre-tap.
+    expect(find.text('Food'), findsWidgets, reason: 'category options should be populated without ever visiting Categories tab');
   });
 }
