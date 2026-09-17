@@ -30,11 +30,37 @@ const _liveDevIconKeys = [
   'archive-fill',
 ];
 
+/// The 10 real income `icon_key` values the backend returns for income
+/// categories (spec: "Frontend — income category icons"), each expected to
+/// map to its own distinct Remix icon rather than the generic fallback.
+const _liveDevIncomeIconKeys = <(String key, IconData icon)>[
+  ('wallet-3-fill', RemixIcon.wallet3Fill),
+  ('gift-fill', RemixIcon.giftFill),
+  ('tools-fill', RemixIcon.toolsFill),
+  ('store-2-fill', RemixIcon.store2Fill),
+  ('line-chart-fill', RemixIcon.lineChartFill),
+  ('trophy-fill', RemixIcon.trophyFill),
+  ('key-2-fill', RemixIcon.key2Fill),
+  ('hand-heart-fill', RemixIcon.handHeartFill),
+  ('coins-fill', RemixIcon.coinsFill),
+  ('money-dollar-circle-fill', RemixIcon.moneyDollarCircleFill),
+];
+
 void main() {
   test('resolveCategoryIcon resolves every real dev icon_key to a real, non-fallback icon', () {
     for (final key in _liveDevIconKeys) {
       final icon = resolveCategoryIcon(key);
       expect(icon, isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+    }
+  });
+
+  test('resolveCategoryIcon resolves every real income icon_key to its own distinct, non-fallback icon', () {
+    final seenIcons = <IconData>{};
+    for (final (key, expectedIcon) in _liveDevIncomeIconKeys) {
+      final icon = resolveCategoryIcon(key);
+      expect(icon, isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+      expect(icon, expectedIcon, reason: '"$key" should resolve to its exact expected Remix icon');
+      expect(seenIcons.add(icon), isTrue, reason: '"$key" resolved to an icon already used by another income key — icons must be distinct');
     }
   });
 

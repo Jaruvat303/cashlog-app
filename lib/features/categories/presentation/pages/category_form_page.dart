@@ -26,7 +26,9 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(text: widget.initial?.name ?? '');
   late CategoryType _type = widget.initial?.type ?? widget.initialType ?? CategoryType.expense;
-  late String _iconKey = widget.initial?.iconKey.isNotEmpty == true ? widget.initial!.iconKey : kCategoryIconChoices.first.$1;
+  late String _iconKey = widget.initial?.iconKey.isNotEmpty == true
+      ? widget.initial!.iconKey
+      : categoryIconChoicesFor(_type).first.$1;
   late String _colorHex = widget.initial?.colorHex.isNotEmpty == true ? widget.initial!.colorHex : kCategoryColorChoices.first;
   bool _isSubmitting = false;
 
@@ -110,7 +112,16 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
             const SizedBox(height: 12),
             const Text('ประเภท', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
             const SizedBox(height: 6),
-            _TypeSegmented(value: _type, onChanged: (type) => setState(() => _type = type)),
+            _TypeSegmented(
+              value: _type,
+              onChanged: (type) => setState(() {
+                _type = type;
+                final choices = categoryIconChoicesFor(type);
+                if (!choices.any((choice) => choice.$1 == _iconKey)) {
+                  _iconKey = choices.first.$1;
+                }
+              }),
+            ),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -126,7 +137,7 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
-              children: kCategoryIconChoices.map((choice) {
+              children: categoryIconChoicesFor(_type).map((choice) {
                 final selected = _iconKey == choice.$1;
                 final accent = selected ? colorFromHex(_colorHex) : AppColors.textSecondary;
                 return InkWell(

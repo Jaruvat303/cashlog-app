@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
+import '../../features/categories/domain/category.dart';
+
 /// Curated picker data only — unlike `BankIcon` (client-owned identity, never
 /// sent as color to the backend), `CachedCategories`/the category API really
 /// do persist `icon_key` and `color_hex` as free strings (see
@@ -36,7 +38,7 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 /// resolved from three features — categories (the picker itself), the
 /// transaction feed row, and the dashboard's expense-by-category chart —
 /// and CLAUDE.md only allows cross-feature reuse through `core/`/`shared/`.
-const List<(String key, String label, IconData icon)> kCategoryIconChoices = [
+const List<(String key, String label, IconData icon)> kExpenseCategoryIconChoices = [
   ('question-fill', 'ยังไม่ระบุหมวดหมู่', RemixIcon.questionFill),
   ('restaurant-fill', 'อาหาร', RemixIcon.restaurantFill),
   ('cup-fill', 'ของว่าง/คาเฟ่', RemixIcon.cupFill),
@@ -61,6 +63,40 @@ const List<(String key, String label, IconData icon)> kCategoryIconChoices = [
   ('heart-3-fill', 'บริจาค', RemixIcon.heart3Fill),
   ('archive-fill', 'อื่นๆ', RemixIcon.archiveFill),
 ];
+
+/// The 10 real income `icon_key` values the backend returns (confirmed via
+/// `GET /api/v1/categories`) — same provenance as
+/// [kExpenseCategoryIconChoices]. Every one of these exists verbatim as a
+/// `remix_icons_flutter` constant (checked against the package's generated
+/// source, same way the sparkles-fill/sparkling-fill mismatch above was
+/// caught) — none needed the alias treatment this time.
+const List<(String key, String label, IconData icon)> kIncomeCategoryIconChoices = [
+  ('wallet-3-fill', 'เงินเดือน', RemixIcon.wallet3Fill),
+  ('gift-fill', 'ของขวัญ', RemixIcon.giftFill),
+  ('tools-fill', 'รับจ้าง/ฟรีแลนซ์', RemixIcon.toolsFill),
+  ('store-2-fill', 'ขายของ', RemixIcon.store2Fill),
+  ('line-chart-fill', 'ลงทุน', RemixIcon.lineChartFill),
+  ('trophy-fill', 'รางวัล', RemixIcon.trophyFill),
+  ('key-2-fill', 'ค่าเช่า', RemixIcon.key2Fill),
+  ('hand-heart-fill', 'เงินช่วยเหลือ', RemixIcon.handHeartFill),
+  ('coins-fill', 'รายได้เสริม', RemixIcon.coinsFill),
+  ('money-dollar-circle-fill', 'รายได้อื่นๆ', RemixIcon.moneyDollarCircleFill),
+];
+
+/// All resolvable icon choices, expense followed by income — used by
+/// [resolveCategoryIcon], which doesn't care about category type. The
+/// create/edit picker uses [categoryIconChoicesFor] instead, to only offer
+/// the choices matching the category's currently selected type.
+const List<(String key, String label, IconData icon)> kCategoryIconChoices = [
+  ...kExpenseCategoryIconChoices,
+  ...kIncomeCategoryIconChoices,
+];
+
+/// Type-scoped choices for the create/edit category icon picker — income
+/// categories only offer income icons, expense categories only offer
+/// expense icons, never a single mixed list.
+List<(String key, String label, IconData icon)> categoryIconChoicesFor(CategoryType type) =>
+    type == CategoryType.income ? kIncomeCategoryIconChoices : kExpenseCategoryIconChoices;
 
 const List<String> kCategoryColorChoices = [
   '#EF4444',
