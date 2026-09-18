@@ -24,6 +24,7 @@ import 'package:cashlog/features/transactions/data/transactions_repository.dart'
 import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
+import 'package:cashlog/features/transactions/presentation/pages/pending_actions_page.dart';
 import 'package:cashlog/shared/format/money.dart';
 import 'package:dartz/dartz.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -217,13 +218,21 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
 /// here because `TransactionListTile` reads `pendingActionsProvider`, which
 /// is otherwise backed by a real drift db.
 class _FakePendingActionsRepository implements PendingActionsRepository {
-  final List<PendingAction> _items = [];
+  List<PendingAction> _items = [];
   final _controller = StreamController<List<PendingAction>>.broadcast();
 
   @override
   Stream<List<PendingAction>> watchAll() async* {
     yield List.unmodifiable(_items);
     yield* _controller.stream;
+  }
+
+  /// Test-only seam: pushes a new snapshot to every current/future listener,
+  /// same as a real drift row insert/delete would re-emit through
+  /// `watchAll()`.
+  void seed(List<PendingAction> items) {
+    _items = items;
+    _controller.add(List.unmodifiable(_items));
   }
 
   @override
@@ -304,11 +313,13 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late _FakeDashboardRepository fakeDashboard;
+  late _FakePendingActionsRepository fakePendingActions;
   late DateTime thisMonth;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
     fakeDashboard = _FakeDashboardRepository();
+    fakePendingActions = _FakePendingActionsRepository();
     final now = DateTime.now();
     thisMonth = DateTime.utc(now.year, now.month);
   });
@@ -323,12 +334,19 @@ void main() {
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository(accounts: accounts)),
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository(categories: categories)),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-      pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
+      pendingActionsRepositoryProvider.overrideWithValue(fakePendingActions),
       slipGalleryRepositoryProvider.overrideWithValue(galleryRepo ?? _FakeSlipGalleryRepository()),
       slipScanPipelineProvider.overrideWith(() => _FakeSlipScanPipeline(pipelineState ?? _progress(accessLevel: GalleryAccessLevel.full))),
       dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
     ],
     child: const MaterialApp(home: DashboardPage()),
+  );
+
+  PendingAction pendingAction(int id) => PendingAction(
+    id: id,
+    actionType: PendingActionType.createTransaction,
+    payload: createTransactionPayload(type: TransactionType.expense, amount: 50, date: thisMonth, accountId: 1),
+    createdAt: thisMonth,
   );
 
   group('ticket 06: Home is the full monthly transaction ledger', () {
@@ -561,6 +579,77 @@ void main() {
       final widgetTop = tester.getTopLeft(find.byKey(const Key('expenseTotalWidget'))).dy;
       final rowTop = tester.getTopLeft(find.byKey(const Key('transactionRowTapTarget')).first).dy;
       expect(widgetTop, lessThan(rowTop));
+    });
+  });
+
+  group('ticket 08: pending-items banner', () {
+    testWidgets('shows a live count sourced from the existing pending-actions query', (tester) async {
+      fakePendingActions.seed([pendingAction(1), pendingAction(2)]);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingActionsBanner')), findsOneWidget);
+      expect(find.text('มีรายการค้างอยู่ 2 รายการ — แตะเพื่อดำเนินการ'), findsOneWidget);
+    });
+
+    testWidgets('count updates live as the underlying pending-actions stream changes', (tester) async {
+      fakePendingActions.seed([pendingAction(1)]);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      expect(find.textContaining('1 รายการ'), findsOneWidget);
+
+      fakePendingActions.seed([pendingAction(1), pendingAction(2), pendingAction(3)]);
+      await _pumpBounded(tester);
+
+      expect(find.textContaining('3 รายการ'), findsOneWidget);
+    });
+
+    testWidgets('sits beneath the expense-total widget and above the transaction list', (tester) async {
+      fakePendingActions.seed([pendingAction(1)]);
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [_tx(id: 1, note: 'A row', date: thisMonth)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final expenseTotalTop = tester.getTopLeft(find.byKey(const Key('expenseTotalWidget'))).dy;
+      final bannerTop = tester.getTopLeft(find.byKey(const Key('pendingActionsBanner'))).dy;
+      final rowTop = tester.getTopLeft(find.byKey(const Key('transactionRowTapTarget')).first).dy;
+      expect(expenseTotalTop, lessThan(bannerTop));
+      expect(bannerTop, lessThan(rowTop));
+    });
+
+    testWidgets('tapping the banner opens the existing pending-actions page, unchanged', (tester) async {
+      fakePendingActions.seed([pendingAction(1)]);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(const Key('pendingActionsBanner')));
+      await _pumpBounded(tester);
+
+      expect(find.byType(PendingActionsPage), findsOneWidget);
+    });
+
+    testWidgets('zero pending items: no dead banner space, matching the app\'s existing zero-count convention', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('pendingActionsBanner')), findsNothing);
+    });
+
+    testWidgets('no duplicate pending count/badge is added anywhere else on Home', (tester) async {
+      fakePendingActions.seed([pendingAction(1)]);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byType(Badge), findsNothing, reason: 'the banner is the single source of this count on Home, unlike TransactionsPage\'s AppBar badge');
     });
   });
 
