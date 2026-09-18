@@ -10,6 +10,7 @@
 // refresh before the Transactions/T6-form screens render, not because the
 // fake happened to be pre-seeded.
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
@@ -18,6 +19,9 @@ import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_upload_outcome.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
 import 'package:cashlog/features/transactions/domain/pending_action.dart';
@@ -194,6 +198,22 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> remove(int id) => throw UnimplementedError('not exercised by this test');
 }
 
+/// Ticket 09: Home now reads `lastAutoScanUploadProvider` — same "fake every
+/// repository MyApp's tree touches" reasoning as `_FakePendingActionsRepository`
+/// above, so a real `AppDatabase` never gets instantiated here.
+class _FakeSlipUploadRepository implements SlipUploadRepository {
+  @override
+  Stream<DateTime?> watchLastSuccessfulAutoScanUpload() => Stream.value(null);
+
+  @override
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) =>
+      throw UnimplementedError('not exercised by this test');
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
 /// test/widget_test.dart's `_pumpBounded`).
@@ -215,6 +235,7 @@ void main() {
             transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
             dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
             pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
+            slipUploadRepositoryProvider.overrideWithValue(_FakeSlipUploadRepository()),
           ],
           child: const MyApp(),
         ),
@@ -239,6 +260,7 @@ void main() {
           transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
           dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
           pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
+          slipUploadRepositoryProvider.overrideWithValue(_FakeSlipUploadRepository()),
         ],
         child: const MyApp(),
       ),

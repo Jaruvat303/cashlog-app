@@ -233,6 +233,12 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
 
   @override
   Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this nav-shell test');
+
+  /// Ticket 09: Home now reads this for its auto-scan status text — a fixed
+  /// `null` (never uploaded) is enough here, this suite isn't about that
+  /// readout.
+  @override
+  Stream<DateTime?> watchLastSuccessfulAutoScanUpload() => Stream.value(null);
 }
 
 /// This test pumps the real `MyApp()` (needed since `AppShell` — home of

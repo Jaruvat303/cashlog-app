@@ -102,6 +102,12 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
           ),
         );
   }
+
+  /// Not exercised by this file — this suite is about `SlipScanPipeline`'s
+  /// own sequencing/outcome-bucketing logic, not ticket 09's status readout
+  /// (covered by slip_upload_repository_test.dart and dashboard_page_test.dart).
+  @override
+  Stream<DateTime?> watchLastSuccessfulAutoScanUpload() => const Stream.empty();
 }
 
 /// T14: records exactly which month-sets this pipeline's batch asked to

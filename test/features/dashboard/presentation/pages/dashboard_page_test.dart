@@ -16,8 +16,10 @@ import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
+import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
 import 'package:cashlog/features/slip_scan/domain/gallery_access_level.dart';
 import 'package:cashlog/features/slip_scan/domain/slip_candidate.dart';
+import 'package:cashlog/features/slip_scan/domain/slip_upload_outcome.dart';
 import 'package:cashlog/features/slip_scan/presentation/providers/slip_scan_pipeline_provider.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -25,6 +27,7 @@ import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/pending_actions_page.dart';
+import 'package:cashlog/shared/format/datetime.dart';
 import 'package:cashlog/shared/format/money.dart';
 import 'package:dartz/dartz.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -250,6 +253,39 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   Future<void> remove(int id) => throw UnimplementedError('not exercised by this page test');
 }
 
+/// Ticket 09: the page reads `lastAutoScanUploadProvider`, backed by
+/// `SlipUploadRepository.watchLastSuccessfulAutoScanUpload` — a real
+/// `AppDatabase` unless overridden, same reasoning as every other fake
+/// repository in this file. `watchLastSuccessfulAutoScanUpload` is an
+/// `async*` generator (CLAUDE.md: never `Stream.multi()` under
+/// `testWidgets`) that replays the current value then forwards the
+/// controller's future events — [seed] is the test-only hook that drives it,
+/// standing in for a real successful auto-scan upload landing in
+/// `scanned_slips`.
+class _FakeSlipUploadRepository implements SlipUploadRepository {
+  DateTime? _lastSuccessfulUpload;
+  final _controller = StreamController<DateTime?>.broadcast();
+
+  void seed(DateTime? value) {
+    _lastSuccessfulUpload = value;
+    _controller.add(value);
+  }
+
+  @override
+  Stream<DateTime?> watchLastSuccessfulAutoScanUpload() async* {
+    yield _lastSuccessfulUpload;
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this page test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) =>
+      throw UnimplementedError('not exercised by this page test');
+}
+
 /// Seeds `SlipScanPipeline`'s state directly (rather than driving it through
 /// a real `runScan()`) — this ticket's DoD is that the Home banner is a pure
 /// reader of `SlipScanProgress.accessLevel`, so the test only needs to
@@ -314,12 +350,14 @@ void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late _FakeDashboardRepository fakeDashboard;
   late _FakePendingActionsRepository fakePendingActions;
+  late _FakeSlipUploadRepository fakeSlipUpload;
   late DateTime thisMonth;
 
   setUp(() {
     fakeTransactions = _FakeTransactionsRepository();
     fakeDashboard = _FakeDashboardRepository();
     fakePendingActions = _FakePendingActionsRepository();
+    fakeSlipUpload = _FakeSlipUploadRepository();
     final now = DateTime.now();
     thisMonth = DateTime.utc(now.year, now.month);
   });
@@ -338,6 +376,7 @@ void main() {
       slipGalleryRepositoryProvider.overrideWithValue(galleryRepo ?? _FakeSlipGalleryRepository()),
       slipScanPipelineProvider.overrideWith(() => _FakeSlipScanPipeline(pipelineState ?? _progress(accessLevel: GalleryAccessLevel.full))),
       dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
+      slipUploadRepositoryProvider.overrideWithValue(fakeSlipUpload),
     ],
     child: const MaterialApp(home: DashboardPage()),
   );
@@ -650,6 +689,102 @@ void main() {
       await _pumpBounded(tester);
 
       expect(find.byType(Badge), findsNothing, reason: 'the banner is the single source of this count on Home, unlike TransactionsPage\'s AppBar badge');
+    });
+  });
+
+  group('ticket 09: last successful auto-scan upload timestamp', () {
+    testWidgets('shows a placeholder when auto-scan has never uploaded anything successfully', (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('lastAutoScanUploadText')), findsOneWidget);
+      expect(find.text('ยังไม่มีการอัปโหลดสลิปอัตโนมัติ'), findsOneWidget);
+    });
+
+    testWidgets('shows readable date/time text once auto-scan has uploaded a slip successfully', (tester) async {
+      final uploadedAt = DateTime.now().subtract(const Duration(minutes: 5));
+      fakeSlipUpload.seed(uploadedAt);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(uploadedAt)}'), findsOneWidget);
+    });
+
+    testWidgets('updates live when a genuinely new successful auto-scan upload lands', (tester) async {
+      final firstUpload = DateTime.now().subtract(const Duration(hours: 2));
+      fakeSlipUpload.seed(firstUpload);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(firstUpload)}'), findsOneWidget);
+
+      final secondUpload = DateTime.now();
+      fakeSlipUpload.seed(secondUpload);
+      await _pumpBounded(tester);
+
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(firstUpload)}'), findsNothing);
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(secondUpload)}'), findsOneWidget);
+    });
+
+    testWidgets('stays fixed across repeated no-new-files scan cycles — a stale value is the intended signal', (tester) async {
+      final onlyUpload = DateTime.now().subtract(const Duration(days: 1));
+      fakeSlipUpload.seed(onlyUpload);
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+
+      // A "scan cycle runs but finds nothing new" never calls anything that
+      // touches `watchLastSuccessfulAutoScanUpload`'s backing data — no
+      // seed() call here simulates exactly that repeatedly, across several
+      // pumps, and the displayed text must not move.
+      await _pumpBounded(tester);
+      await _pumpBounded(tester);
+
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+    });
+
+    testWidgets('does not move when unrelated Home state changes (pending actions, transactions)', (tester) async {
+      final onlyUpload = DateTime.now().subtract(const Duration(hours: 3));
+      fakeSlipUpload.seed(onlyUpload);
+      fakePendingActions.seed([pendingAction(1)]);
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [_tx(id: 1, note: 'A row', date: thisMonth)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+
+      // Simulates a manually-created transaction landing on Home (ticket
+      // 05's FAB "create manually" option) and a pending-actions count
+      // change — neither is a slip upload, so neither should touch this
+      // text.
+      fakeTransactions.channelFor(thisMonth.year, thisMonth.month).append([_tx(id: 2, note: 'Manually created row', date: thisMonth)]);
+      fakePendingActions.seed([pendingAction(1), pendingAction(2)]);
+      await _pumpBounded(tester);
+
+      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+    });
+
+    testWidgets('sits beneath the pending-actions banner, above the gallery-permission banner', (tester) async {
+      final onlyUpload = DateTime.now();
+      fakeSlipUpload.seed(onlyUpload);
+      fakePendingActions.seed([pendingAction(1)]);
+
+      await tester.pumpWidget(
+        buildApp(pipelineState: _progress(accessLevel: GalleryAccessLevel.denied)),
+      );
+      await _pumpBounded(tester);
+
+      final bannerTop = tester.getTopLeft(find.byKey(const Key('pendingActionsBanner'))).dy;
+      final statusTop = tester.getTopLeft(find.byKey(const Key('lastAutoScanUploadText'))).dy;
+      final galleryBannerTop = tester.getTopLeft(find.byKey(const Key('galleryPermissionBanner'))).dy;
+      expect(bannerTop, lessThan(statusTop));
+      expect(statusTop, lessThan(galleryBannerTop));
     });
   });
 

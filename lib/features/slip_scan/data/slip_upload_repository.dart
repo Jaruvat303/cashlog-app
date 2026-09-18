@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show BooleanExpressionOperators, OrderingTerm, Value;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -17,6 +17,12 @@ import '../domain/slip_upload_outcome.dart';
 import 'slip_gallery_repository.dart';
 
 part 'slip_upload_repository.g.dart';
+
+/// T21's manual-attach `sourceFolder` marker — pulled out to a shared
+/// constant (was a bare literal in [uploadManual] only) so ticket 09's
+/// [SlipUploadRepository.watchLastSuccessfulAutoScanUpload] can exclude it
+/// by the same value rather than re-typing the string a second place.
+const kManualSlipSourceFolder = 'manual';
 
 /// `POST /api/v1/transactions/upload-slip` + `scanned_slips`/
 /// `cached_transactions` bookkeeping, one file at a time (spec §7.6.1's
@@ -81,9 +87,27 @@ class SlipUploadRepository {
   /// is `SlipScanPipeline`'s job, not this repository's — same division of
   /// responsibility as [uploadOne]'s own doc comment.
   Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
-    final candidate = SlipCandidate(id: filename, filename: filename, sourceAlbum: 'manual');
+    final candidate = SlipCandidate(id: filename, filename: filename, sourceAlbum: kManualSlipSourceFolder);
     final retryCount = await _retryCountFor(filename);
     return _uploadBytes(candidate, bytes, retryCount);
+  }
+
+  /// Ticket 09 (post-launch redesign): "last successful auto-scan upload",
+  /// local-device-only per the spec's Out of Scope note (no backend
+  /// `created_at` column). Deliberately not a new success signal — this
+  /// just watches the exact `scanned_slips` row [_recordUploaded] already
+  /// writes on every real upload, reactively, filtered to
+  /// `status == uploaded` and `sourceFolder != kManualSlipSourceFolder` so
+  /// T21's manual gallery/camera attach (a direct user action, not the
+  /// *background* pipeline the spec's user story is about — "so that I can
+  /// tell ... whether the background scanning pipeline is still working")
+  /// never makes a stalled auto-scan look falsely healthy.
+  Stream<DateTime?> watchLastSuccessfulAutoScanUpload() {
+    final query = _db.select(_db.scannedSlips)
+      ..where((s) => s.status.equalsValue(SlipStatus.uploaded) & s.sourceFolder.equals(kManualSlipSourceFolder).not())
+      ..orderBy([(s) => OrderingTerm.desc(s.scannedAt)])
+      ..limit(1);
+    return query.watchSingleOrNull().map((row) => row?.scannedAt);
   }
 
   Future<int> _retryCountFor(String filename) async {

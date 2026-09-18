@@ -462,6 +462,78 @@ void main() {
     });
   });
 
+  group('watchLastSuccessfulAutoScanUpload (ticket 09)', () {
+    const otherCandidate = SlipCandidate(id: 'asset-2', filename: 'scb_002.jpg', sourceAlbum: 'SCB EASY');
+
+    test('emits null when nothing has ever uploaded successfully', () async {
+      final value = await repository.watchLastSuccessfulAutoScanUpload().first;
+      expect(value, isNull);
+    });
+
+    test('emits the timestamp once an auto-scan upload (uploadOne) succeeds', () async {
+      adapter.script = () => 'uploaded';
+
+      await repository.uploadOne(candidate);
+
+      final row = await db.select(db.scannedSlips).getSingle();
+      final value = await repository.watchLastSuccessfulAutoScanUpload().first;
+      expect(value, row.scannedAt);
+    });
+
+    test('a duplicate or failed outcome does not move the timestamp forward', () async {
+      adapter.script = () => 'uploaded';
+      await repository.uploadOne(candidate);
+      final firstValue = await repository.watchLastSuccessfulAutoScanUpload().first;
+
+      adapter.script = () => 'duplicate_200';
+      await repository.uploadOne(otherCandidate);
+      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
+
+      adapter.script = () => 'slip_parse_failed';
+      await repository.uploadOne(const SlipCandidate(id: 'asset-3', filename: 'scb_003.jpg', sourceAlbum: 'SCB EASY'));
+      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
+    });
+
+    test('a repeated no-new-files scan cycle (diffNewFiles only, no uploadOne call) leaves the timestamp unchanged', () async {
+      adapter.script = () => 'uploaded';
+      await repository.uploadOne(candidate);
+      final firstValue = await repository.watchLastSuccessfulAutoScanUpload().first;
+
+      // Simulates SlipScanPipeline.runScan finding nothing new: diffNewFiles
+      // runs, uploadOne is never called, so nothing should move.
+      await repository.diffNewFiles(const [candidate]);
+      await repository.diffNewFiles(const [candidate]);
+
+      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
+    });
+
+    test('a successful manual attach (uploadManual, T21) is excluded — the signal is auto-scan only', () async {
+      adapter.script = () => 'uploaded';
+
+      final value = await repository.watchLastSuccessfulAutoScanUpload().first;
+      expect(value, isNull, reason: 'nothing auto-scanned yet');
+
+      await repository.uploadManual(bytes: Uint8List.fromList(List.filled(rawByteCount, 3)), filename: 'manual_only.jpg');
+
+      expect(
+        await repository.watchLastSuccessfulAutoScanUpload().first,
+        isNull,
+        reason: 'a manual gallery/camera upload must not make a stalled background auto-scan look healthy',
+      );
+    });
+
+    test('an auto-scan success after a prior manual-only upload is still picked up correctly', () async {
+      adapter.script = () => 'uploaded';
+      await repository.uploadManual(bytes: Uint8List.fromList(List.filled(rawByteCount, 3)), filename: 'manual_only.jpg');
+      expect(await repository.watchLastSuccessfulAutoScanUpload().first, isNull);
+
+      await repository.uploadOne(candidate);
+
+      final row = await (db.select(db.scannedSlips)..where((s) => s.localImageName.equals(candidate.filename))).getSingle();
+      expect(await repository.watchLastSuccessfulAutoScanUpload().first, row.scannedAt);
+    });
+  });
+
   group('compression', () {
     test('every upload attempt compresses the raw gallery bytes before sending', () async {
       adapter.script = () => 'uploaded';
