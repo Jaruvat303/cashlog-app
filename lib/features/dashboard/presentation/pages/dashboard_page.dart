@@ -12,6 +12,7 @@ import '../../../slip_scan/presentation/providers/slip_scan_pipeline_provider.da
 import '../../../transactions/domain/transaction.dart';
 import '../../../transactions/presentation/providers/transactions_feed_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
+import '../widgets/auto_scan_processing_indicator.dart';
 import '../widgets/auto_scan_status_text.dart';
 import '../widgets/expense_total_widget.dart';
 import '../widgets/pending_actions_banner.dart';
@@ -42,10 +43,10 @@ const double _kLoadMoreThreshold = 300;
 /// AppBar title (see [_onMonthChanged]). Ticket 08 adds [PendingActionsBanner]
 /// directly beneath it. Ticket 09 adds [AutoScanStatusText] beneath that —
 /// grouped with the other background-auto-scan status readout,
-/// `_GalleryPermissionBanner`, which stays directly below it. Still
-/// deliberately bare of the live "processing N/M" indicator — that's ticket
-/// 10, built on top of this ledger, not part of this ticket; it adds its own
-/// widget the same way, as a further leading item in the same `ListView`.
+/// `_GalleryPermissionBanner`, which stays directly below it. Ticket 10 adds
+/// [AutoScanProcessingIndicator] as a further leading item after that —
+/// last, since it's the most transient of the four and shouldn't push the
+/// steadier status readouts around while it appears/disappears.
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
@@ -137,6 +138,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   const PendingActionsBanner(),
                   const AutoScanStatusText(),
                   const _GalleryPermissionBanner(),
+                  const AutoScanProcessingIndicator(),
                   const Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
@@ -149,11 +151,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              // +4 for the expense-total widget, pending-actions banner,
-              // auto-scan status text, and gallery-permission banner at
-              // indices 0/1/2/3 — everything else keeps its previous index
-              // math shifted accordingly.
-              itemCount: 4 + groups.length + (isLoadingMore ? 1 : 0),
+              // +5 for the expense-total widget, pending-actions banner,
+              // auto-scan status text, gallery-permission banner, and
+              // auto-scan processing indicator at indices 0/1/2/3/4 —
+              // everything else keeps its previous index math shifted
+              // accordingly.
+              itemCount: 5 + groups.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return Padding(
@@ -162,11 +165,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   );
                 }
                 // `PendingActionsBanner`/`AutoScanStatusText`/
-                // `_GalleryPermissionBanner` each supply their own bottom
-                // margin when visible and collapse to a zero-size box when
-                // not — no extra wrapper padding here, unlike the widget
-                // above and the day groups below, or a hidden banner would
-                // still leave a gap in the list.
+                // `_GalleryPermissionBanner`/`AutoScanProcessingIndicator`
+                // each supply their own bottom margin when visible and
+                // collapse to a zero-size box when not — no extra wrapper
+                // padding here, unlike the widget above and the day groups
+                // below, or a hidden banner would still leave a gap in the
+                // list.
                 if (index == 1) {
                   return const PendingActionsBanner();
                 }
@@ -176,7 +180,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 if (index == 3) {
                   return const _GalleryPermissionBanner();
                 }
-                final groupIndex = index - 4;
+                if (index == 4) {
+                  return const AutoScanProcessingIndicator();
+                }
+                final groupIndex = index - 5;
                 if (groupIndex >= groups.length) {
                   return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
                 }

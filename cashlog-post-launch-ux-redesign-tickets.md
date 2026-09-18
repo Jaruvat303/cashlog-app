@@ -163,12 +163,12 @@ Eleven tracer-bullet tickets implementing [`cashlog-post-launch-ux-redesign-spec
 **What to build**: A live indicator on Home showing progress while the background auto-scan pipeline is uploading slips (e.g. "processing 2/5"), briefly holding a completion state before disappearing.
 
 **Acceptance criteria**:
-- [ ] While auto-scan is active, the indicator shows current progress (completed count / total count) sourced from the existing slip-scan-progress state.
-- [ ] When the batch finishes, the indicator shows a brief completion state (e.g. "5 done") for a few seconds before clearing.
-- [ ] When auto-scan is idle, no indicator is shown.
-- [ ] The indicator reflects both auto-scan batches and any manual gallery/photo uploads triggered from the new FAB (ticket 05), since both go through the same upload state.
+- [x] While auto-scan is active, the indicator shows current progress (completed count / total count) sourced from the existing slip-scan-progress state.
+- [x] When the batch finishes, the indicator shows a brief completion state (e.g. "5 done") for a few seconds before clearing.
+- [x] When auto-scan is idle, no indicator is shown.
+- [x] The indicator reflects both auto-scan batches and any manual gallery/photo uploads triggered from the new FAB (ticket 05), since both go through the same upload state.
 
-**Blocked by**: `06` — Home ledger rebuild.
+**Blocked by**: `06` — Home ledger rebuild. **Status**: Done.
 
 ---
 

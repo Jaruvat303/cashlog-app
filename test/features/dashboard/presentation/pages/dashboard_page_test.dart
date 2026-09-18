@@ -15,6 +15,7 @@ import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
+import 'package:cashlog/features/dashboard/presentation/widgets/auto_scan_processing_indicator.dart';
 import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
 import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
 import 'package:cashlog/features/slip_scan/domain/gallery_access_level.dart';
@@ -198,6 +199,11 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
   int requestAccessCalls = 0;
   int presentLimitedSelectionCalls = 0;
 
+  /// Ticket 10: candidates `runScan()` should find on this "auto-scan
+  /// cycle" — defaults to none, same as every other test in this file that
+  /// isn't exercising a real scan batch.
+  List<SlipCandidate> candidates = const [];
+
   @override
   Future<GalleryAccessLevel> currentAccess() async => requestAccessResult;
   @override
@@ -210,7 +216,7 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
   @override
   Future<void> openSettings() async {}
   @override
-  Future<List<SlipCandidate>> queryConfiguredAlbums() async => const [];
+  Future<List<SlipCandidate>> queryConfiguredAlbums() async => candidates;
   @override
   Future<Uint8List?> readBytes(String assetId) async => null;
 }
@@ -266,6 +272,19 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   DateTime? _lastSuccessfulUpload;
   final _controller = StreamController<DateTime?>.broadcast();
 
+  /// Ticket 10: files `runScan()`'s diff step should treat as new — only
+  /// populated by tests that drive a real scan batch through the pipeline;
+  /// everything else in this file leaves it empty, matching `diffNewFiles`'s
+  /// previous unreachable-by-default behavior.
+  List<SlipCandidate> newFiles = const [];
+  final List<String> uploadedInOrder = [];
+
+  /// Ticket 10: when set, `uploadOne`/`uploadManual` block here before
+  /// resolving — lets a test freeze the real pipeline mid-batch/mid-attach
+  /// so it can assert on the indicator's in-flight text. Same seam as
+  /// slip_scan_pipeline_provider_test.dart's `uploadOneGate`.
+  Completer<void>? uploadOneGate;
+
   void seed(DateTime? value) {
     _lastSuccessfulUpload = value;
     _controller.add(value);
@@ -278,12 +297,19 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   }
 
   @override
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this page test');
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) async => newFiles;
+
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => _resolveUpload(candidate.filename);
+
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) =>
-      throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) => _resolveUpload(filename);
+
+  Future<Either<Failure, SlipUploadOutcome>> _resolveUpload(String filename) async {
+    if (uploadOneGate != null) await uploadOneGate!.future;
+    uploadedInOrder.add(filename);
+    return Right(SlipUploaded(_tx(id: uploadedInOrder.length)));
+  }
 }
 
 /// Seeds `SlipScanPipeline`'s state directly (rather than driving it through
@@ -367,6 +393,15 @@ void main() {
     _FakeSlipGalleryRepository? galleryRepo,
     List<Account> accounts = const [],
     List<Category> categories = const [],
+    // Ticket 10: the indicator's own tests need the *real* SlipScanPipeline
+    // notifier running (so calling `runScan`/`uploadManual` on it drives
+    // real isScanning/isManualUploading transitions) instead of the inert
+    // `_FakeSlipScanPipeline` every other group in this file uses — those
+    // groups only ever read `SlipScanProgress.accessLevel`, never exercise
+    // the pipeline's own state machine.
+    bool useRealPipeline = false,
+    SlipUploadRepository? uploadRepo,
+    Duration? completionHoldDuration,
   }) => ProviderScope(
     overrides: [
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository(accounts: accounts)),
@@ -374,9 +409,11 @@ void main() {
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(fakePendingActions),
       slipGalleryRepositoryProvider.overrideWithValue(galleryRepo ?? _FakeSlipGalleryRepository()),
-      slipScanPipelineProvider.overrideWith(() => _FakeSlipScanPipeline(pipelineState ?? _progress(accessLevel: GalleryAccessLevel.full))),
+      if (!useRealPipeline)
+        slipScanPipelineProvider.overrideWith(() => _FakeSlipScanPipeline(pipelineState ?? _progress(accessLevel: GalleryAccessLevel.full))),
       dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
-      slipUploadRepositoryProvider.overrideWithValue(fakeSlipUpload),
+      slipUploadRepositoryProvider.overrideWithValue(uploadRepo ?? fakeSlipUpload),
+      if (completionHoldDuration != null) autoScanCompletionHoldDurationProvider.overrideWithValue(completionHoldDuration),
     ],
     child: const MaterialApp(home: DashboardPage()),
   );
@@ -786,6 +823,127 @@ void main() {
       expect(bannerTop, lessThan(statusTop));
       expect(statusTop, lessThan(galleryBannerTop));
     });
+  });
+
+  group('ticket 10: live auto-scan processing indicator', () {
+    const candidateA = SlipCandidate(id: '1', filename: 'a.jpg', sourceAlbum: 'SCB EASY');
+
+    // Deliberately a single-candidate batch in every test below: `runScan`'s
+    // loop only calls `await Future.delayed(delay)` once `i > 0` (i.e. from
+    // the *second* file onward) — a real `Timer` even at `Duration.zero`,
+    // which under `testWidgets`' FakeAsync zone never fires without an
+    // explicit `tester.pump(duration)` to advance the fake clock past it.
+    // A raw `await` on the pipeline's own Future (as every test here does,
+    // matching how a real caller — `slip_scan_lifecycle_provider.dart` —
+    // awaits it) would hang forever the moment a second file entered the
+    // loop. One file exercises the exact same state transitions this
+    // indicator reacts to without ever taking that branch.
+    testWidgets('when idle, no indicator is shown', (tester) async {
+      await tester.pumpWidget(buildApp(useRealPipeline: true));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('autoScanProcessingIndicator')), findsNothing);
+    });
+
+    testWidgets('shows current progress (completed/total) sourced from the pipeline state while auto-scan is active', (tester) async {
+      final galleryRepo = _FakeSlipGalleryRepository()..candidates = [candidateA];
+      final uploadRepo = _FakeSlipUploadRepository()..newFiles = [candidateA];
+      final gate = Completer<void>();
+      uploadRepo.uploadOneGate = gate;
+
+      await tester.pumpWidget(buildApp(useRealPipeline: true, galleryRepo: galleryRepo, uploadRepo: uploadRepo));
+      await _pumpBounded(tester);
+      final container = ProviderScope.containerOf(tester.element(find.byType(DashboardPage)));
+
+      final scanFuture = container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('autoScanProcessingIndicator')), findsOneWidget);
+      expect(find.text('กำลังประมวลผลสลิป 0/1'), findsOneWidget, reason: 'blocked on the gate before the file finishes uploading');
+
+      gate.complete();
+      await scanFuture;
+    });
+
+    testWidgets('on batch completion, shows a brief completion state before clearing — never instantly', (tester) async {
+      final galleryRepo = _FakeSlipGalleryRepository()..candidates = [candidateA];
+      final uploadRepo = _FakeSlipUploadRepository()..newFiles = [candidateA];
+
+      await tester.pumpWidget(
+        buildApp(
+          useRealPipeline: true,
+          galleryRepo: galleryRepo,
+          uploadRepo: uploadRepo,
+          completionHoldDuration: const Duration(milliseconds: 100),
+        ),
+      );
+      await _pumpBounded(tester);
+      final container = ProviderScope.containerOf(tester.element(find.byType(DashboardPage)));
+
+      await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+      await tester.pump();
+
+      expect(find.byKey(const Key('autoScanProcessingIndicator')), findsOneWidget);
+      expect(find.text('เสร็จสิ้น 1 รายการ'), findsOneWidget);
+
+      // Still within the hold window — must not have cleared instantly.
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('autoScanProcessingIndicator')), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(find.byKey(const Key('autoScanProcessingIndicator')), findsNothing);
+    });
+
+    testWidgets(
+      'an auto-scan cycle that finds nothing new never shows the indicator at all',
+      (tester) async {
+        final galleryRepo = _FakeSlipGalleryRepository();
+        final uploadRepo = _FakeSlipUploadRepository();
+
+        await tester.pumpWidget(buildApp(useRealPipeline: true, galleryRepo: galleryRepo, uploadRepo: uploadRepo));
+        await _pumpBounded(tester);
+        final container = ProviderScope.containerOf(tester.element(find.byType(DashboardPage)));
+
+        await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+        await _pumpBounded(tester);
+
+        expect(find.byKey(const Key('autoScanProcessingIndicator')), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'reflects a manual gallery/photo upload from the ticket-05 FAB the same way it reflects a background batch',
+      (tester) async {
+        final uploadRepo = _FakeSlipUploadRepository();
+        final gate = Completer<void>();
+        uploadRepo.uploadOneGate = gate;
+
+        await tester.pumpWidget(
+          buildApp(useRealPipeline: true, uploadRepo: uploadRepo, completionHoldDuration: const Duration(milliseconds: 100)),
+        );
+        await _pumpBounded(tester);
+        final container = ProviderScope.containerOf(tester.element(find.byType(DashboardPage)));
+
+        expect(find.byKey(const Key('autoScanProcessingIndicator')), findsNothing);
+
+        final manualFuture = container
+            .read(slipScanPipelineProvider.notifier)
+            .uploadManual(bytes: Uint8List.fromList([1, 2, 3]), filename: 'manual.jpg');
+        await _pumpBounded(tester);
+
+        expect(find.byKey(const Key('autoScanProcessingIndicator')), findsOneWidget);
+        expect(find.text('กำลังอัปโหลดสลิป...'), findsOneWidget);
+
+        gate.complete();
+        await manualFuture;
+        await tester.pump();
+
+        expect(find.text('เสร็จสิ้น 1 รายการ'), findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(find.byKey(const Key('autoScanProcessingIndicator')), findsNothing);
+      },
+    );
   });
 
   group('gallery permission banner', () {
