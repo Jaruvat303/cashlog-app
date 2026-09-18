@@ -4,7 +4,7 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../accounts/presentation/providers/accounts_providers.dart';
+import '../../../../shared/format/money.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../slip_scan/data/slip_gallery_repository.dart';
 import '../../../slip_scan/domain/gallery_access_level.dart';
@@ -12,109 +12,244 @@ import '../../../slip_scan/presentation/providers/slip_scan_pipeline_provider.da
 import '../../../transactions/domain/transaction.dart';
 import '../../../transactions/presentation/providers/transactions_feed_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
+import '../widgets/expense_total_widget.dart';
 
-/// Mockup screen 1a, redesigned per the fixes/redesign spec's Design 3 (Home
-/// half): this page is no longer the category/amount summary — that block
-/// (totals card + `ExpensePieChart`) moved to the Transaction List page's
-/// Income/Expense/Transfer tabs (ticket 07's list, ticket 03's chart — see
-/// `TransactionsPage`'s `_CategoryBreakdownSection`); neither is referenced
-/// from here anymore. The accounts strip (mini balance cards) has since
-/// moved off this page too — post-launch redesign ticket 04 relocated it to
-/// `TransactionsPage`/"ดูสรุป" — so Home is now a single actionable feed: the
-/// gallery-permission banner (ticket 06 / spec Bug 1) at the top, then
-/// transactions still needing attention (junk or missing a category), most
-/// recent first.
+/// How close to the bottom (in pixels) triggers the next page fetch — mirrors
+/// `TransactionsPage`'s own threshold, since this page now drives the exact
+/// same paged fetch model.
+const double _kLoadMoreThreshold = 300;
+
+/// Post-launch redesign ticket 06: Home is no longer a "needs attention"
+/// queue that drops a row the moment it gets a category — that was the
+/// original bug (spec Problem Statement, 4th bullet). This page now sources
+/// the same full, paginated, per-month transaction query `TransactionsPage`
+/// uses (`monthTransactionsProvider` + `TransactionsFeedSync`), grouped by
+/// day within the selected month, so a transaction stays visible for the
+/// whole month regardless of its category state.
 ///
 /// Reads/drives the same `selectedMonthProvider` as `TransactionsPage` (DoD:
-/// "shared state, not a second independent selector").
-class DashboardPage extends ConsumerWidget {
+/// "shared state, not a second independent selector"), which already
+/// defaults to the current month on first build — see
+/// `SelectedMonth.build()`.
+///
+/// The accounts strip (mini balance cards) moved off this page to
+/// `TransactionsPage`/"ดูสรุป" in ticket 04 and is not reintroduced here.
+///
+/// Ticket 07 adds [ExpenseTotalWidget] as the leading item above the day
+/// groups — it also owns the month switcher, moved here from this page's
+/// AppBar title (see [_onMonthChanged]). The `_GalleryPermissionBanner`
+/// stays right below it. Still deliberately bare of the pending-items
+/// banner and auto-scan status text/indicator — those are tickets 08/09/10,
+/// built on top of this ledger, not part of this ticket; they add their own
+/// widgets the same way, as further leading items in the same `ListView`.
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    // Cache paints first via monthTransactionsProvider's drift watch; this
+    // kicks off the paged API sync for the currently selected month
+    // (CLAUDE.md: online-only + read cache). Silent, same as
+    // TransactionsPage's initial load — the cached list is already on
+    // screen either way.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final month = ref.read(selectedMonthProvider);
+      _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) return;
+    final month = ref.read(selectedMonthProvider);
+    ref.read(transactionsFeedSyncProvider(month.year, month.month).notifier).loadNextPage();
+  }
+
+  Future<void> _loadFirstPage(int year, int month, {bool showErrorSnackBar = true}) async {
+    final result = await ref.read(transactionsFeedSyncProvider(year, month).notifier).loadFirstPage();
+    if (!mounted || !showErrorSnackBar) return;
+    result.fold(
+      (failure) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'รีเฟรชรายการไม่สำเร็จ'))),
+      (_) {},
+    );
+  }
+
+  /// Ticket 07: [ExpenseTotalWidget] already mutates `selectedMonthProvider`
+  /// itself before calling this — this only performs the side effects that
+  /// mutation needs on top of the shared state: jump the list back to the
+  /// top (a new month's data is a different list entirely) and kick off the
+  /// new month's paged fetch, same as this page's own `_loadFirstPage` call
+  /// on open.
+  void _onMonthChanged() {
+    final month = ref.read(selectedMonthProvider);
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final month = ref.watch(selectedMonthProvider);
     final year = month.year;
     final monthNum = month.month;
-    final monthTransactions = ref.watch(monthTransactionsProvider(year, monthNum)).value ?? const [];
+
+    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
+    final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const [];
     final categoriesById = {for (final c in categories) c.id: c};
-
-    final attentionItems = monthTransactions.where(_needsAttention).toList()
-      ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+    final isLoadingMore = feedMeta?.isLoadingMore ?? false;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _monthArrow(icon: RemixIcon.arrowLeftSLine, onTap: () => ref.read(selectedMonthProvider.notifier).previous()),
-            const SizedBox(width: 10),
-            Text(monthYearLabel(month), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-            const SizedBox(width: 10),
-            _monthArrow(icon: RemixIcon.arrowRightSLine, onTap: () => ref.read(selectedMonthProvider.notifier).next()),
-          ],
-        ),
-      ),
+      appBar: AppBar(title: const Text('หน้าแรก')),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(accountsRefreshProvider.notifier).refresh(),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const _GalleryPermissionBanner(),
-            const Text('รายการที่ต้องดำเนินการ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
-            const SizedBox(height: 9),
-            if (attentionItems.isEmpty)
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: const Center(child: Text('ไม่มีรายการที่ต้องดำเนินการ', style: TextStyle(color: AppColors.textMuted))),
-              )
-            else
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < attentionItems.length; i++) ...[
-                      if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
-                      TransactionListTile(transaction: attentionItems[i], categoriesById: categoriesById),
+        onRefresh: () => _loadFirstPage(year, monthNum),
+        child: transactionsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
+          data: (transactions) {
+            if (transactions.isEmpty) {
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                children: [
+                  ExpenseTotalWidget(onMonthChanged: _onMonthChanged),
+                  const SizedBox(height: 16),
+                  const _GalleryPermissionBanner(),
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
+                  ),
+                ],
+              );
+            }
+
+            final groups = _groupByDay(transactions);
+            return ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+              // +2 for the expense-total widget and gallery-permission
+              // banner at indices 0/1 — everything else keeps its previous
+              // index math shifted accordingly.
+              itemCount: 2 + groups.length + (isLoadingMore ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: ExpenseTotalWidget(onMonthChanged: _onMonthChanged),
+                  );
+                }
+                // `_GalleryPermissionBanner` supplies its own bottom margin
+                // when visible and collapses to a zero-size box when not —
+                // no extra wrapper padding here, unlike the widget above and
+                // the day groups below, or a hidden banner would still leave
+                // a gap in the list.
+                if (index == 1) {
+                  return const _GalleryPermissionBanner();
+                }
+                final groupIndex = index - 2;
+                if (groupIndex >= groups.length) {
+                  return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
+                }
+                final group = groups[groupIndex];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              relativeDayLabel(group.date),
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5, color: AppColors.textSecondary),
+                            ),
+                            Text(
+                              _formatSignedTotal(group.total),
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < group.transactions.length; i++) ...[
+                              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
+                              TransactionListTile(transaction: group.transactions[i], categoriesById: categoriesById),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
-                  ],
-                ),
-              ),
-          ],
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _monthArrow({required IconData icon, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(9),
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(9)),
-        child: Icon(icon, size: 18, color: AppColors.textSecondary),
-      ),
-    );
+  List<_DayGroup> _groupByDay(List<Transaction> transactions) {
+    final groups = <DateTime, List<Transaction>>{};
+    for (final t in transactions) {
+      final day = DateTime(t.transactionDate.year, t.transactionDate.month, t.transactionDate.day);
+      groups.putIfAbsent(day, () => []).add(t);
+    }
+    return groups.entries
+        .map(
+          (entry) => _DayGroup(
+            date: entry.key,
+            transactions: entry.value,
+            // Transfers are deliberately excluded from the day total, same
+            // as the monthly summary (CLAUDE.md/DoD: a transfer moves money
+            // between the user's own accounts, neither income nor expense).
+            total: entry.value.fold(
+              0.0,
+              (sum, t) => switch (t.type) {
+                TransactionType.income => sum + t.amount,
+                TransactionType.expense => sum - t.amount,
+                TransactionType.transfer => sum,
+              },
+            ),
+          ),
+        )
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  /// Spec Bug 1/Design 3: a row needs attention when it's junk (spec §7.7 —
-  /// any type can be junk) or, for income/expense only, still missing a
-  /// category — transfers never take a category by design (see
-  /// `transaction.dart`), so a `null` `categoryId` there is expected, not a
-  /// gap to flag.
-  static bool _needsAttention(Transaction t) =>
-      t.isJunk || (t.type != TransactionType.transfer && t.categoryId == null);
+  String _formatSignedTotal(double total) => formatAmount(total, sign: total > 0 ? '+' : '');
+}
+
+class _DayGroup {
+  const _DayGroup({required this.date, required this.transactions, required this.total});
+  final DateTime date;
+  final List<Transaction> transactions;
+  final double total;
 }
 
 /// Spec Bug 1 / ticket 06: the only reachable, non-debug entry point for
