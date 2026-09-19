@@ -24,6 +24,11 @@ class SelectedMonth extends _$SelectedMonth {
   void next() => state = DateTime.utc(state.year, state.month + 1);
 
   void previous() => state = DateTime.utc(state.year, state.month - 1);
+
+  /// Jumps directly to a given year/month — backs the Home/Summary
+  /// month-year picker dropdown (mockup: tapping a month in the grid), as
+  /// opposed to [next]/[previous]'s one-step-at-a-time arrows.
+  void set(int year, int month) => state = DateTime.utc(year, month);
 }
 
 const List<String> _kMonthNames = [

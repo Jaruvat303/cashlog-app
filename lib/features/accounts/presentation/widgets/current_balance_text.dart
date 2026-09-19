@@ -10,14 +10,24 @@ import '../providers/accounts_providers.dart';
 const currentBalanceDisclaimer = 'ประมาณการจากรายการที่บันทึกไว้';
 
 /// Renders one account's current_balance (see
-/// `AccountsRepository.watchCurrentBalance`) plus its mandatory disclaimer.
-/// Used on both the accounts list (one per row) and the account detail
-/// screen so the disclaimer never appears without the balance it qualifies.
+/// `AccountsRepository.watchCurrentBalance`) plus a subtitle line — the
+/// mandatory BR-7 disclaimer by default, everywhere this widget is used
+/// without overriding it. [subtitle]/[subtitleStyle] let one specific caller
+/// swap that line for something else (post-launch UI polish ticket 03:
+/// Summary's Account Card shows the account's `matching_keywords` instead,
+/// in white, per that screen's own mockup decision) without changing the
+/// disclaimer everywhere else this widget renders. [showSubtitle] lets
+/// another caller (ticket 05: the Accounts list rows) drop the subtitle line
+/// entirely, same reasoning — a per-screen mockup decision, not a change to
+/// what every other caller still shows.
 class CurrentBalanceText extends ConsumerWidget {
-  const CurrentBalanceText({super.key, required this.accountId, this.style});
+  const CurrentBalanceText({super.key, required this.accountId, this.style, this.subtitle, this.subtitleStyle, this.showSubtitle = true});
 
   final int accountId;
   final TextStyle? style;
+  final String? subtitle;
+  final TextStyle? subtitleStyle;
+  final bool showSubtitle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,7 +41,7 @@ class CurrentBalanceText extends ConsumerWidget {
           error: (error, _) => const Text('ไม่สามารถแสดงยอดคงเหลือ'),
           data: (balance) => Text(formatAmount(balance), style: style),
         ),
-        Text(currentBalanceDisclaimer, style: Theme.of(context).textTheme.bodySmall),
+        if (showSubtitle) Text(subtitle ?? currentBalanceDisclaimer, style: subtitleStyle ?? Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

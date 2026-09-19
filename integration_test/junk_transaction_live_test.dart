@@ -238,7 +238,7 @@ void main() {
       await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 15));
       final formFinder = find.byType(TransactionFormPage);
       expect(formFinder, findsOneWidget);
-      final openedTransaction = tester.widget<TransactionFormPage>(formFinder).initial!;
+      final openedTransaction = tester.widget<TransactionFormPage>(formFinder).initial;
       final rowToEditId = openedTransaction.id;
       final isTransfer = openedTransaction.type == TransactionType.transfer;
       // ignore: avoid_print

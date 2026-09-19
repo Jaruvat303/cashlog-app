@@ -99,14 +99,14 @@ List<(String key, String label, IconData icon)> categoryIconChoicesFor(CategoryT
     type == CategoryType.income ? kIncomeCategoryIconChoices : kExpenseCategoryIconChoices;
 
 const List<String> kCategoryColorChoices = [
-  '#EF4444',
-  '#F97316',
-  '#EAB308',
-  '#22C55E',
-  '#14B8A6',
-  '#3B82F6',
+  '#5EEAD4',
+  '#60A5FA',
+  '#FBBF24',
+  '#FB7185',
+  '#CBD5E1',
+  '#4F8EF7',
   '#8B5CF6',
-  '#EC4899',
+  '#22B573',
 ];
 
 const _fallbackIcon = RemixIcon.folderFill;

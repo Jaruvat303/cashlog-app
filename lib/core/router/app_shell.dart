@@ -48,7 +48,7 @@ class AppShell extends StatelessWidget {
   }
 
   NavigationDestination _destination(IconData icon, IconData selectedIcon, String label, bool selected) {
-    final color = selected ? AppColors.primary : AppColors.textMuted;
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
     return NavigationDestination(
       icon: Icon(icon, color: color),
       selectedIcon: Icon(selectedIcon, color: color),

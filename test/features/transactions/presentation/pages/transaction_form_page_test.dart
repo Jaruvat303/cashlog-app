@@ -26,6 +26,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
   @override
@@ -322,28 +323,17 @@ void main() {
     pendingActions = _FakePendingActionsRepository();
     cacheInvalidator = _RecordingCacheInvalidator();
     fakeSlipGallery = _FakeSlipGalleryRepository();
+    // Multiple tests in this file decode the same `_fakeSlipImageBytes` via
+    // `Image.memory` — without clearing Flutter's global `ImageCache`
+    // between tests, a resolve from an earlier test can be reused (or, in a
+    // decode race between tests sharing the same isolate, occasionally
+    // report a decode failure) for a later test's *different* `Image`
+    // widget, which renders as Flutter's built-in unconstrained error
+    // widget and overflows `_SlipInfoCard`'s Row — not a real app bug, just
+    // test-image-cache pollution across `testWidgets` in the same file.
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
   });
-
-  Widget buildApp() => ProviderScope(
-    overrides: [
-      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-      transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-      pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
-      cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
-      slipGalleryRepositoryProvider.overrideWithValue(fakeSlipGallery),
-    ],
-    child: MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (context) => ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TransactionFormPage())),
-            child: const Text('open'),
-          ),
-        ),
-      ),
-    ),
-  );
 
   Widget buildEditApp(Transaction initial) => ProviderScope(
     overrides: [
@@ -357,74 +347,6 @@ void main() {
     child: MaterialApp(home: TransactionFormPage(initial: initial)),
   );
 
-  testWidgets('a transfer with the same account on both sides is blocked before any create call', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
-    await _pumpBounded(tester);
-    await tester.tap(find.text('ย้ายเงิน').last);
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('fromAccountDropdown')));
-    await _pumpBounded(tester);
-    await tester.tap(find.text('Cash').last);
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('toAccountDropdown')));
-    await _pumpBounded(tester);
-    await tester.tap(find.text('Cash').last);
-    await _pumpBounded(tester);
-
-    await tester.enterText(find.byKey(const Key('amountField')), '100');
-    await tester.tap(find.byKey(const Key('submitButton')));
-    await _pumpBounded(tester);
-
-    expect(find.text('บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน'), findsOneWidget);
-    expect(fakeTransactions.createCallCount, 0);
-    // Still on the form — a blocked submit never pops.
-    expect(find.byType(TransactionFormPage), findsOneWidget);
-  });
-
-  testWidgets('creating a valid income transaction calls create and pops the form', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
-    await _pumpBounded(tester);
-    await tester.tap(find.text('รายรับ').last);
-    await _pumpBounded(tester);
-
-    await tester.tap(find.byKey(const Key('accountDropdown')));
-    await _pumpBounded(tester);
-    await tester.tap(find.text('Cash').last);
-    await _pumpBounded(tester);
-
-    await tester.enterText(find.byKey(const Key('amountField')), '5000');
-    await tester.tap(find.byKey(const Key('submitButton')));
-    await _pumpBounded(tester);
-    // A successful submit pops the route, which then runs a reverse page
-    // transition — the plain bounded pump loop above isn't enough to flush
-    // that animation to completion, so settle explicitly (still bounded:
-    // nothing here is waiting on real I/O, so this can't hang the way an
-    // unmocked dio call would).
-    await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
-
-    expect(fakeTransactions.createCallCount, 1);
-    // A successful submit pops back to the launcher screen.
-    expect(find.byType(TransactionFormPage), findsNothing);
-    expect(find.text('open'), findsOneWidget);
-
-    // T14: a create invalidates only the new transaction's own month —
-    // defaults to today since no date was explicitly picked in this test.
-    final today = DateTime.now();
-    expect(cacheInvalidator.invalidatedMonthSets, [
-      {(today.year, today.month)},
-    ]);
-  });
-
   group('T14 cache invalidation', () {
     testWidgets('editing a transaction without changing its date invalidates only that one month', (tester) async {
       final original = Transaction(
@@ -437,9 +359,9 @@ void main() {
       await tester.pumpWidget(buildEditApp(original));
       await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('accountDropdown')));
+      await tester.tap(find.byKey(const Key('accountPill')));
       await _pumpBounded(tester);
-      await tester.tap(find.text('Cash').last);
+      await tester.tap(find.byKey(const Key('accountOption_1')));
       await _pumpBounded(tester);
 
       await _scrollToKey(tester, const Key('submitButton'));
@@ -450,51 +372,6 @@ void main() {
       expect(cacheInvalidator.invalidatedMonthSets, [
         {(2026, 9)},
       ]);
-    });
-  });
-
-  group('T13 pending-actions queue', () {
-    Future<void> fillAndSubmitIncome(WidgetTester tester) async {
-      await tester.pumpWidget(buildApp());
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
-      await _pumpBounded(tester);
-      await tester.tap(find.text('รายรับ').last);
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('accountDropdown')));
-      await _pumpBounded(tester);
-      await tester.tap(find.text('Cash').last);
-      await _pumpBounded(tester);
-
-      await tester.enterText(find.byKey(const Key('amountField')), '5000');
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
-    }
-
-    testWidgets('a transient create failure gets queued and shows the retry-queue snackbar', (tester) async {
-      fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
-      await fillAndSubmitIncome(tester);
-
-      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-      // A blocked/failed submit never pops — the form stays open with the
-      // typed data still visible, same as any other failed submit today.
-      expect(find.byType(TransactionFormPage), findsOneWidget);
-
-      final queued = await pendingActions.watchAll().first;
-      expect(queued, hasLength(1));
-      expect(queued.single.actionType, PendingActionType.createTransaction);
-      expect(queued.single.targetTransactionId, isNull);
-    });
-
-    testWidgets('a permanent create failure is not queued — snackbar only, same as before this ticket', (tester) async {
-      fakeTransactions.nextCreateResult = const Left(InvalidInputFailure(message: 'Invalid input'));
-      await fillAndSubmitIncome(tester);
-
-      expect(find.text('Invalid input'), findsOneWidget);
-      expect(await pendingActions.watchAll().first, isEmpty);
     });
   });
 
@@ -510,14 +387,6 @@ void main() {
       source: 'manual',
       transactionDate: DateTime.utc(2026, 9, 5),
     );
-
-    testWidgets('no delete button when creating a new transaction', (tester) async {
-      await tester.pumpWidget(buildApp());
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
-
-      expect(find.byKey(const Key('deleteTransactionButton')), findsNothing);
-    });
 
     testWidgets('delete button appears when editing an existing transaction', (tester) async {
       await tester.pumpWidget(buildEditApp(existing));
@@ -621,6 +490,8 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(noSlip));
       await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
       expect(fakeSlipGallery.queryCalls, 0);
@@ -640,6 +511,8 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(withSlip));
       await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slipImagePlaceholder')), findsNothing);
       expect(find.byType(Image), findsOneWidget);
@@ -659,6 +532,8 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(withStaleSlip));
       await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
       expect(find.byType(Image), findsNothing);
@@ -680,9 +555,133 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(withDeletedAsset));
       await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
       expect(find.byType(Image), findsNothing);
+    });
+  });
+
+  group('Topbar trailing action (ticket 04)', () {
+    final existing = Transaction(
+      id: 7,
+      amount: 500,
+      type: TransactionType.expense,
+      source: 'manual',
+      transactionDate: DateTime.utc(2026, 9, 5),
+    );
+
+    testWidgets('edit mode shows a delete (trash) icon, not the old overflow ("...") button', (tester) async {
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+
+      // Visible immediately, with no scrolling — it lives in the fixed
+      // header, not the scrollable form body.
+      expect(find.byIcon(RemixIcon.deleteBinLine), findsOneWidget);
+      expect(find.byIcon(Icons.more_horiz), findsNothing);
+      expect(find.byKey(const Key('deleteTransactionButton')), findsOneWidget);
+    });
+  });
+
+  group('"ข้อมูลจากสลิป" position (ticket 04)', () {
+    testWidgets('the slip info card is the last item in the form, below the submit button', (tester) async {
+      final existing = Transaction(
+        id: 8,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'manual',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(existing));
+      await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+
+      final submitTop = tester.getTopLeft(find.byKey(const Key('submitButton'))).dy;
+      final slipCardTop = tester.getTopLeft(find.byKey(const Key('slipInfoCard'))).dy;
+      expect(submitTop, lessThan(slipCardTop));
+    });
+  });
+
+  group('full-screen slip viewer (ticket 04)', () {
+    testWidgets('tapping the thumbnail opens a full-screen pinch-zoom viewer with a close button', (tester) async {
+      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+      final withSlip = Transaction(
+        id: 9,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'auto_scan',
+        localImageName: 'scb_001.jpg',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(withSlip));
+      await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+
+      await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
+      await _pumpBounded(tester);
+
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsOneWidget);
+    });
+
+    testWidgets('closing the viewer returns to the form with previously-entered data intact', (tester) async {
+      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+      final withSlip = Transaction(
+        id: 10,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'auto_scan',
+        localImageName: 'scb_001.jpg',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(withSlip));
+      await _pumpBounded(tester);
+
+      // Type into the note field before opening the viewer — this is the
+      // "data I've filled in" the close button must not lose (spec: closing
+      // returns to the form with unsaved input intact).
+      await tester.enterText(find.byKey(const Key('noteField')), 'note before opening viewer');
+      await _pumpBounded(tester);
+
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
+      await _pumpBounded(tester);
+      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('closeFullScreenSlipViewer')));
+      await _pumpBounded(tester);
+
+      // The overlay is gone and the same TransactionFormPage instance (with
+      // its typed note still intact) is what's left — not a fresh page.
+      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsNothing);
+      expect(find.byType(TransactionFormPage), findsOneWidget);
+      expect(find.text('note before opening viewer'), findsOneWidget);
+    });
+
+    testWidgets('the placeholder (no resolved image) is not tappable — nothing to view yet', (tester) async {
+      final noSlip = Transaction(
+        id: 11,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'manual',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+
+      await tester.pumpWidget(buildEditApp(noSlip));
+      await _pumpBounded(tester);
+      await _scrollToKey(tester, const Key('slipInfoCard'));
+
+      expect(find.byKey(const Key('slipThumbnailTapTarget')), findsNothing);
+      await tester.tap(find.byKey(const Key('slipImagePlaceholder')));
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsNothing);
     });
   });
 }

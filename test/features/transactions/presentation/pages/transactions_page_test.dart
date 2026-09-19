@@ -9,6 +9,7 @@ import 'package:cashlog/core/month/selected_month_provider.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
+import 'package:cashlog/features/accounts/presentation/widgets/current_balance_text.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
@@ -268,6 +269,14 @@ Future<void> _pumpBounded(WidgetTester tester) async {
   }
 }
 
+/// Post-launch UI polish ticket 03's enlarged pie chart makes the summary
+/// section taller, so the day-grouped transaction rows below it are no
+/// longer within the initial viewport in several of these tests — the
+/// sliver list only builds visible (+cache-extent) children, same reasoning
+/// as the analogous helper in transaction_form_page_test.dart.
+Future<void> _scrollToFinder(WidgetTester tester, Finder finder) =>
+    tester.scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);
+
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late DateTime thisMonth;
@@ -402,10 +411,8 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      // Both the ticket 03 pie chart legend and the text list below it can
-      // render a category's name, so scope these to the list row's own key
-      // (the chart's own legend-omission behavior is covered by
-      // expense_pie_chart_test.dart) to keep each assertion unambiguous.
+      // Scoped to the list row's own key, matching the pattern the rest of
+      // this file uses for category name assertions.
       expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
       expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-11')), matching: find.text('เดินทาง')), findsOneWidget);
       expect(find.text(formatAmount(2000)), findsOneWidget);
@@ -440,22 +447,32 @@ void main() {
 
         await tester.pumpWidget(buildApp());
         await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
 
         expect(find.text('Food expense row'), findsOneWidget);
         expect(find.text('Uncategorized expense row'), findsOneWidget);
 
-        // Tap the list row specifically (not `find.text`) since ticket 03's
-        // pie chart legend can render the same category name above it.
+        // Back to the top before tapping the summary card's category row —
+        // it scrolled out of view to reveal the rows above.
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+        await _pumpBounded(tester);
+        // Tap the list row via its own key rather than its category name
+        // text.
         await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
         await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
 
         expect(find.text('Food expense row'), findsOneWidget);
         expect(find.text('Uncategorized expense row'), findsNothing);
         expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
         expect(find.text('ทั้งหมด'), findsNothing); // old type-chip row replaced by the filter chip
 
+        // `categoryFilterChip` lives in the AppBar's fixed bottom row, not
+        // the scrollable body, so it's reachable regardless of scroll
+        // position.
         await tester.tap(find.byKey(const Key('categoryFilterChip')));
         await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
 
         expect(find.text('Food expense row'), findsOneWidget);
         expect(find.text('Uncategorized expense row'), findsOneWidget);
@@ -478,13 +495,19 @@ void main() {
 
       await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
+      await _scrollToFinder(tester, find.text('Food expense row'));
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Transport expense row'), findsNothing);
 
+      // Back to the top — the summary card (and its tab row) scrolled out
+      // of view to reveal the row above.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+      await _pumpBounded(tester);
       await tester.tap(find.byKey(const Key('summaryTab-expense'))); // summary card is still visible/tappable while filtered
       await _pumpBounded(tester);
       await tester.tap(find.byKey(const Key('categoryTotalRow-11')));
       await _pumpBounded(tester);
+      await _scrollToFinder(tester, find.text('Transport expense row'));
 
       expect(find.text('Food expense row'), findsNothing);
       expect(find.text('Transport expense row'), findsOneWidget);
@@ -503,6 +526,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
+      await _scrollToFinder(tester, find.text('Food expense row'));
 
       expect(find.text('Food expense row'), findsOneWidget);
       expect(find.text('Salary row'), findsNothing);
@@ -633,6 +657,19 @@ void main() {
       expect(find.byKey(const Key('pendingActionsButton')), findsOneWidget);
     });
 
+    testWidgets('post-launch-polish-03: the Topbar has no Filter icon — only the month switcher and the one action button ticket 02 placed', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.actions, hasLength(1), reason: 'ticket 02\'s own action button, nothing else beside it');
+      expect(find.byIcon(RemixIcon.filterLine), findsNothing);
+      expect(find.byIcon(RemixIcon.filter3Line), findsNothing);
+      expect(find.byIcon(RemixIcon.equalizerLine), findsNothing);
+    });
+
     testWidgets('the account-info strip renders on this page, showing each account and its balance', (tester) async {
       await tester.pumpWidget(
         buildApp(accountsRepository: _FakeAccountsRepository(accounts: const [account], balances: const {1: 2500})),
@@ -648,6 +685,41 @@ void main() {
         find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text(formatAmount(2500))),
         findsOneWidget,
       );
+    });
+
+    group('post-launch-polish-03: Account Card subtitle', () {
+      testWidgets('shows the account\'s matching_keywords as a white subtitle, not the generic balance disclaimer', (tester) async {
+        const withKeywords = Account(
+          id: 2,
+          name: 'SCB Savings',
+          accountType: AccountType.bank,
+          openingBalance: 0,
+          matchingKeywords: ['SCB EASY', 'ไทยพาณิชย์'],
+          bankIcon: 'scb',
+          isActive: true,
+        );
+
+        await tester.pumpWidget(
+          buildApp(accountsRepository: _FakeAccountsRepository(accounts: const [withKeywords], balances: const {2: 1000})),
+        );
+        await _pumpBounded(tester);
+
+        expect(find.text('SCB EASY, ไทยพาณิชย์'), findsOneWidget);
+        expect(find.text(currentBalanceDisclaimer), findsNothing);
+
+        final subtitle = tester.widget<Text>(find.text('SCB EASY, ไทยพาณิชย์'));
+        expect(subtitle.style?.color, Colors.white);
+      });
+
+      testWidgets('an account with no matching_keywords shows a plain placeholder, still not the disclaimer', (tester) async {
+        await tester.pumpWidget(
+          buildApp(accountsRepository: _FakeAccountsRepository(accounts: const [account], balances: const {1: 2500})),
+        );
+        await _pumpBounded(tester);
+
+        expect(find.text('—'), findsOneWidget);
+        expect(find.text(currentBalanceDisclaimer), findsNothing);
+      });
     });
 
     testWidgets('the month switcher lives in the AppBar title, not a secondary row below it', (tester) async {
@@ -705,13 +777,19 @@ void main() {
       );
       await _pumpBounded(tester);
 
-      // Scoped to the list row's own key (both the ticket 03 pie chart
-      // legend and the text list below it can render a category's name) —
-      // same pattern the ticket 07 group above already establishes.
+      // Scoped to the list row's own key, matching the pattern the rest of
+      // this file uses for category name assertions. Checked before
+      // scrolling — the account-info strip and summary card sit above the
+      // day-grouped list, so this and the strip below are both still on
+      // screen at the initial (top) scroll position.
       expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
-      expect(find.text('This month row'), findsOneWidget);
       expect(find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text('Main Wallet')), findsOneWidget);
+      await _scrollToFinder(tester, find.text('This month row'));
+      expect(find.text('This month row'), findsOneWidget);
 
+      // `_switchMonth` jumps the list back to the top on every switch, so
+      // the strip/summary card are on screen again without any scrolling
+      // back up.
       await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
       await _pumpBounded(tester);
 
@@ -719,15 +797,15 @@ void main() {
       // breakdown...
       expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-11')), matching: find.text('เดินทาง')), findsOneWidget);
       expect(find.text('อาหาร'), findsNothing);
-      // ...the list below is next month's data too...
-      expect(find.text('Next month row'), findsOneWidget);
-      expect(find.text('This month row'), findsNothing);
-      // ...and the account-info strip (month-independent) is still correct.
       expect(find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text('Main Wallet')), findsOneWidget);
       expect(
         find.descendant(of: find.byKey(const Key('accountInfoStrip')), matching: find.text(formatAmount(2500))),
         findsOneWidget,
       );
+      // ...the list below is next month's data too.
+      await _scrollToFinder(tester, find.text('Next month row'));
+      expect(find.text('Next month row'), findsOneWidget);
+      expect(find.text('This month row'), findsNothing);
     });
   });
 }

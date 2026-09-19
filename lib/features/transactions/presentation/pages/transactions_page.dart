@@ -6,8 +6,8 @@ import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/money.dart';
 import '../../../../shared/widgets/category_icon.dart';
+import '../../../../shared/widgets/gradient_hero_card.dart';
 import '../../../accounts/domain/account.dart';
-import '../../../accounts/domain/bank_icon.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
 import '../../../accounts/presentation/widgets/current_balance_text.dart';
 import '../../../categories/domain/category.dart';
@@ -154,6 +154,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         // Post-launch redesign ticket 04: the month switcher moves out of
         // the secondary row below and into the title slot, matching how
         // `DashboardPage`'s own month switcher is already positioned.
+        // Post-launch UI polish ticket 02: explicit `centerTitle: true`
+        // (the app theme's `AppBarTheme.centerTitle` default is `false`,
+        // left-aligning the title) so this is the dead-center primary
+        // navigation control the spec calls for, not tucked to one side.
+        centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -164,7 +169,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(11)),
+              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(11)),
               child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
             ),
             const SizedBox(width: 10),
@@ -280,7 +285,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             ),
                             Text(
                               _formatSignedTotal(group.total),
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textMuted),
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -288,8 +293,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: AppColors.surface,
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                          boxShadow: const [AppShadows.card],
                         ),
                         child: Column(
                           children: [
@@ -318,7 +323,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       child: Container(
         width: 30,
         height: 30,
-        decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(9)),
+        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(9)),
         child: Icon(icon, size: 18, color: AppColors.textSecondary),
       ),
     );
@@ -363,7 +368,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ),
         child: Text(
           'ไม่ระบุหมวด $count',
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.warningText),
+          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.warningBadgeText),
         ),
       ),
     );
@@ -452,7 +457,7 @@ class _AccountInfoStrip extends ConsumerWidget {
           loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
           error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
           data: (accounts) => accounts.isEmpty
-              ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textMuted))
+              ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textSecondary))
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
@@ -473,17 +478,12 @@ class _AccountMiniCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bankIcon = resolveBankIcon(account.bankIcon);
     final name = account.name;
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(12),
+    return GradientHeroCard(
+      borderRadius: AppRadii.cardLarge,
+      padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -493,15 +493,24 @@ class _AccountMiniCard extends ConsumerWidget {
               Container(
                 width: 20,
                 height: 20,
-                decoration: BoxDecoration(color: bankIcon.color, borderRadius: BorderRadius.circular(6)),
-                child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600))),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(6)),
+                child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700))),
               ),
               const SizedBox(width: 7),
-              Expanded(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
+              Expanded(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
             ],
           ),
-          const SizedBox(height: 9),
-          CurrentBalanceText(accountId: account.id, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 10),
+          CurrentBalanceText(
+            accountId: account.id,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: Colors.white),
+            // Post-launch UI polish ticket 03: this card's subtitle shows the
+            // account's own `matching_keywords` (already fetched, no new
+            // endpoint) instead of the generic BR-7 balance disclaimer every
+            // other `CurrentBalanceText` caller still shows.
+            subtitle: account.matchingKeywords.isEmpty ? '—' : account.matchingKeywords.join(', '),
+            subtitleStyle: const TextStyle(fontSize: 11, color: Colors.white),
+          ),
         ],
       ),
     );
@@ -541,7 +550,7 @@ class _SummarySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       key: const Key('transactionsSummarySection'),
-      decoration: BoxDecoration(color: AppColors.surface, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -606,7 +615,7 @@ class _SummarySection extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? AppColors.chipSelectedBg : AppColors.screenBackground,
+            color: selected ? AppColors.chipSelectedBg : AppColors.background,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
@@ -680,7 +689,7 @@ class _CategoryTotalsList extends StatelessWidget {
     if (breakdown.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text(emptyMessage, style: const TextStyle(color: AppColors.textMuted))),
+        child: Center(child: Text(emptyMessage, style: const TextStyle(color: AppColors.textSecondary))),
       );
     }
 
@@ -766,7 +775,7 @@ class _TransferList extends ConsumerWidget {
         if (transfers.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('ไม่มีรายการย้ายเงินในเดือนนี้', style: TextStyle(color: AppColors.textMuted))),
+            child: Center(child: Text('ไม่มีรายการย้ายเงินในเดือนนี้', style: TextStyle(color: AppColors.textSecondary))),
           );
         }
         return Column(

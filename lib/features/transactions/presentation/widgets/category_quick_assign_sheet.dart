@@ -26,22 +26,22 @@ class CategoryQuickAssignChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isUncategorized = category == null;
     final color = isUncategorized ? AppColors.warningIcon : colorFromHex(category!.colorHex);
-    final background = isUncategorized ? AppColors.warningSurface : color.withValues(alpha: 0.12);
+    final background = isUncategorized ? AppColors.warningIconBg : color.withValues(alpha: 0.12);
     final icon = isUncategorized ? RemixIcon.addLine : resolveCategoryIcon(category!.iconKey);
 
     return InkWell(
       key: const Key('categoryQuickAssignChip'),
       onTap: () => _openSheet(context, ref),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadii.control),
       child: Container(
-        width: 38,
-        height: 38,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.control),
           border: isUncategorized ? Border.all(color: AppColors.warningBorder, width: 1.5) : null,
         ),
-        child: Icon(icon, size: isUncategorized ? 19 : 18, color: color),
+        child: Icon(icon, size: isUncategorized ? 21 : 20, color: color),
       ),
     );
   }

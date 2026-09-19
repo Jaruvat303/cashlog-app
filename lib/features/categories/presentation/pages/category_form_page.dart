@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/category_icon.dart';
+import '../../../../shared/widgets/circular_icon_button.dart';
+import '../../../../shared/widgets/form_text_field.dart';
+import '../../../../shared/widgets/primary_gradient_button.dart';
+import '../../../../shared/widgets/segmented_tabs.dart';
 import '../../data/categories_repository.dart';
 import '../../domain/category.dart';
 
@@ -10,6 +15,15 @@ import '../../domain/category.dart';
 /// [initialType] pre-selects income/expense when creating from a context
 /// that already knows the type (e.g. the category grid picker's "เพิ่มใหม่"
 /// cell) — ignored when [initial] is set, since editing keeps its own type.
+///
+/// Post-launch UI polish ticket 06: restyled to the same
+/// `FormTextField`/`SegmentedTabs`/`PrimaryGradientButton`/`CircularIconButton`
+/// component pattern tickets 04/05 already established on the Transaction
+/// and Account forms — no new picker/row components invented here, and no
+/// change to any field, validator, or `_submit`/`_confirmDelete` call shape.
+/// The icon grid and color swatches have no equivalent in either of those
+/// forms (nothing to reuse), so they keep their existing structure, just
+/// restyled to sit inside the new page chrome.
 class CategoryFormPage extends ConsumerStatefulWidget {
   const CategoryFormPage({super.key, this.initial, this.initialType});
 
@@ -95,160 +109,139 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const Text('ชื่อหมวดหมู่', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-            const SizedBox(height: 6),
-            TextFormField(
-              controller: _nameController,
-              maxLength: 100,
-              decoration: const InputDecoration(hintText: 'เช่น ค่ากาแฟ'),
-              validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อหมวดหมู่' : null,
-            ),
-            const SizedBox(height: 12),
-            const Text('ประเภท', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-            const SizedBox(height: 6),
-            _TypeSegmented(
-              value: _type,
-              onChanged: (type) => setState(() {
-                _type = type;
-                final choices = categoryIconChoicesFor(type);
-                if (!choices.any((choice) => choice.$1 == _iconKey)) {
-                  _iconKey = choices.first.$1;
-                }
-              }),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text('เลือกไอคอน', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-                Text('เลื่อนดูเพิ่ม', style: TextStyle(fontSize: 10.5, color: AppColors.textFaint)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            GridView.count(
-              crossAxisCount: 6,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              children: categoryIconChoicesFor(_type).map((choice) {
-                final selected = _iconKey == choice.$1;
-                final accent = selected ? colorFromHex(_colorHex) : AppColors.textSecondary;
-                return InkWell(
-                  onTap: () => setState(() => _iconKey = choice.$1),
-                  borderRadius: BorderRadius.circular(13),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: selected ? colorFromHex(_colorHex).withValues(alpha: 0.14) : AppColors.screenBackground,
-                      borderRadius: BorderRadius.circular(13),
-                      border: selected ? Border.all(color: colorFromHex(_colorHex), width: 2) : null,
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CircularIconButton(
+                      icon: widget.isEditing ? RemixIcon.arrowLeftLine : RemixIcon.closeLine,
+                      onTap: () => Navigator.of(context).pop(),
                     ),
-                    child: Icon(choice.$3, size: 19, color: accent),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 20),
-            const Text('เลือกสี', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: kCategoryColorChoices
-                  .map(
-                    (hex) => InkWell(
-                      onTap: () => setState(() => _colorHex = hex),
-                      customBorder: const CircleBorder(),
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: colorFromHex(hex),
-                          shape: BoxShape.circle,
-                          boxShadow: _colorHex == hex
-                              ? [BoxShadow(color: colorFromHex(hex).withValues(alpha: 0.5), blurRadius: 0, spreadRadius: 2.5)]
-                              : null,
+                    Text(
+                      widget.isEditing ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                    // No trailing action — deleting an existing category
+                    // stays a secondary action below the form (unchanged
+                    // from before this restyle), not a Topbar icon.
+                    const SizedBox(width: 38, height: 38),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                  children: [
+                    FormTextField(
+                      key: const Key('nameField'),
+                      icon: RemixIcon.editLine,
+                      controller: _nameController,
+                      hintText: 'ชื่อหมวดหมู่ เช่น ค่ากาแฟ',
+                      maxLength: 100,
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อหมวดหมู่' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedTabs<CategoryType>(
+                      values: CategoryType.values,
+                      labels: CategoryType.values.map((t) => t.label).toList(),
+                      selected: _type,
+                      onChanged: (type) => setState(() {
+                        _type = type;
+                        final choices = categoryIconChoicesFor(type);
+                        if (!choices.any((choice) => choice.$1 == _iconKey)) {
+                          _iconKey = choices.first.$1;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: const [
+                        Text('เลือกไอคอน', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                        Text('เลื่อนดูเพิ่ม', style: TextStyle(fontSize: 10.5, color: AppColors.textFaint)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    GridView.count(
+                      crossAxisCount: 6,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      children: categoryIconChoicesFor(_type).map((choice) {
+                        final selected = _iconKey == choice.$1;
+                        final accent = selected ? colorFromHex(_colorHex) : AppColors.textSecondary;
+                        return InkWell(
+                          onTap: () => setState(() => _iconKey = choice.$1),
+                          borderRadius: BorderRadius.circular(13),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: selected ? colorFromHex(_colorHex).withValues(alpha: 0.14) : AppColors.background,
+                              borderRadius: BorderRadius.circular(13),
+                              border: selected ? Border.all(color: colorFromHex(_colorHex), width: 2) : null,
+                            ),
+                            child: Icon(choice.$3, size: 19, color: accent),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('เลือกสี', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: kCategoryColorChoices
+                          .map(
+                            (hex) => InkWell(
+                              onTap: () => setState(() => _colorHex = hex),
+                              customBorder: const CircleBorder(),
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: colorFromHex(hex),
+                                  shape: BoxShape.circle,
+                                  boxShadow: _colorHex == hex
+                                      ? [BoxShadow(color: colorFromHex(hex).withValues(alpha: 0.5), blurRadius: 0, spreadRadius: 2.5)]
+                                      : null,
+                                ),
+                                child: _colorHex == hex ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    PrimaryGradientButton(
+                      key: const Key('submitButton'),
+                      label: 'บันทึก',
+                      onTap: _isSubmitting ? null : _submit,
+                      enabled: !_isSubmitting,
+                    ),
+                    if (widget.isEditing) ...[
+                      const SizedBox(height: 10),
+                      Center(
+                        child: TextButton(
+                          key: const Key('deleteCategoryButton'),
+                          onPressed: _isSubmitting ? null : _confirmDelete,
+                          style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+                          child: const Text('ลบหมวดหมู่'),
                         ),
-                        child: _colorHex == hex ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
                       ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _isSubmitting ? null : _submit,
-              child: _isSubmitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('บันทึก'),
-            ),
-            if (widget.isEditing) ...[
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton(
-                  onPressed: _isSubmitting ? null : _confirmDelete,
-                  style: TextButton.styleFrom(foregroundColor: AppColors.expense),
-                  child: const Text('ลบหมวดหมู่'),
+                    ],
+                  ],
                 ),
               ),
             ],
-          ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-/// Mockup 1f's two-way segmented control (รายรับ/รายจ่าย) — a lighter
-/// custom widget than `DropdownButtonFormField` since there are always
-/// exactly two options and the mockup shows them side by side, not as a
-/// dropdown.
-class _TypeSegmented extends StatelessWidget {
-  const _TypeSegmented({required this.value, required this.onChanged});
-
-  final CategoryType value;
-  final ValueChanged<CategoryType> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.neutralSurface, borderRadius: BorderRadius.circular(13)),
-      child: Row(
-        children: CategoryType.values.map((type) {
-          final selected = value == type;
-          return Expanded(
-            child: InkWell(
-              onTap: () => onChanged(type),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.surface : null,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: selected ? [const BoxShadow(color: Color(0x1A101828), blurRadius: 3)] : null,
-                ),
-                child: Text(
-                  type.label,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    color: selected
-                        ? (type == CategoryType.expense ? AppColors.expense : AppColors.income)
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }

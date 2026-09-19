@@ -289,8 +289,7 @@ void main() {
     final formFinder = find.byType(TransactionFormPage);
     expect(formFinder, findsOneWidget);
     final form = tester.widget<TransactionFormPage>(formFinder);
-    expect(form.initial?.id, _junkTransaction.id);
-    expect(form.isEditing, isTrue);
+    expect(form.initial.id, _junkTransaction.id);
   });
 
   testWidgets('tapping a non-junk row opens the edit form prefilled with this transaction (ticket 04)', (tester) async {
@@ -303,8 +302,7 @@ void main() {
     final formFinder = find.byType(TransactionFormPage);
     expect(formFinder, findsOneWidget);
     final form = tester.widget<TransactionFormPage>(formFinder);
-    expect(form.initial?.id, _editedTransaction.id);
-    expect(form.isEditing, isTrue);
+    expect(form.initial.id, _editedTransaction.id);
   });
 
   group('pending-sync indicator (ticket 02)', () {

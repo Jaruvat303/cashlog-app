@@ -277,20 +277,21 @@ void main() {
     await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
     await _pumpBounded(tester);
 
-    // The category dropdown is the only DropdownButtonFormField<int?> on
-    // this form (account pickers are DropdownButtonFormField<int>). Edit
-    // mode renders the slip-image section above it, pushing it below the
-    // test viewport's fold — same "scroll before interacting" requirement
-    // transaction_form_page_test.dart's own `_scrollToKey` documents.
-    final categoryDropdown = find.byType(DropdownButtonFormField<int?>);
-    await tester.scrollUntilVisible(categoryDropdown, 300, scrollable: find.byType(Scrollable).first);
-    await tester.tap(categoryDropdown);
+    // Post-launch redesign: the category field is now a pill that opens the
+    // shared category grid sheet, not a DropdownButtonFormField. The edit
+    // form's slip-info card pushes it below the test viewport's fold — same
+    // "scroll before interacting" requirement transaction_form_page_test.dart's
+    // own `_scrollToKey` documents.
+    final categoryPill = find.byKey(const Key('categoryPill'));
+    await tester.scrollUntilVisible(categoryPill, 300, scrollable: find.byType(Scrollable).first);
+    await tester.tap(categoryPill);
     await _pumpBounded(tester);
 
     // findsWidgets (not findsOneWidget): the edited "Groceries" row is
-    // already categorized as "Food", so it renders both as the field's
-    // already-selected value and as a menu option once the dropdown opens —
-    // either presence proves the category cache was populated pre-tap.
+    // already categorized as "Food", so it renders both as the pill's
+    // already-selected value (before the tap) and as a grid tile label once
+    // the sheet opens — either presence proves the category cache was
+    // populated pre-tap.
     expect(find.text('Food'), findsWidgets, reason: 'category options should be populated without ever visiting Categories tab');
   });
 }

@@ -35,7 +35,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
   _FakeAccountsRepository({this.accounts = const []});
@@ -345,6 +344,19 @@ DashboardSummary _summary(DateTime month, double totalExpense) => DashboardSumma
   expense: const [],
 );
 
+CategoryBreakdown _breakdown(int id, String name, double amount) =>
+    CategoryBreakdown(categoryId: id, categoryName: name, iconKey: 'restaurant-fill', colorHex: '#EF4444', totalAmount: amount);
+
+DashboardSummary _summaryWithExpense(DateTime month, List<CategoryBreakdown> expense) => DashboardSummary(
+  totalIncome: 0,
+  totalExpense: expense.fold(0.0, (sum, b) => sum + b.totalAmount),
+  totalTransfer: 0,
+  year: month.year,
+  month: month.month,
+  income: const [],
+  expense: expense,
+);
+
 Transaction _tx({
   required int id,
   TransactionType type = TransactionType.expense,
@@ -370,6 +382,19 @@ Future<void> _pumpBounded(WidgetTester tester) async {
   for (var i = 0; i < 20; i++) {
     await tester.pump(const Duration(milliseconds: 50));
   }
+}
+
+/// Post-launch UI polish ticket 02: Home no longer has any month control of
+/// its own — `selectedMonthProvider` only ever changes from the Summary
+/// page's own Topbar switcher now. Tests that need "the shared month changed"
+/// drive that directly through the provider (standing in for Summary's own
+/// switcher, which has its own dedicated tests in
+/// transactions_page_test.dart) rather than simulating a UI interaction that
+/// no longer exists on this page.
+Future<void> _switchMonth(WidgetTester tester, {required DateTime to}) async {
+  final container = ProviderScope.containerOf(tester.element(find.byType(DashboardPage)));
+  container.read(selectedMonthProvider.notifier).set(to.year, to.month);
+  await _pumpBounded(tester);
 }
 
 void main() {
@@ -541,8 +566,7 @@ void main() {
       await _pumpBounded(tester);
       expect(find.text('This month row'), findsOneWidget);
 
-      await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
-      await _pumpBounded(tester);
+      await _switchMonth(tester, to: nextMonth);
 
       expect(find.text('This month row'), findsNothing);
       expect(find.text('Next month row'), findsOneWidget);
@@ -576,7 +600,7 @@ void main() {
     });
   });
 
-  group('ticket 07: expense-total widget with built-in month switcher', () {
+  group('ticket 07/post-launch-polish-02: expense-total widget', () {
     testWidgets('displays this month\'s total expense as a plain number — no chart, no breakdown', (tester) async {
       fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(_summary(thisMonth, 4200));
       fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
@@ -594,24 +618,31 @@ void main() {
       expect(find.byType(PieChart), findsNothing, reason: 'ticket 07 is a plain number, no chart — that is ticket 03, on a different page');
     });
 
-    testWidgets('the month switcher lives inside this widget, not the AppBar title', (tester) async {
+    testWidgets('shows the current month as a static, read-only label — no dropdown lives here anymore', (tester) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.title, isA<Text>());
-      expect((appBar.title! as Text).data, 'หน้าแรก', reason: 'the AppBar title is a static page label now, not the month switcher');
-      // Only ever rendered once on screen — proof it moved rather than
-      // being duplicated between the AppBar and the widget.
+      // Home no longer uses a Material AppBar at all — replaced by a custom
+      // header row with the app's own "Cashlog" branding — so there is no
+      // separate page-level title to duplicate the month label against.
+      expect(find.byType(AppBar), findsNothing);
+      expect(find.text('Cashlog'), findsOneWidget);
+      // Only ever rendered once on screen.
       expect(find.text(monthYearLabel(thisMonth)), findsOneWidget);
 
       final widgetFinder = find.byKey(const Key('expenseTotalWidget'));
       expect(find.descendant(of: widgetFinder, matching: find.text(monthYearLabel(thisMonth))), findsOneWidget);
-      expect(find.descendant(of: widgetFinder, matching: find.byIcon(RemixIcon.arrowLeftSLine)), findsOneWidget);
-      expect(find.descendant(of: widgetFinder, matching: find.byIcon(RemixIcon.arrowRightSLine)), findsOneWidget);
+
+      // Post-launch UI polish ticket 02: the dropdown affordance and its tap
+      // target are both gone — this is a plain label, not a button that
+      // opens a month/year picker. Month switching only happens from the
+      // Summary page's own Topbar now (transactions_page_test.dart).
+      expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsNothing);
     });
 
-    testWidgets('changing the month via this widget updates the widget\'s total and the transaction list together', (tester) async {
+    testWidgets('when the shared month changes elsewhere (e.g. Summary\'s own switcher), this widget\'s total and the transaction list update together', (
+      tester,
+    ) async {
       final nextMonth = DateTime.utc(thisMonth.year, thisMonth.month + 1);
       fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(_summary(thisMonth, 2000));
       fakeDashboard.results[(nextMonth.year, nextMonth.month)] = Right(_summary(nextMonth, 900));
@@ -632,8 +663,7 @@ void main() {
       expect(find.text(formatAmount(2000)), findsOneWidget);
       expect(find.text('This month row'), findsOneWidget);
 
-      await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
-      await _pumpBounded(tester);
+      await _switchMonth(tester, to: nextMonth);
 
       expect(find.text(formatAmount(2000)), findsNothing);
       expect(find.text(formatAmount(900)), findsOneWidget);
@@ -655,6 +685,88 @@ void main() {
       final widgetTop = tester.getTopLeft(find.byKey(const Key('expenseTotalWidget'))).dy;
       final rowTop = tester.getTopLeft(find.byKey(const Key('transactionRowTapTarget')).first).dy;
       expect(widgetTop, lessThan(rowTop));
+    });
+  });
+
+  group('post-launch-polish-02: category spend bar', () {
+    testWidgets('shows the "ใช้จ่ายตามหมวดหมู่" header label above the bar when there is an expense breakdown', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        _summaryWithExpense(thisMonth, [_breakdown(1, 'อาหาร', 500)]),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.text('ใช้จ่ายตามหมวดหมู่'), findsOneWidget);
+    });
+
+    testWidgets('no header label (and no bar) when the month has no expense breakdown', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(_summary(thisMonth, 0));
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      expect(find.text('ใช้จ่ายตามหมวดหมู่'), findsNothing);
+    });
+
+    testWidgets('with 9 categories, the legend shows the top 8 by amount plus a single "อื่นๆ" for the rest', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        _summaryWithExpense(thisMonth, [
+          _breakdown(1, 'หนึ่ง', 100),
+          _breakdown(2, 'สอง', 900),
+          _breakdown(3, 'สาม', 200),
+          _breakdown(4, 'สี่', 800),
+          _breakdown(5, 'ห้า', 300),
+          _breakdown(6, 'หก', 700),
+          _breakdown(7, 'เจ็ด', 400),
+          _breakdown(8, 'แปด', 600),
+          _breakdown(9, 'เก้า', 500),
+        ]),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      // The 9th-ranked category by amount ("หนึ่ง", 100) is the one folded
+      // into "อื่นๆ" — every other real category name still shows.
+      expect(find.text('หนึ่ง'), findsNothing);
+      for (final name in ['สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า']) {
+        expect(find.text(name), findsOneWidget, reason: '"$name" should still be one of the top 8 segments');
+      }
+      expect(find.text('อื่นๆ'), findsOneWidget);
+    });
+
+    testWidgets('legend labels wrap up to 2 lines with ellipsis, matching the Category page\'s style', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        _summaryWithExpense(thisMonth, [_breakdown(1, 'หมวดหมู่ชื่อยาวมากจนต้องขึ้นบรรทัดใหม่แน่นอน', 500)]),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final label = tester.widget<Text>(find.text('หมวดหมู่ชื่อยาวมากจนต้องขึ้นบรรทัดใหม่แน่นอน'));
+      expect(label.maxLines, 2);
+      expect(label.overflow, TextOverflow.ellipsis);
+      expect(label.style?.fontSize, 12);
+      expect(label.style?.fontWeight, FontWeight.w600);
+    });
+
+    testWidgets('a very small segment still renders with at least a minimum visible width', (tester) async {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        _summaryWithExpense(thisMonth, [_breakdown(1, 'ใหญ่', 999999), _breakdown(2, 'เล็กมาก', 1)]),
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      final segments = tester.widgetList<SizedBox>(
+        find.descendant(of: find.byKey(const Key('categorySpendBarSegments')), matching: find.byType(SizedBox)),
+      );
+      expect(segments, isNotEmpty);
+      for (final segment in segments) {
+        expect(segment.width, isNotNull);
+        expect(segment.width!, greaterThanOrEqualTo(6.0), reason: 'no segment should shrink below the minimum visible width');
+      }
     });
   });
 
@@ -729,13 +841,13 @@ void main() {
     });
   });
 
-  group('ticket 09: last successful auto-scan upload timestamp', () {
+  group('ticket 09/post-launch-polish-02: last successful auto-scan upload timestamp', () {
     testWidgets('shows a placeholder when auto-scan has never uploaded anything successfully', (tester) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
       expect(find.byKey(const Key('lastAutoScanUploadText')), findsOneWidget);
-      expect(find.text('ยังไม่มีการอัปโหลดสลิปอัตโนมัติ'), findsOneWidget);
+      expect(find.text('ยังไม่มีการสแกนสลิป'), findsOneWidget);
     });
 
     testWidgets('shows readable date/time text once auto-scan has uploaded a slip successfully', (tester) async {
@@ -745,7 +857,7 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(uploadedAt)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(uploadedAt)}'), findsOneWidget);
     });
 
     testWidgets('updates live when a genuinely new successful auto-scan upload lands', (tester) async {
@@ -754,14 +866,14 @@ void main() {
 
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(firstUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(firstUpload)}'), findsOneWidget);
 
       final secondUpload = DateTime.now();
       fakeSlipUpload.seed(secondUpload);
       await _pumpBounded(tester);
 
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(firstUpload)}'), findsNothing);
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(secondUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(firstUpload)}'), findsNothing);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(secondUpload)}'), findsOneWidget);
     });
 
     testWidgets('stays fixed across repeated no-new-files scan cycles — a stale value is the intended signal', (tester) async {
@@ -770,7 +882,7 @@ void main() {
 
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
 
       // A "scan cycle runs but finds nothing new" never calls anything that
       // touches `watchLastSuccessfulAutoScanUpload`'s backing data — no
@@ -779,7 +891,7 @@ void main() {
       await _pumpBounded(tester);
       await _pumpBounded(tester);
 
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
     });
 
     testWidgets('does not move when unrelated Home state changes (pending actions, transactions)', (tester) async {
@@ -794,7 +906,7 @@ void main() {
 
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
 
       // Simulates a manually-created transaction landing on Home (ticket
       // 05's FAB "create manually" option) and a pending-actions count
@@ -804,10 +916,10 @@ void main() {
       fakePendingActions.seed([pendingAction(1), pendingAction(2)]);
       await _pumpBounded(tester);
 
-      expect(find.text('สแกนสลิปอัตโนมัติล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
+      expect(find.text('สแกนสลิปล่าสุด: ${dateTimeLabel(onlyUpload)}'), findsOneWidget);
     });
 
-    testWidgets('sits beneath the pending-actions banner, above the gallery-permission banner', (tester) async {
+    testWidgets('lives inside the expense-total banner now, above the pending-actions and gallery-permission banners', (tester) async {
       final onlyUpload = DateTime.now();
       fakeSlipUpload.seed(onlyUpload);
       fakePendingActions.seed([pendingAction(1)]);
@@ -817,11 +929,17 @@ void main() {
       );
       await _pumpBounded(tester);
 
-      final bannerTop = tester.getTopLeft(find.byKey(const Key('pendingActionsBanner'))).dy;
+      // Post-launch UI polish ticket 02: moved from its own row directly
+      // beneath the expense-total widget into the widget's own banner —
+      // it's now above, not beneath, the pending-actions banner.
+      final widgetFinder = find.byKey(const Key('expenseTotalWidget'));
+      expect(find.descendant(of: widgetFinder, matching: find.byKey(const Key('lastAutoScanUploadText'))), findsOneWidget);
+
       final statusTop = tester.getTopLeft(find.byKey(const Key('lastAutoScanUploadText'))).dy;
+      final bannerTop = tester.getTopLeft(find.byKey(const Key('pendingActionsBanner'))).dy;
       final galleryBannerTop = tester.getTopLeft(find.byKey(const Key('galleryPermissionBanner'))).dy;
-      expect(bannerTop, lessThan(statusTop));
-      expect(statusTop, lessThan(galleryBannerTop));
+      expect(statusTop, lessThan(bannerTop));
+      expect(bannerTop, lessThan(galleryBannerTop));
     });
   });
 

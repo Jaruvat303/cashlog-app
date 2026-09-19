@@ -45,10 +45,10 @@ class TransactionListTile extends ConsumerWidget {
     return _Row(
       onTap: () => _edit(context),
       leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(12)),
-        child: const Icon(RemixIcon.arrowLeftRightLine, color: AppColors.primary, size: 18),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(color: AppColors.transferSurface, borderRadius: BorderRadius.circular(AppRadii.control)),
+        child: const Icon(RemixIcon.arrowLeftRightLine, color: AppColors.transfer, size: 20),
       ),
       title: Text(
         '${fromAccount?.name ?? 'ไม่ทราบบัญชี'} → ${toAccount?.name ?? 'ไม่ทราบบัญชี'}',
@@ -60,7 +60,7 @@ class TransactionListTile extends ConsumerWidget {
           children: [
             _accountChip(fromAccount?.name),
             const SizedBox(width: 5),
-            const Icon(RemixIcon.arrowRightSLine, size: 11, color: AppColors.textMuted),
+            const Icon(RemixIcon.arrowRightSLine, size: 11, color: AppColors.textSecondary),
             const SizedBox(width: 5),
             _accountChip(toAccount?.name),
           ],
@@ -70,7 +70,7 @@ class TransactionListTile extends ConsumerWidget {
         ref,
         Text(
           formatAmount(transaction.amount),
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.primary),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.transfer),
         ),
       ),
     );
@@ -101,7 +101,7 @@ class TransactionListTile extends ConsumerWidget {
             _accountChip(account?.name),
             const SizedBox(width: 5),
             if (category != null)
-              Flexible(child: Text(category.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.textMuted)))
+              Flexible(child: Text(category.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)))
             else
               _uncategorizedBadge(),
           ],
@@ -117,7 +117,7 @@ class TransactionListTile extends ConsumerWidget {
   Widget _accountChip(String? name) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: AppColors.screenBackground, borderRadius: BorderRadius.circular(5)),
+      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(5)),
       child: Text(name ?? '—', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
     );
   }
@@ -130,7 +130,7 @@ class TransactionListTile extends ConsumerWidget {
         border: Border.all(color: AppColors.warningBadgeBorder),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: const Text('ยังไม่ระบุหมวดหมู่', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.warningText)),
+      child: const Text('ยังไม่ระบุหมวดหมู่', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.warningBadgeText)),
     );
   }
 
@@ -147,9 +147,9 @@ class TransactionListTile extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.warning_amber_rounded, size: 14, color: Colors.amber.shade800),
+            const Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.warningIcon),
             const SizedBox(width: 4),
-            Text('อ่านข้อมูลจากสลิปไม่ได้', style: TextStyle(color: Colors.amber.shade800, fontSize: 11.5)),
+            const Text('อ่านข้อมูลจากสลิปไม่ได้', style: TextStyle(color: AppColors.warningIcon, fontSize: 11.5)),
           ],
         ),
       ],

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/category_icon.dart';
+import '../../../../shared/widgets/circular_icon_button.dart';
+import '../../../../shared/widgets/segmented_tabs.dart';
 import '../../data/categories_repository.dart';
 import '../../domain/category.dart';
 import '../providers/categories_providers.dart';
@@ -19,8 +22,8 @@ class CategoriesPage extends ConsumerStatefulWidget {
   ConsumerState<CategoriesPage> createState() => _CategoriesPageState();
 }
 
-class _CategoriesPageState extends ConsumerState<CategoriesPage> with SingleTickerProviderStateMixin {
-  late final _tabController = TabController(length: 2, vsync: this);
+class _CategoriesPageState extends ConsumerState<CategoriesPage> {
+  CategoryType _selectedType = CategoryType.income;
 
   @override
   void initState() {
@@ -33,12 +36,6 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> with SingleTick
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(showErrorSnackBar: false));
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
   Future<void> _refresh({bool showErrorSnackBar = true}) async {
     final result = await ref.read(categoriesRefreshProvider.notifier).refresh();
     if (!mounted || !showErrorSnackBar) return;
@@ -49,8 +46,6 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> with SingleTick
       (_) {},
     );
   }
-
-  CategoryType get _selectedType => _tabController.index == 0 ? CategoryType.income : CategoryType.expense;
 
   /// Delete guard (spec §12.4 / FR-2.2): count linked transactions from the
   /// local cache first and warn with that count before the delete is ever
@@ -89,75 +84,93 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> with SingleTick
     final categoriesAsync = ref.watch(allCategoriesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('หมวดหมู่'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: _selectedType))),
-            child: const Text('+ เพิ่มหมวดหมู่'),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          onTap: (_) => setState(() {}),
-          tabs: const [Tab(text: 'รายรับ'), Tab(text: 'รายจ่าย')],
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: categoriesAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
-          data: (categories) {
-            final matching = categories.where((c) => c.type == _selectedType).toList();
-            if (matching.isEmpty) {
-              return ListView(
-                children: const [
-                  Padding(padding: EdgeInsets.all(32), child: Center(child: Text('ยังไม่มีหมวดหมู่ — แตะ "+ เพิ่มหมวดหมู่" เพื่อเริ่ม'))),
-                ],
-              );
-            }
-            return GridView.builder(
-              padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 4,
-                mainAxisSpacing: 18,
-                crossAxisSpacing: 10,
-                childAspectRatio: 0.8,
-              ),
-              itemCount: matching.length,
-              itemBuilder: (context, index) {
-                final category = matching[index];
-                return InkWell(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initial: category))),
-                  onLongPress: () => _confirmDelete(category),
-                  borderRadius: BorderRadius.circular(17),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: colorFromHex(category.colorHex).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(17),
-                        ),
-                        child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 22),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        category.name,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 10.5, color: AppColors.chipUnselectedText),
-                      ),
-                    ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('หมวดหมู่', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  CircularIconButton(
+                    icon: RemixIcon.addLine,
+                    gradient: AppColors.accentGradient,
+                    iconColor: Colors.white,
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: _selectedType))),
                   ),
-                );
-              },
-            );
-          },
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: SegmentedTabs<CategoryType>(
+                values: const [CategoryType.income, CategoryType.expense],
+                labels: const ['รายรับ', 'รายจ่าย'],
+                selected: _selectedType,
+                onChanged: (type) => setState(() => _selectedType = type),
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: categoriesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
+                  data: (categories) {
+                    final matching = categories.where((c) => c.type == _selectedType).toList();
+                    if (matching.isEmpty) {
+                      return ListView(
+                        children: const [
+                          Padding(padding: EdgeInsets.all(32), child: Center(child: Text('ยังไม่มีหมวดหมู่ — แตะ "+" เพื่อเริ่ม'))),
+                        ],
+                      );
+                    }
+                    return GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        mainAxisSpacing: 18,
+                        crossAxisSpacing: 10,
+                        childAspectRatio: 0.8,
+                      ),
+                      itemCount: matching.length,
+                      itemBuilder: (context, index) {
+                        final category = matching[index];
+                        return InkWell(
+                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initial: category))),
+                          onLongPress: () => _confirmDelete(category),
+                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: colorFromHex(category.colorHex).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                                ),
+                                child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 23),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                category.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.chipUnselectedText),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

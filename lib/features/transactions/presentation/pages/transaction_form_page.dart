@@ -5,9 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/cache/cache_invalidator.dart';
+import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../shared/format/datetime.dart';
+import '../../../../shared/widgets/anchored_dropdown_panel.dart';
+import '../../../../shared/widgets/category_icon.dart';
+import '../../../../shared/widgets/category_picker_sheet.dart';
+import '../../../../shared/widgets/circular_icon_button.dart';
+import '../../../../shared/widgets/full_screen_image_viewer.dart';
+import '../../../../shared/widgets/pill_form_row.dart';
+import '../../../../shared/widgets/primary_gradient_button.dart';
+import '../../../../shared/widgets/segmented_tabs.dart';
+import '../../../accounts/domain/account.dart';
 import '../../../accounts/presentation/providers/accounts_providers.dart';
+import '../../../categories/domain/category.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../slip_scan/data/slip_gallery_repository.dart';
 import '../../data/pending_actions_repository.dart';
@@ -16,16 +28,15 @@ import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../../domain/transaction_validation.dart';
 
-/// Create when [initial] is null, edit otherwise — same control flow as
-/// `AccountFormPage`/`CategoryFormPage`. Account/category pickers reuse
-/// T4's `activeAccountsProvider` and T5's `allCategoriesProvider` verbatim
-/// (no new queries against `cached_accounts`/`cached_categories`).
+/// The mockup's `EditTransaction` screen — the full-edit escape hatch for
+/// abnormal data (junk rows, fixing amount/account/note), per CLAUDE.md.
+/// Creating a *new* transaction now lives on `AddTransactionPage` instead
+/// (the mockup's separate `AddTransaction`/`Income`/`Transfer` screens with
+/// their numpad + type tabs) — this page only ever edits an existing one.
 class TransactionFormPage extends ConsumerStatefulWidget {
-  const TransactionFormPage({super.key, this.initial});
+  const TransactionFormPage({super.key, required this.initial});
 
-  final Transaction? initial;
-
-  bool get isEditing => initial != null;
+  final Transaction initial;
 
   @override
   ConsumerState<TransactionFormPage> createState() => _TransactionFormPageState();
@@ -33,10 +44,10 @@ class TransactionFormPage extends ConsumerStatefulWidget {
 
 class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late final _amountController = TextEditingController(text: widget.initial?.amount.toStringAsFixed(2) ?? '');
-  late final _noteController = TextEditingController(text: widget.initial?.note ?? '');
-  late TransactionType _type = widget.initial?.type ?? TransactionType.expense;
-  late DateTime _date = widget.initial?.transactionDate ?? DateTime.now();
+  late final _amountController = TextEditingController(text: widget.initial.amount.toStringAsFixed(2));
+  late final _noteController = TextEditingController(text: widget.initial.note);
+  late TransactionType _type = widget.initial.type;
+  late DateTime _date = widget.initial.transactionDate;
   int? _accountId;
   int? _fromAccountId;
   int? _toAccountId;
@@ -48,23 +59,22 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   @override
   void initState() {
     super.initState();
-    _accountId = widget.initial?.accountId;
-    _fromAccountId = widget.initial?.fromAccountId;
-    _toAccountId = widget.initial?.toAccountId;
-    _categoryId = widget.initial?.categoryId;
+    _accountId = widget.initial.accountId;
+    _fromAccountId = widget.initial.fromAccountId;
+    _toAccountId = widget.initial.toAccountId;
+    _categoryId = widget.initial.categoryId;
 
-    final imageName = widget.initial?.localImageName;
+    final imageName = widget.initial.localImageName;
     if (imageName != null && imageName.isNotEmpty) {
       _slipImageFuture = _lookupSlipImageBytes(ref.read(slipGalleryRepositoryProvider), imageName);
     }
   }
 
-  /// Ticket 05: best-effort, on-device-only lookup, re-run every time this
-  /// page opens — no caching/persistence of the result (spec's Slip image
-  /// preview §Addition). A miss at either step (no matching filename, or the
-  /// asset was deleted since it was scanned) resolves to `null` rather than
-  /// throwing, so the image section can fall back to the placeholder
-  /// silently instead of surfacing an error state.
+  /// Best-effort, on-device-only lookup, re-run every time this page opens —
+  /// no caching/persistence of the result. A miss at either step (no
+  /// matching filename, or the asset was deleted since it was scanned)
+  /// resolves to `null` rather than throwing, so the slip section falls back
+  /// to the placeholder silently instead of surfacing an error state.
   Future<Uint8List?> _lookupSlipImageBytes(SlipGalleryRepository repo, String filename) async {
     final candidates = await repo.queryConfiguredAlbums();
     for (final candidate in candidates) {
@@ -85,11 +95,27 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     if (picked != null) setState(() => _date = picked);
   }
 
+  Future<void> _pickCategory() async {
+    final categoryType = _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
+    final selection = await showCategoryGridPicker(context, categoryType: categoryType, currentCategoryId: _categoryId, subtitle: 'เลือกหมวดหมู่สำหรับรายการนี้');
+    if (selection == null) return;
+    setState(() => _categoryId = selection.categoryId);
+  }
+
+  Future<void> _pickAccount(BuildContext anchorContext, List<Account> accounts, void Function(int id) onPicked) async {
+    final result = await showAnchoredDropdown<int>(
+      anchorContext: anchorContext,
+      panelBuilder: (context, close) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [for (final a in accounts) DropdownPanelOption(key: Key('accountOption_${a.id}'), label: a.name, onTap: () => close(a.id))],
+      ),
+    );
+    if (result != null) onPicked(result);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Client-side mirror of the backend's ErrTransferSameAccount rule —
-    // checked before any request is sent (spec §4).
     if (_type == TransactionType.transfer) {
       final error = validateTransferAccounts(_fromAccountId, _toAccountId);
       if (error != null) {
@@ -107,28 +133,17 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     final note = _noteController.text.trim();
     final isTransfer = _type == TransactionType.transfer;
 
-    final result = widget.isEditing
-        ? await repo.update(
-            widget.initial!.id,
-            type: _type,
-            amount: amount,
-            date: _date,
-            note: note,
-            accountId: isTransfer ? null : _accountId,
-            fromAccountId: isTransfer ? _fromAccountId : null,
-            toAccountId: isTransfer ? _toAccountId : null,
-            categoryId: isTransfer ? null : _categoryId,
-          )
-        : await repo.create(
-            type: _type,
-            amount: amount,
-            date: _date,
-            note: note,
-            accountId: isTransfer ? null : _accountId,
-            fromAccountId: isTransfer ? _fromAccountId : null,
-            toAccountId: isTransfer ? _toAccountId : null,
-            categoryId: isTransfer ? null : _categoryId,
-          );
+    final result = await repo.update(
+      widget.initial.id,
+      type: _type,
+      amount: amount,
+      date: _date,
+      note: note,
+      accountId: isTransfer ? null : _accountId,
+      fromAccountId: isTransfer ? _fromAccountId : null,
+      toAccountId: isTransfer ? _toAccountId : null,
+      categoryId: isTransfer ? null : _categoryId,
+    );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
@@ -141,40 +156,30 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
-  /// T13: a transient failure (CLAUDE.md/spec §9 — network cut, timeout,
-  /// etc.) gets snapshotted into `pending_manual_actions` so the user's typed
-  /// data isn't lost; a permanent one (e.g. invalid input) stays
-  /// snackbar-only, same as before this ticket, since retrying an identical
-  /// payload against it can't succeed. `PendingActionsRepository.recordIfTransient`
-  /// is the single place that decision is made, shared with
-  /// `TransactionListTile`'s delete path — never re-derived from live form
-  /// state on a later retry, only the args snapshotted right here.
+  /// A transient failure (network cut, timeout, etc.) gets snapshotted into
+  /// `pending_manual_actions` so the user's typed data isn't lost; a
+  /// permanent one stays snackbar-only, since retrying an identical payload
+  /// against it can't succeed.
   Future<void> _handleFailure(Failure failure, {required double amount, required String note, required bool isTransfer}) async {
-    final payload = widget.isEditing
-        ? updateTransactionPayload(
-            type: _type,
-            amount: amount,
-            date: _date,
-            note: note,
-            accountId: isTransfer ? null : _accountId,
-            fromAccountId: isTransfer ? _fromAccountId : null,
-            toAccountId: isTransfer ? _toAccountId : null,
-            categoryId: isTransfer ? null : _categoryId,
-            originalDate: widget.initial!.transactionDate,
-          )
-        : isTransfer
-        ? createTransferPayload(amount: amount, date: _date, note: note, fromAccountId: _fromAccountId!, toAccountId: _toAccountId!, categoryId: _categoryId)
-        : createTransactionPayload(type: _type, amount: amount, date: _date, note: note, accountId: _accountId!, categoryId: _categoryId);
+    final payload = updateTransactionPayload(
+      type: _type,
+      amount: amount,
+      date: _date,
+      note: note,
+      accountId: isTransfer ? null : _accountId,
+      fromAccountId: isTransfer ? _fromAccountId : null,
+      toAccountId: isTransfer ? _toAccountId : null,
+      categoryId: isTransfer ? null : _categoryId,
+      originalDate: widget.initial.transactionDate,
+    );
 
     final queued = await ref
         .read(pendingActionsRepositoryProvider)
         .recordIfTransient(
           failure: failure,
-          actionType: widget.isEditing
-              ? PendingActionType.updateTransaction
-              : (isTransfer ? PendingActionType.createTransfer : PendingActionType.createTransaction),
+          actionType: PendingActionType.updateTransaction,
           payload: payload,
-          targetTransactionId: widget.isEditing ? widget.initial!.id : null,
+          targetTransactionId: widget.initial.id,
         );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -182,20 +187,15 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
-  /// T14/CLAUDE.md: invalidate only the affected month's cache. Create (no
-  /// `widget.initial`) always invalidates the single new month; an edit
-  /// compares the pre-submit `widget.initial!.transactionDate` against the
-  /// chosen `_date` and invalidates both months when they differ across a
-  /// month boundary, one otherwise — see `monthsAffectedByEdit`.
+  /// CLAUDE.md: invalidate only the affected month's cache — both the old
+  /// and new month when an edit moves the date across a month boundary.
   void _invalidateAffectedMonths() {
-    ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial?.transactionDate, _date));
+    ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial.transactionDate, _date));
   }
 
-  /// Mockup 1d's "ลบรายการ" button — ticket 04's sole delete path for any
-  /// transaction, junk or not (the old junk-row delete icon on
-  /// `TransactionListTile` is gone): real delete → invalidate the
-  /// transaction's month → transient failures queue into
-  /// `pending_manual_actions`.
+  /// Ticket 04's sole delete path for any transaction, junk or not: real
+  /// delete → invalidate the transaction's month → transient failures queue
+  /// into `pending_manual_actions`.
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -210,7 +210,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
     if (confirmed != true || !context.mounted) return;
 
-    final transaction = widget.initial!;
+    final transaction = widget.initial;
     final result = await ref.read(transactionsRepositoryProvider).delete(transaction.id);
     if (!context.mounted) return;
 
@@ -236,228 +236,323 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
+  Color get _typeColor => switch (_type) {
+    TransactionType.income => AppColors.income,
+    TransactionType.expense => AppColors.expense,
+    TransactionType.transfer => AppColors.accentA,
+  };
+
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(activeAccountsProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
-
-    // Mockup 1d: the category field gets a highlighted (amber) treatment
-    // when this row still has no category — purely a decoration around the
-    // existing dropdown, not a structural change.
-    final categoryUnset = widget.isEditing && _type != TransactionType.transfer && _categoryId == null;
+    final categories = categoriesAsync.value ?? const [];
+    final category = _findCategory(categories, _categoryId);
+    final isTransfer = _type == TransactionType.transfer;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.isEditing ? 'แก้ไขรายการ' : 'สร้างรายการเอง')),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (widget.isEditing) ...[_SlipImageSection(future: _slipImageFuture), const SizedBox(height: 16)],
-            DropdownButtonFormField<TransactionType>(
-              key: const Key('transactionTypeDropdown'),
-              initialValue: _type,
-              decoration: const InputDecoration(labelText: 'ประเภท'),
-              items: TransactionType.values.map((type) => DropdownMenuItem(value: type, child: Text(type.label))).toList(),
-              onChanged: (type) => setState(() {
-                _type = type!;
-                _transferError = null;
-                _categoryId = null;
-                if (_type == TransactionType.transfer) {
-                  _accountId = null;
-                } else {
-                  _fromAccountId = null;
-                  _toAccountId = null;
-                }
-              }),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              key: const Key('amountField'),
-              controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'จำนวนเงิน'),
-              validator: (value) {
-                final parsed = double.tryParse(value ?? '');
-                if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
-                if (parsed <= 0) return 'ต้องมากกว่า 0';
-                return null;
-              },
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              tileColor: AppColors.surface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: AppColors.inputBorder)),
-              title: const Text('วันที่'),
-              subtitle: Text(
-                '${_date.year}-${_date.month.toString().padLeft(2, '0')}-${_date.day.toString().padLeft(2, '0')}',
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CircularIconButton(icon: RemixIcon.arrowLeftLine, onTap: () => Navigator.of(context).pop()),
+                    const Text('แก้ไขรายการ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    // Ticket 04: a direct delete action (trash icon) replaces
+                    // the old overflow ("...") button, which never actually
+                    // opened a menu — this is the page's sole delete entry
+                    // point now (the old bottom "ลบรายการ" text button is
+                    // gone, avoiding two controls for the same action).
+                    CircularIconButton(
+                      key: const Key('deleteTransactionButton'),
+                      icon: RemixIcon.deleteBinLine,
+                      iconColor: AppColors.expense,
+                      onTap: _isSubmitting ? null : () => _confirmDelete(context),
+                    ),
+                  ],
+                ),
               ),
-              trailing: const Icon(RemixIcon.calendarLine),
-              onTap: _pickDate,
-            ),
-            const SizedBox(height: 8),
-            accountsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
-              data: (accounts) {
-                if (_type == TransactionType.transfer) {
-                  return Column(
-                    children: [
-                      DropdownButtonFormField<int>(
-                        key: const Key('fromAccountDropdown'),
-                        initialValue: _fromAccountId,
-                        decoration: const InputDecoration(labelText: 'บัญชีต้นทาง'),
-                        items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                        onChanged: (id) => setState(() {
-                          _fromAccountId = id;
-                          _transferError = null;
-                        }),
-                        validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+                  children: [
+                    SegmentedTabs<TransactionType>(
+                      values: TransactionType.values,
+                      labels: TransactionType.values.map((t) => t.label).toList(),
+                      selected: _type,
+                      onChanged: (type) => setState(() {
+                        _type = type;
+                        _transferError = null;
+                        _categoryId = null;
+                        if (type == TransactionType.transfer) {
+                          _accountId = null;
+                        } else {
+                          _fromAccountId = null;
+                          _toAccountId = null;
+                        }
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+                      child: TextFormField(
+                        key: const Key('amountField'),
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: _typeColor),
+                        decoration: const InputDecoration(border: InputBorder.none, isDense: true, labelText: 'จำนวนเงิน'),
+                        validator: (value) {
+                          final parsed = double.tryParse(value ?? '');
+                          if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
+                          if (parsed <= 0) return 'ต้องมากกว่า 0';
+                          return null;
+                        },
                       ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<int>(
-                        key: const Key('toAccountDropdown'),
-                        initialValue: _toAccountId,
-                        decoration: InputDecoration(labelText: 'บัญชีปลายทาง', errorText: _transferError),
-                        items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                        onChanged: (id) => setState(() {
-                          _toAccountId = id;
-                          _transferError = null;
-                        }),
-                        validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
+                    ),
+                    const SizedBox(height: 10),
+                    PillFormRow(icon: RemixIcon.calendarLine, label: 'วันที่', value: relativeDayLabel(_date), onTap: _pickDate),
+                    const SizedBox(height: 10),
+                    accountsAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
+                      data: (accounts) {
+                        if (isTransfer) {
+                          final from = _findAccount(accounts, _fromAccountId);
+                          final to = _findAccount(accounts, _toAccountId);
+                          return Column(
+                            children: [
+                              Builder(
+                                builder: (anchorContext) => PillFormRow(
+                                  key: const Key('fromAccountPill'),
+                                  icon: RemixIcon.arrowUpLine,
+                                  label: 'จากบัญชี',
+                                  value: from?.name ?? 'เลือกบัญชีต้นทาง',
+                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                                    _fromAccountId = id;
+                                    _transferError = null;
+                                  })),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Builder(
+                                builder: (anchorContext) => PillFormRow(
+                                  key: const Key('toAccountPill'),
+                                  icon: RemixIcon.arrowDownLine,
+                                  label: 'ไปบัญชี',
+                                  value: to?.name ?? 'เลือกบัญชีปลายทาง',
+                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                                    _toAccountId = id;
+                                    _transferError = null;
+                                  })),
+                                ),
+                              ),
+                              if (_transferError != null) ...[
+                                const SizedBox(height: 6),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(_transferError!, style: const TextStyle(fontSize: 12, color: AppColors.expense)),
+                                ),
+                              ],
+                            ],
+                          );
+                        }
+                        final account = _findAccount(accounts, _accountId);
+                        return Builder(
+                          builder: (anchorContext) => PillFormRow(
+                            key: const Key('accountPill'),
+                            icon: RemixIcon.wallet3Line,
+                            label: 'บัญชี',
+                            value: account?.name ?? 'เลือกบัญชี',
+                            onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
+                          ),
+                        );
+                      },
+                    ),
+                    if (!isTransfer) ...[
+                      const SizedBox(height: 10),
+                      PillFormRow(
+                        key: const Key('categoryPill'),
+                        icon: RemixIcon.folderLine,
+                        label: 'หมวดหมู่',
+                        value: category?.name ?? 'ยังไม่ระบุหมวดหมู่',
+                        iconColor: category == null ? AppColors.warningIcon : colorFromHex(category.colorHex),
+                        onTap: _pickCategory,
                       ),
                     ],
-                  );
-                }
-                return DropdownButtonFormField<int>(
-                  key: const Key('accountDropdown'),
-                  initialValue: _accountId,
-                  decoration: const InputDecoration(labelText: 'บัญชี'),
-                  items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
-                  onChanged: (id) => setState(() => _accountId = id),
-                  validator: (value) => value == null ? 'จำเป็นต้องเลือก' : null,
-                );
-              },
-            ),
-            if (_type != TransactionType.transfer) ...[
-              const SizedBox(height: 8),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: categoryUnset ? Border.all(color: AppColors.warningBorder, width: 1.5) : null,
-                ),
-                child: categoriesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Text('โหลดหมวดหมู่ไม่สำเร็จ: $error'),
-                  data: (categories) {
-                    // Only offer categories matching this transaction's type
-                    // (e.g. an expense never offers an income category).
-                    final matching = categories.where((c) => c.type.name == _type.name).toList();
-                    return DropdownButtonFormField<int?>(
-                      initialValue: _categoryId,
-                      decoration: InputDecoration(labelText: categoryUnset ? 'แตะเพื่อเลือกหมวดหมู่' : 'หมวดหมู่ (ไม่บังคับ)'),
-                      items: [
-                        const DropdownMenuItem<int?>(child: Text('ยังไม่ระบุหมวดหมู่')),
-                        ...matching.map((c) => DropdownMenuItem<int?>(value: c.id, child: Text(c.name))),
-                      ],
-                      onChanged: (id) => setState(() => _categoryId = id),
-                    );
-                  },
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      child: TextField(
+                        key: const Key('noteField'),
+                        controller: _noteController,
+                        minLines: 1,
+                        maxLines: 3,
+                        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                        decoration: const InputDecoration(border: InputBorder.none, labelText: 'โน้ต'),
+                      ),
+                    ),
+                    if (isTransfer) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'การย้ายเงินไม่นับเป็นรายรับหรือรายจ่าย ใช้สำหรับโอนเงินระหว่างบัญชีของคุณเอง เติมเงินกระเป๋า หรือจ่ายหนี้',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    PrimaryGradientButton(key: const Key('submitButton'), label: 'บันทึก', onTap: _isSubmitting ? null : _submit, enabled: !_isSubmitting),
+                    // Ticket 04: "ข้อมูลจากสลิป" always sits at the bottom of
+                    // the form now (spec: the fields edited most often —
+                    // amount, category, account — should be reachable
+                    // first), previously the form's very first item.
+                    const SizedBox(height: 20),
+                    _SlipInfoCard(transaction: widget.initial, future: _slipImageFuture),
+                  ],
                 ),
               ),
             ],
-            const SizedBox(height: 8),
-            TextFormField(controller: _noteController, decoration: const InputDecoration(labelText: 'โน้ต'), minLines: 1, maxLines: 3),
-            const SizedBox(height: 24),
-            FilledButton(
-              key: const Key('submitButton'),
-              onPressed: _isSubmitting ? null : _submit,
-              child: _isSubmitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(widget.isEditing ? 'บันทึก' : 'สร้างรายการ'),
-            ),
-            if (widget.isEditing) ...[
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton(
-                  key: const Key('deleteTransactionButton'),
-                  onPressed: _isSubmitting ? null : () => _confirmDelete(context),
-                  style: TextButton.styleFrom(foregroundColor: AppColors.expense),
-                  child: const Text('ลบรายการ'),
-                ),
-              ),
-            ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Account? _findAccount(List<Account> accounts, int? id) {
+    if (id == null) return null;
+    for (final a in accounts) {
+      if (a.id == id) return a;
+    }
+    return null;
+  }
+
+  Category? _findCategory(List<Category> categories, int? id) {
+    if (id == null) return null;
+    for (final c in categories) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+}
+
+/// The mockup's "ข้อมูลจากสลิป" card — reuses the exact same on-device slip
+/// lookup `_lookupSlipImageBytes` already performs (no new data plumbing):
+/// sender/receiver/timestamp come straight off [Transaction], the thumbnail
+/// from the same gallery lookup the old inline slip preview used.
+class _SlipInfoCard extends StatelessWidget {
+  const _SlipInfoCard({required this.transaction, required this.future});
+
+  final Transaction transaction;
+  final Future<Uint8List?>? future;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = transaction.type == TransactionType.income;
+    final counterparty = isIncome ? transaction.senderName : transaction.receiverName;
+    return Container(
+      key: const Key('slipInfoCard'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ข้อมูลจากสลิป', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                const SizedBox(height: 8),
+                if (counterparty.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      const Icon(RemixIcon.userLine, size: 14, color: AppColors.textSecondary),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(counterparty, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary), overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                Text(dateTimeLabel(transaction.transactionDate), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _Thumbnail(future: future),
+        ],
       ),
     );
   }
 }
 
-/// Ticket 05: `future` is `null` when [Transaction.localImageName] was
-/// null/empty at page open — that case renders the placeholder immediately
-/// with no gallery query ever attempted (acceptance criterion 2). Otherwise
-/// a `FutureBuilder` drives a brief loading state while the on-device lookup
-/// resolves; any non-success outcome (no filename match, or a `null` from
-/// `readBytes` because the asset was deleted since scanning) collapses to
-/// the same placeholder — no error state, no retry button.
-class _SlipImageSection extends StatelessWidget {
-  const _SlipImageSection({required this.future});
+/// Ticket 04: tapping a resolved thumbnail opens [showFullScreenImageViewer]
+/// (pinch-zoom/pan + close button, presented as an overlay dialog rather than
+/// a new route — see that widget's own doc comment for why closing it never
+/// touches the form underneath). The placeholder (no image resolved) stays
+/// inert — there's nothing to view yet — so only the real thumbnail carries
+/// the "แตะเพื่อดูสลิป" tap hint.
+class _Thumbnail extends StatelessWidget {
+  const _Thumbnail({required this.future});
 
   final Future<Uint8List?>? future;
 
-  static const _height = 200.0;
+  static const _width = 64.0;
+  static const _height = 84.0;
 
   @override
   Widget build(BuildContext context) {
     final pendingFuture = future;
-    if (pendingFuture == null) return const _SlipImagePlaceholder(height: _height);
-
+    if (pendingFuture == null) return _placeholder();
     return FutureBuilder<Uint8List?>(
       future: pendingFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const SizedBox(height: _height, child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
-        }
         final bytes = snapshot.data;
-        if (bytes == null) return const _SlipImagePlaceholder(height: _height);
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Image.memory(bytes, height: _height, width: double.infinity, fit: BoxFit.cover),
+        if (snapshot.connectionState != ConnectionState.done || bytes == null) return _placeholder();
+        return Column(
+          children: [
+            InkWell(
+              key: const Key('slipThumbnailTapTarget'),
+              borderRadius: BorderRadius.circular(10),
+              onTap: () => showFullScreenImageViewer(context, bytes),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.memory(bytes, key: const Key('slipThumbnail'), width: _width, height: _height, fit: BoxFit.cover),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Bounded to the thumbnail's own width — an unconstrained Text
+            // here sizes to its own intrinsic width, which under some font
+            // metrics can exceed what's left in `_SlipInfoCard`'s Row and
+            // overflow it (the Row's other child is `Expanded`, but this
+            // Column is not, so nothing else caps it).
+            const SizedBox(
+              width: _width,
+              child: Text(
+                'แตะเพื่อดูสลิป',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 9.5, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
         );
       },
     );
   }
-}
 
-class _SlipImagePlaceholder extends StatelessWidget {
-  const _SlipImagePlaceholder({required this.height});
-
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _placeholder() {
     return Container(
       key: const Key('slipImagePlaceholder'),
-      height: height,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.inputBorder),
-      ),
-      child: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(RemixIcon.imageLine, size: 28, color: AppColors.textFaint),
-            SizedBox(height: 8),
-            Text('ไม่มีรูปสลิป', style: TextStyle(color: AppColors.textMuted)),
-          ],
-        ),
-      ),
+      width: _width,
+      height: _height,
+      decoration: BoxDecoration(gradient: AppColors.accentGradient, borderRadius: BorderRadius.circular(10)),
+      child: const Icon(RemixIcon.imageLine, color: Colors.white, size: 20),
     );
   }
 }

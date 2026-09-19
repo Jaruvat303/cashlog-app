@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/month/selected_month_provider.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/money.dart';
+import '../../../../shared/widgets/circular_icon_button.dart';
 import '../../../categories/presentation/providers/categories_providers.dart';
 import '../../../slip_scan/data/slip_gallery_repository.dart';
 import '../../../slip_scan/domain/gallery_access_level.dart';
@@ -13,7 +15,6 @@ import '../../../transactions/domain/transaction.dart';
 import '../../../transactions/presentation/providers/transactions_feed_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_list_tile.dart';
 import '../widgets/auto_scan_processing_indicator.dart';
-import '../widgets/auto_scan_status_text.dart';
 import '../widgets/expense_total_widget.dart';
 import '../widgets/pending_actions_banner.dart';
 
@@ -39,14 +40,17 @@ const double _kLoadMoreThreshold = 300;
 /// `TransactionsPage`/"ดูสรุป" in ticket 04 and is not reintroduced here.
 ///
 /// Ticket 07 adds [ExpenseTotalWidget] as the leading item above the day
-/// groups — it also owns the month switcher, moved here from this page's
-/// AppBar title (see [_onMonthChanged]). Ticket 08 adds [PendingActionsBanner]
-/// directly beneath it. Ticket 09 adds [AutoScanStatusText] beneath that —
+/// groups. Ticket 08 adds [PendingActionsBanner] directly beneath it,
 /// grouped with the other background-auto-scan status readout,
 /// `_GalleryPermissionBanner`, which stays directly below it. Ticket 10 adds
 /// [AutoScanProcessingIndicator] as a further leading item after that —
-/// last, since it's the most transient of the four and shouldn't push the
+/// last, since it's the most transient of the three and shouldn't push the
 /// steadier status readouts around while it appears/disappears.
+///
+/// Post-launch UI polish ticket 02: Home no longer owns the month switcher
+/// (moved to `TransactionsPage`'s Topbar, the single place month switching
+/// happens now) or a standalone last-auto-scan status row (folded into
+/// [ExpenseTotalWidget]'s own banner) — see [_onMonthChanged].
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
@@ -97,14 +101,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
-  /// Ticket 07: [ExpenseTotalWidget] already mutates `selectedMonthProvider`
-  /// itself before calling this — this only performs the side effects that
-  /// mutation needs on top of the shared state: jump the list back to the
-  /// top (a new month's data is a different list entirely) and kick off the
-  /// new month's paged fetch, same as this page's own `_loadFirstPage` call
-  /// on open.
-  void _onMonthChanged() {
-    final month = ref.read(selectedMonthProvider);
+  /// Post-launch UI polish ticket 02: Home no longer has its own month
+  /// control — `selectedMonthProvider` only ever changes from the Summary
+  /// page's Topbar switcher now. This performs the same side effects the old
+  /// on-widget callback did (jump the list back to the top since a new
+  /// month's data is a different list entirely, kick off the new month's
+  /// paged fetch), driven by [build]'s `ref.listen` below instead of a
+  /// widget-level callback, so it fires no matter which page changed the
+  /// shared month.
+  void _onMonthChanged(DateTime month) {
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
     _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
   }
@@ -114,6 +119,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final month = ref.watch(selectedMonthProvider);
     final year = month.year;
     final monthNum = month.month;
+    ref.listen<DateTime>(selectedMonthProvider, (previous, next) {
+      if (previous == next) return;
+      _onMonthChanged(next);
+    });
 
     final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
@@ -122,21 +131,34 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     final isLoadingMore = feedMeta?.isLoadingMore ?? false;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('หน้าแรก')),
-      body: RefreshIndicator(
-        onRefresh: () => _loadFirstPage(year, monthNum),
-        child: transactionsAsync.when(
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Cashlog', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  CircularIconButton(icon: RemixIcon.bankCardLine, onTap: () => context.go('/accounts'), tooltip: 'บัญชี'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _loadFirstPage(year, monthNum),
+                child: transactionsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
           data: (transactions) {
             if (transactions.isEmpty) {
               return ListView(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
                 children: [
-                  ExpenseTotalWidget(onMonthChanged: _onMonthChanged),
+                  const ExpenseTotalWidget(),
                   const SizedBox(height: 16),
                   const PendingActionsBanner(),
-                  const AutoScanStatusText(),
                   const _GalleryPermissionBanner(),
                   const AutoScanProcessingIndicator(),
                   const Padding(
@@ -150,40 +172,37 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             final groups = _groupByDay(transactions);
             return ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-              // +5 for the expense-total widget, pending-actions banner,
-              // auto-scan status text, gallery-permission banner, and
-              // auto-scan processing indicator at indices 0/1/2/3/4 —
-              // everything else keeps its previous index math shifted
-              // accordingly.
-              itemCount: 5 + groups.length + (isLoadingMore ? 1 : 0),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+              // +4 for the expense-total widget, pending-actions banner,
+              // gallery-permission banner, and auto-scan processing
+              // indicator at indices 0/1/2/3 — everything else keeps its
+              // previous index math shifted accordingly. The last-auto-scan
+              // status text moved inside the expense-total widget itself
+              // (ticket 02) and no longer occupies its own index here.
+              itemCount: 4 + groups.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ExpenseTotalWidget(onMonthChanged: _onMonthChanged),
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: ExpenseTotalWidget(),
                   );
                 }
-                // `PendingActionsBanner`/`AutoScanStatusText`/
-                // `_GalleryPermissionBanner`/`AutoScanProcessingIndicator`
-                // each supply their own bottom margin when visible and
-                // collapse to a zero-size box when not — no extra wrapper
-                // padding here, unlike the widget above and the day groups
-                // below, or a hidden banner would still leave a gap in the
-                // list.
+                // `PendingActionsBanner`/`_GalleryPermissionBanner`/
+                // `AutoScanProcessingIndicator` each supply their own bottom
+                // margin when visible and collapse to a zero-size box when
+                // not — no extra wrapper padding here, unlike the widget
+                // above and the day groups below, or a hidden banner would
+                // still leave a gap in the list.
                 if (index == 1) {
                   return const PendingActionsBanner();
                 }
                 if (index == 2) {
-                  return const AutoScanStatusText();
-                }
-                if (index == 3) {
                   return const _GalleryPermissionBanner();
                 }
-                if (index == 4) {
+                if (index == 3) {
                   return const AutoScanProcessingIndicator();
                 }
-                final groupIndex = index - 5;
+                final groupIndex = index - 4;
                 if (groupIndex >= groups.length) {
                   return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
                 }
@@ -204,7 +223,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                             ),
                             Text(
                               _formatSignedTotal(group.total),
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textMuted),
+                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -212,8 +231,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: AppColors.surface,
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                          boxShadow: const [AppShadows.card],
                         ),
                         child: Column(
                           children: [
@@ -230,6 +249,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               },
             );
           },
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -314,7 +337,7 @@ class _GalleryPermissionBanner extends ConsumerWidget {
       key: const Key('galleryPermissionBanner'),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.warningSurface,
+        color: AppColors.warningIconBg,
         border: Border.all(color: AppColors.warningBorder),
         borderRadius: BorderRadius.circular(18),
       ),

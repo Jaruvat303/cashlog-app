@@ -40,6 +40,7 @@ import 'package:cashlog/features/transactions/data/transactions_repository.dart'
 import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
+import 'package:cashlog/features/transactions/presentation/pages/add_transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/pending_actions_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transaction_form_page.dart';
 import 'package:cashlog/features/transactions/presentation/widgets/transaction_list_tile.dart';
@@ -233,7 +234,7 @@ void main() {
     await db.close();
   });
 
-  group('form call sites against a real PendingActionsRepository (TransactionFormPage: one-shot insert only — no live .watch(), so the drift/testWidgets teardown hang this codebase avoids elsewhere does not apply)', () {
+  group('form call sites against a real PendingActionsRepository (AddTransactionPage: one-shot insert only — no live .watch(), so the drift/testWidgets teardown hang this codebase avoids elsewhere does not apply)', () {
     testWidgets('a real transient create failure lands a real row in pending_manual_actions', (tester) async {
       fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
 
@@ -245,28 +246,34 @@ void main() {
             transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
             pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
           ],
-          child: const MaterialApp(home: TransactionFormPage()),
+          child: const MaterialApp(home: AddTransactionPage()),
         ),
       );
       await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('transactionTypeDropdown')));
-      await _pumpBounded(tester);
-      await tester.tap(find.text('รายรับ').last);
+      await tester.tap(find.text('รายรับ'));
       await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('accountDropdown')));
+      await tester.tap(find.byKey(const Key('accountPill')));
       await _pumpBounded(tester);
-      await tester.tap(find.text('Cash').last);
+      await tester.tap(find.byKey(const Key('accountOption_1')));
       await _pumpBounded(tester);
 
-      await tester.enterText(find.byKey(const Key('amountField')), '5000');
-      await tester.tap(find.byKey(const Key('submitButton')));
+      for (final digit in '5000'.split('')) {
+        final finder = find.text(digit);
+        await tester.ensureVisible(finder);
+        await tester.pump();
+        await tester.tap(finder);
+        await tester.pump();
+      }
+      await tester.ensureVisible(find.byKey(const Key('submitButton')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
       expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
       // A blocked/failed submit never pops.
-      expect(find.byType(TransactionFormPage), findsOneWidget);
+      expect(find.byType(AddTransactionPage), findsOneWidget);
 
       final rows = await db.select(db.pendingManualActions).get();
       expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');

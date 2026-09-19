@@ -34,7 +34,7 @@ class PendingActionsBanner extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: AppColors.warningSurface,
+          color: AppColors.warningIconBg,
           border: Border.all(color: AppColors.warningBorder),
           borderRadius: BorderRadius.circular(14),
         ),

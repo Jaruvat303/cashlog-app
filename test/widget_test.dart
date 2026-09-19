@@ -34,7 +34,7 @@ import 'package:cashlog/features/transactions/data/transactions_repository.dart'
 import 'package:cashlog/features/transactions/domain/pending_action.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
-import 'package:cashlog/features/transactions/presentation/pages/transaction_form_page.dart';
+import 'package:cashlog/features/transactions/presentation/pages/add_transaction_page.dart';
 import 'package:cashlog/features/transactions/presentation/pages/transactions_page.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
@@ -345,17 +345,17 @@ void main() {
       await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
       await _pumpBounded(tester);
 
-      // Ticket 05: exactly these three options, no more, no less.
+      // Ticket 05 (post-launch redesign: speed-dial pills, not ListTiles):
+      // exactly these three options, no more, no less.
       expect(find.byKey(const Key('manualSlipAttachCreateManuallyOption')), findsOneWidget);
       expect(find.byKey(const Key('manualSlipAttachGalleryOption')), findsOneWidget);
       expect(find.byKey(const Key('manualSlipAttachCameraOption')), findsOneWidget);
-      expect(find.byType(ListTile), findsNWidgets(3));
       // Never actually picked a source — the (fake) image source should
       // stay untouched by opening the chooser alone.
       expect(manualImageSource.requestedSources, isEmpty);
     });
 
-    testWidgets('Ticket 05: picking "create manually" opens the existing manual transaction entry screen', (tester) async {
+    testWidgets('Ticket 05: picking "create manually" opens the manual transaction entry screen', (tester) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
@@ -364,8 +364,9 @@ void main() {
       await tester.tap(find.byKey(const Key('manualSlipAttachCreateManuallyOption')));
       await _pumpBounded(tester);
 
-      final formPage = tester.widget<TransactionFormPage>(find.byType(TransactionFormPage));
-      expect(formPage.isEditing, isFalse, reason: 'create-manually opens the form in create mode, not editing an existing transaction');
+      // Post-launch redesign: "create manually" now opens the dedicated
+      // AddTransactionPage rather than the (now edit-only) TransactionFormPage.
+      expect(find.byType(AddTransactionPage), findsOneWidget);
       // Choosing "create manually" must not touch the OCR pipeline at all.
       expect(manualImageSource.requestedSources, isEmpty);
       expect(manualSlipUploadRepository.manualCalls, isEmpty);
