@@ -33,7 +33,15 @@ class PillFormRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.control),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          // `color` here (not just the ancestor `Material`'s) matters: without
+          // an opaque fill of its own, this Container's `boxShadow` — drawn in
+          // the same paint pass as its (previously absent) background — washed
+          // a visible gray tint across the whole pill instead of staying a
+          // soft shadow outside its edges (ticket 07: Add/Edit Transaction
+          // pills read as off-tone gray next to the amount card, which has
+          // always set its own `color` alongside the same shadow).
           decoration: BoxDecoration(
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(AppRadii.control),
             boxShadow: const [AppShadows.card],
           ),

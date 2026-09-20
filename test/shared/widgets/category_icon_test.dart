@@ -1,68 +1,78 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:cashlog/shared/widgets/category_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
-/// The exact 21 `icon_key` values seeded on the live dev backend, confirmed
-/// via `GET /api/v1/categories` during T8's DoD re-verification — this is
-/// what actually caught the flutter_remix coverage gap, not a guess.
-const _liveDevIconKeys = [
-  'question-fill',
-  'restaurant-fill',
-  'cup-fill',
-  'shopping-bag-3-fill',
-  'bus-fill',
-  'car-fill',
-  'home-4-fill',
-  'flashlight-fill',
-  'wifi-fill',
-  't-shirt-fill',
-  'sparkles-fill',
-  'clapperboard-fill',
-  'goblet-fill',
-  'plane-fill',
-  'capsule-fill',
-  'shield-check-fill',
-  'book-open-fill',
-  'computer-fill',
-  'footprint-fill',
-  'heart-3-fill',
-  'archive-fill',
-];
-
-/// The 10 real income `icon_key` values the backend returns for income
-/// categories (spec: "Frontend — income category icons"), each expected to
-/// map to its own distinct Remix icon rather than the generic fallback.
-const _liveDevIncomeIconKeys = <(String key, IconData icon)>[
-  ('wallet-3-fill', RemixIcon.wallet3Fill),
-  ('gift-fill', RemixIcon.giftFill),
-  ('tools-fill', RemixIcon.toolsFill),
-  ('store-2-fill', RemixIcon.store2Fill),
-  ('line-chart-fill', RemixIcon.lineChartFill),
-  ('trophy-fill', RemixIcon.trophyFill),
-  ('key-2-fill', RemixIcon.key2Fill),
-  ('hand-heart-fill', RemixIcon.handHeartFill),
-  ('coins-fill', RemixIcon.coinsFill),
-  ('money-dollar-circle-fill', RemixIcon.moneyDollarCircleFill),
-];
+/// Every `icon_key` a live category can actually have, read straight out of
+/// a raw `GET /api/v1/categories?type=...` response captured against the
+/// dev backend (`test/fixtures/README.md` has the refresh command) — never
+/// hand-typed. Three rounds of category-icon-fallback bugs (post-launch UI
+/// polish tickets 01, 07, and 08) shipped specifically because both the
+/// resolver *and* this test used to hardcode a snapshot of the key list in
+/// Dart source, which silently went stale the next time a category was
+/// added to the seed data. Ticket 09 root-caused this on the resolver side
+/// (`resolveCategoryIcon` now resolves against the complete Remix Icon set,
+/// not a hand-picked subset — see `category_icon.dart`'s doc comment); this
+/// test still reads its expected keys from a fixture rather than hardcoding
+/// them, so the only way it can go stale is the fixture itself going stale
+/// — one obvious file to refresh, not scattered Dart literals.
+List<String> _iconKeysFromFixture(String filename) {
+  final json = jsonDecode(File('test/fixtures/$filename').readAsStringSync()) as Map<String, dynamic>;
+  final rows = json['data'] as List<dynamic>;
+  return [for (final row in rows) (row as Map<String, dynamic>)['icon_key'] as String];
+}
 
 void main() {
-  test('resolveCategoryIcon resolves every real dev icon_key to a real, non-fallback icon', () {
-    for (final key in _liveDevIconKeys) {
-      final icon = resolveCategoryIcon(key);
-      expect(icon, isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+  final expenseIconKeys = _iconKeysFromFixture('categories_expense_response.json');
+  final incomeIconKeys = _iconKeysFromFixture('categories_income_response.json');
+
+  test('fixtures actually loaded real category data (guards against an empty/broken fixture silently passing everything below)', () {
+    expect(expenseIconKeys, isNotEmpty);
+    expect(incomeIconKeys, isNotEmpty);
+  });
+
+  test('resolveCategoryIcon resolves every real expense icon_key to a real, non-fallback icon', () {
+    for (final key in expenseIconKeys) {
+      expect(resolveCategoryIcon(key), isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
     }
   });
 
-  test('resolveCategoryIcon resolves every real income icon_key to its own distinct, non-fallback icon', () {
+  test('resolveCategoryIcon resolves every real income icon_key to a real, non-fallback icon', () {
+    for (final key in incomeIconKeys) {
+      expect(resolveCategoryIcon(key), isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+    }
+  });
+
+  test('every real expense icon_key maps to an icon distinct from every other expense key\'s', () {
     final seenIcons = <IconData>{};
-    for (final (key, expectedIcon) in _liveDevIncomeIconKeys) {
+    for (final key in expenseIconKeys) {
       final icon = resolveCategoryIcon(key);
-      expect(icon, isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
-      expect(icon, expectedIcon, reason: '"$key" should resolve to its exact expected Remix icon');
+      expect(seenIcons.add(icon), isTrue, reason: '"$key" resolved to an icon already used by another expense key — icons must be distinct');
+    }
+  });
+
+  test('every real income icon_key maps to an icon distinct from every other income key\'s', () {
+    final seenIcons = <IconData>{};
+    for (final key in incomeIconKeys) {
+      final icon = resolveCategoryIcon(key);
       expect(seenIcons.add(icon), isTrue, reason: '"$key" resolved to an icon already used by another income key — icons must be distinct');
     }
   });
+
+  test(
+    'resolveCategoryIcon resolves a real Remix Icon name that has never appeared in any category yet — '
+    'the ticket 09 guarantee: a brand-new backend category needs zero frontend changes, not just "today\'s categories work"',
+    () {
+      // "anchor-fill" is a real Remix Icon but isn't wired into any curated
+      // picker list, fixture, or prior test in this file — standing in for
+      // a category the backend might add tomorrow.
+      expect(resolveCategoryIcon('anchor-fill'), isNot(RemixIcon.folderFill));
+      expect(resolveCategoryIcon('anchor-fill'), RemixIcon.anchorFill);
+    },
+  );
 
   test('resolveCategoryIcon resolves specific known Remix keys to their exact icon', () {
     expect(resolveCategoryIcon('restaurant-fill'), RemixIcon.restaurantFill);

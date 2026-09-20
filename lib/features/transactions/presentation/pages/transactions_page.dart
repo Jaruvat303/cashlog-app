@@ -24,14 +24,6 @@ import 'pending_actions_page.dart';
 /// How close to the bottom (in pixels) triggers the next page fetch.
 const double _kLoadMoreThreshold = 300;
 
-/// Mockup 1b's filter chip row ("ทั้งหมด"/"รายรับ"/"รายจ่าย"/"ไม่ระบุหมวด N")
-/// — purely a client-side filter over whatever page(s) are already loaded
-/// for the month, same "count from local cache" pattern CLAUDE.md already
-/// establishes for the category-delete guard. No new backend query.
-enum _TxFilter { all, income, expense, uncategorized }
-
-bool _isUncategorized(Transaction t) => t.type != TransactionType.transfer && t.categoryId == null;
-
 /// Ticket 07's summary tabs — Transfer's real content (a flat, ungrouped
 /// list) is ticket 08, blocked on this one; `_SummarySection` below only
 /// renders a placeholder for it here.
@@ -46,16 +38,7 @@ class TransactionsPage extends ConsumerStatefulWidget {
 
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   final _scrollController = ScrollController();
-  _TxFilter _filter = _TxFilter.all;
   _SummaryTab _summaryTab = _SummaryTab.expense;
-
-  /// Ticket 07's drill-through state: which category (if any) the
-  /// transaction list below the summary is currently narrowed to. `null`
-  /// means "no filter" — the same call shape every other
-  /// `monthTransactionsProvider` caller already uses, so this is additive,
-  /// not a parallel query path.
-  int? _categoryFilterId;
-  String? _categoryFilterName;
 
   @override
   void initState() {
@@ -106,40 +89,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
   }
 
-  /// Ticket 07's drill-through: a tapped category row in the summary section
-  /// narrows the list below to just that category — resets the old type
-  /// chip filter back to "all" since a categoryId already implies a single
-  /// type (a category is only ever income- or expense-typed), so the two
-  /// filters would otherwise double up on the same axis.
-  void _selectCategoryFilter(int categoryId, String categoryName) {
-    setState(() {
-      _categoryFilterId = categoryId;
-      _categoryFilterName = categoryName;
-      _filter = _TxFilter.all;
-    });
-  }
-
-  void _clearCategoryFilter() {
-    setState(() {
-      _categoryFilterId = null;
-      _categoryFilterName = null;
-    });
-  }
-
-  List<Transaction> _applyFilter(List<Transaction> transactions) => switch (_filter) {
-    _TxFilter.all => transactions,
-    _TxFilter.income => transactions.where((t) => t.type == TransactionType.income).toList(),
-    _TxFilter.expense => transactions.where((t) => t.type == TransactionType.expense).toList(),
-    _TxFilter.uncategorized => transactions.where(_isUncategorized).toList(),
-  };
-
   @override
   Widget build(BuildContext context) {
     final month = ref.watch(selectedMonthProvider);
     final year = month.year;
     final monthNum = month.month;
 
-    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId));
+    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
     final categoriesById = {for (final category in categories) category.id: category};
@@ -167,10 +123,14 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).previous()),
             ),
             const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(11)),
-              child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+            InkWell(
+              onTap: () => _openMonthYearPicker(month),
+              borderRadius: BorderRadius.circular(11),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(11)),
+                child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+              ),
             ),
             const SizedBox(width: 10),
             _monthArrow(
@@ -189,32 +149,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PendingActionsPage())),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(52),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            // Ticket 07: an active category drill-through replaces the
-            // type chip row with a single clearable filter chip — both
-            // filter the same list, so showing them side by side would
-            // just be two controls fighting over one axis.
-            child: _categoryFilterId == null
-                ? SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _filterChip('ทั้งหมด', _TxFilter.all),
-                        const SizedBox(width: 7),
-                        _filterChip('รายรับ', _TxFilter.income),
-                        const SizedBox(width: 7),
-                        _filterChip('รายจ่าย', _TxFilter.expense),
-                        const SizedBox(width: 7),
-                        _uncategorizedChip(transactionsAsync.value ?? const []),
-                      ],
-                    ),
-                  )
-                : Align(alignment: Alignment.centerLeft, child: _categoryFilterChip()),
-          ),
-        ),
       ),
       body: RefreshIndicator(
         onRefresh: () => _loadFirstPage(year, monthNum),
@@ -222,18 +156,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
           data: (transactions) {
-            final filtered = _applyFilter(transactions);
             final summarySection = _SummarySection(
               year: year,
               month: monthNum,
               tab: _summaryTab,
               onTabChanged: (tab) => setState(() => _summaryTab = tab),
-              selectedCategoryId: _categoryFilterId,
-              onCategoryTap: _selectCategoryFilter,
               categoriesById: categoriesById,
             );
 
-            if (filtered.isEmpty) {
+            if (transactions.isEmpty) {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 children: [
@@ -241,15 +172,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   const SizedBox(height: 16),
                   summarySection,
                   const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(child: Text(transactions.isEmpty ? 'ไม่มีรายการในเดือนนี้' : 'ไม่มีรายการตรงตามตัวกรอง')),
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
                   ),
                 ],
               );
             }
 
-            final groups = _groupByDay(filtered);
+            final groups = _groupByDay(transactions);
             return ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
@@ -316,6 +247,81 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
+  /// Ticket 07: the month arrows only step one month at a time, so tapping
+  /// the label itself opens a picker that can jump to any month/year —
+  /// a bottom sheet with its own transient year (the sheet's `pickerYear`)
+  /// so browsing years doesn't move [SelectedMonth] until a month is
+  /// actually tapped.
+  void _openMonthYearPicker(DateTime currentMonth) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+      builder: (sheetContext) {
+        var pickerYear = currentMonth.year;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _monthArrow(icon: RemixIcon.arrowLeftSLine, onTap: () => setSheetState(() => pickerYear--)),
+                      const SizedBox(width: 20),
+                      Text('${buddhistYear(pickerYear)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      const SizedBox(width: 20),
+                      _monthArrow(icon: RemixIcon.arrowRightSLine, onTap: () => setSheetState(() => pickerYear++)),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    mainAxisSpacing: 10,
+                    crossAxisSpacing: 10,
+                    childAspectRatio: 1.6,
+                    children: List.generate(12, (i) {
+                      final m = i + 1;
+                      final selected = pickerYear == currentMonth.year && m == currentMonth.month;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(AppRadii.control),
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _switchMonth(() => ref.read(selectedMonthProvider.notifier).set(pickerYear, m));
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: selected ? AppColors.primary : AppColors.background,
+                            borderRadius: BorderRadius.circular(AppRadii.control),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            monthAbbreviationTh(m),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: selected ? Colors.white : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _monthArrow({required IconData icon, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
@@ -325,74 +331,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         height: 30,
         decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(9)),
         child: Icon(icon, size: 18, color: AppColors.textSecondary),
-      ),
-    );
-  }
-
-  Widget _filterChip(String label, _TxFilter value) {
-    final selected = _filter == value;
-    return InkWell(
-      onTap: () => setState(() => _filter = value),
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.chipSelectedBg : AppColors.chipUnselectedBg,
-          border: selected ? null : Border.all(color: AppColors.chipUnselectedBorder),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-            color: selected ? Colors.white : AppColors.chipUnselectedText,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _uncategorizedChip(List<Transaction> monthTransactions) {
-    final count = monthTransactions.where(_isUncategorized).length;
-    final selected = _filter == _TxFilter.uncategorized;
-    return InkWell(
-      onTap: () => setState(() => _filter = _TxFilter.uncategorized),
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.chipSelectedBg : AppColors.warningBadgeBg,
-          border: selected ? null : Border.all(color: AppColors.warningBadgeBorder),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          'ไม่ระบุหมวด $count',
-          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: selected ? Colors.white : AppColors.warningBadgeText),
-        ),
-      ),
-    );
-  }
-
-  /// Ticket 07's "a way exists to clear the filter" requirement — a single
-  /// clearable chip standing in for the whole type-chip row while a category
-  /// drill-through is active.
-  Widget _categoryFilterChip() {
-    return InkWell(
-      key: const Key('categoryFilterChip'),
-      onTap: _clearCategoryFilter,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(color: AppColors.chipSelectedBg, borderRadius: BorderRadius.circular(999)),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('หมวดหมู่: ${_categoryFilterName ?? ''}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500, color: Colors.white)),
-            const SizedBox(width: 6),
-            const Icon(RemixIcon.closeLine, size: 13, color: Colors.white),
-          ],
-        ),
       ),
     );
   }
@@ -533,8 +471,6 @@ class _SummarySection extends ConsumerWidget {
     required this.month,
     required this.tab,
     required this.onTabChanged,
-    required this.selectedCategoryId,
-    required this.onCategoryTap,
     required this.categoriesById,
   });
 
@@ -542,8 +478,6 @@ class _SummarySection extends ConsumerWidget {
   final int month;
   final _SummaryTab tab;
   final ValueChanged<_SummaryTab> onTabChanged;
-  final int? selectedCategoryId;
-  final void Function(int categoryId, String categoryName) onCategoryTap;
   final Map<int, Category> categoriesById;
 
   @override
@@ -584,15 +518,11 @@ class _SummarySection extends ConsumerWidget {
                     _SummaryTab.income => _CategoryBreakdownSection(
                       breakdown: summary.income,
                       total: summary.totalIncome,
-                      selectedCategoryId: selectedCategoryId,
-                      onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายรับในเดือนนี้',
                     ),
                     _SummaryTab.expense => _CategoryBreakdownSection(
                       breakdown: summary.expense,
                       total: summary.totalExpense,
-                      selectedCategoryId: selectedCategoryId,
-                      onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
                     ),
                     _SummaryTab.transfer => const SizedBox.shrink(),
@@ -632,24 +562,20 @@ class _SummarySection extends ConsumerWidget {
 
 /// Ticket 03: the restored `ExpensePieChart` (already built, previously
 /// unused — see its own file) sits above the existing `_CategoryTotalsList`
-/// text list for the Income/Expense tabs; the list itself, and its
-/// tap-to-filter behavior, are untouched. The chart is only built when
+/// text list for the Income/Expense tabs. The chart is only built when
 /// there's a breakdown to show it for — an empty breakdown falls straight
 /// through to `_CategoryTotalsList`'s own empty-state message, same as
 /// before this ticket.
+///
+/// Ticket 08: the list's tap-to-filter behavior (and the AppBar chip row it
+/// depended on to display/clear the active filter) is gone — these rows are
+/// plain totals now, per the same fix that removed the leftover type-chip
+/// row.
 class _CategoryBreakdownSection extends StatelessWidget {
-  const _CategoryBreakdownSection({
-    required this.breakdown,
-    required this.total,
-    required this.selectedCategoryId,
-    required this.onTap,
-    required this.emptyMessage,
-  });
+  const _CategoryBreakdownSection({required this.breakdown, required this.total, required this.emptyMessage});
 
   final List<CategoryBreakdown> breakdown;
   final double total;
-  final int? selectedCategoryId;
-  final void Function(int categoryId, String categoryName) onTap;
   final String emptyMessage;
 
   @override
@@ -661,7 +587,7 @@ class _CategoryBreakdownSection extends StatelessWidget {
           ExpensePieChart(expense: breakdown, total: total),
           const SizedBox(height: 14),
         ],
-        _CategoryTotalsList(breakdown: breakdown, selectedCategoryId: selectedCategoryId, onTap: onTap, emptyMessage: emptyMessage),
+        _CategoryTotalsList(breakdown: breakdown, emptyMessage: emptyMessage),
       ],
     );
   }
@@ -672,16 +598,9 @@ class _CategoryBreakdownSection extends StatelessWidget {
 /// `_CategoryBreakdownSection`'s `ExpensePieChart` (ticket 03), unchanged
 /// itself.
 class _CategoryTotalsList extends StatelessWidget {
-  const _CategoryTotalsList({
-    required this.breakdown,
-    required this.selectedCategoryId,
-    required this.onTap,
-    required this.emptyMessage,
-  });
+  const _CategoryTotalsList({required this.breakdown, required this.emptyMessage});
 
   final List<CategoryBreakdown> breakdown;
-  final int? selectedCategoryId;
-  final void Function(int categoryId, String categoryName) onTap;
   final String emptyMessage;
 
   @override
@@ -698,11 +617,7 @@ class _CategoryTotalsList extends StatelessWidget {
       children: [
         for (var i = 0; i < sorted.length; i++) ...[
           if (i > 0) const Divider(height: 1, color: AppColors.divider),
-          _CategoryTotalRow(
-            breakdown: sorted[i],
-            selected: sorted[i].categoryId == selectedCategoryId,
-            onTap: () => onTap(sorted[i].categoryId, sorted[i].categoryName),
-          ),
+          _CategoryTotalRow(breakdown: sorted[i]),
         ],
       ],
     );
@@ -710,34 +625,24 @@ class _CategoryTotalsList extends StatelessWidget {
 }
 
 class _CategoryTotalRow extends StatelessWidget {
-  const _CategoryTotalRow({required this.breakdown, required this.selected, required this.onTap});
+  const _CategoryTotalRow({required this.breakdown});
 
   final CategoryBreakdown breakdown;
-  final bool selected;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return Container(
       key: ValueKey('categoryTotalRow-${breakdown.categoryId}'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primarySurface : null,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
-            ),
-            Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-          ],
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Row(
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+          ),
+          Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+        ],
       ),
     );
   }

@@ -79,8 +79,19 @@ jobs:
           }
           EOF
 
+      # --no-tree-shake-icons: post-launch UI polish ticket 09 made category
+      # icon resolution build `IconData` from a runtime-looked-up codepoint
+      # (see lib/shared/widgets/category_icon.dart) instead of only ever
+      # referencing compile-time-constant `RemixIcon.xxxFill` identifiers.
+      # Flutter's release-build icon tree-shaker hard-fails
+      # ("Avoid non-constant invocations of IconData...") the moment any
+      # dynamically-constructed IconData is reachable, since it can't
+      # statically know which glyphs are actually used. This flag ships the
+      # full Remix Icon font (~592KB uncompressed) instead of a tree-shaken
+      # subset — the trade-off for a category icon set that no longer needs
+      # a frontend code change every time the backend adds a category.
       - name: Build APK
-        run: flutter build apk --release --dart-define-from-file=env/dev.json
+        run: flutter build apk --release --dart-define-from-file=env/dev.json --no-tree-shake-icons
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

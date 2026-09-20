@@ -53,6 +53,11 @@ String monthYearLabel(DateTime month) => '${_kMonthNames[month.month - 1]} ${bud
 /// Short form used for the Transactions header chip ("ส.ค. 2569").
 String monthYearShortLabel(DateTime month) => '${_kMonthAbbreviationsTh[month.month - 1]} ${buddhistYear(month.year)}';
 
+/// Short Thai month abbreviation for a 1-indexed [month] — backs the
+/// Summary Topbar's month+year picker grid (post-launch UI polish ticket
+/// 07), which needs the abbreviation independent of any particular year.
+String monthAbbreviationTh(int month) => _kMonthAbbreviationsTh[month - 1];
+
 /// Mockup screen 1b's date-group headers: "วันนี้"/"เมื่อวาน" for the two most
 /// recent days, a full Thai short date otherwise. Compares by
 /// year/month/day only — [date] may carry a time-of-day component.

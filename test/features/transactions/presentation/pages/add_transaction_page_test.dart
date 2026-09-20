@@ -243,14 +243,14 @@ void main() {
     ),
   );
 
+  // Ticket 07: the custom on-screen numpad is gone — amount entry now goes
+  // through a real TextField with the native numeric keyboard, so tests
+  // drive it with `enterText` instead of tapping digit buttons.
   Future<void> tapDigits(WidgetTester tester, String digits) async {
-    for (final digit in digits.split('')) {
-      final finder = find.text(digit);
-      await tester.ensureVisible(finder);
-      await tester.pump();
-      await tester.tap(finder);
-      await tester.pump();
-    }
+    final finder = find.byKey(const Key('amountField'));
+    await tester.ensureVisible(finder);
+    await tester.enterText(finder, digits);
+    await tester.pump();
   }
 
   group('Topbar trailing action (ticket 04)', () {

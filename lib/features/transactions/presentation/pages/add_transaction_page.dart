@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../shared/format/money.dart';
-import '../../../../shared/widgets/amount_numpad.dart';
 import '../../../../shared/widgets/anchored_dropdown_panel.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../../../shared/widgets/category_picker_sheet.dart';
@@ -38,7 +37,7 @@ class AddTransactionPage extends ConsumerStatefulWidget {
 }
 
 class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
-  final _amount = AmountInputController();
+  final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   TransactionType _type = TransactionType.expense;
   DateTime _date = DateTime.now();
@@ -51,7 +50,7 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
 
   @override
   void dispose() {
-    _amount.dispose();
+    _amountController.dispose();
     _noteController.dispose();
     super.dispose();
   }
@@ -69,7 +68,7 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   };
 
   Future<void> _submit() async {
-    final amount = _amount.amount;
+    final amount = _parseAmount(_amountController.text);
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรอกจำนวนเงินให้ถูกต้อง')));
       return;
@@ -260,13 +259,19 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: ValueListenableBuilder<String>(
-                                  valueListenable: _amount,
-                                  builder: (context, value, _) => Text(
-                                    key: const Key('amountDisplay'),
-                                    formatAmount(double.tryParse(value) ?? 0),
-                                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor),
-                                    overflow: TextOverflow.ellipsis,
+                                child: TextField(
+                                  key: const Key('amountField'),
+                                  controller: _amountController,
+                                  autofocus: true,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [_AmountInputFormatter()],
+                                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor),
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    isCollapsed: true,
+                                    hintText: '0',
+                                    hintStyle: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor.withValues(alpha: 0.3)),
                                   ),
                                 ),
                               ),
@@ -418,8 +423,6 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    AmountNumpad(onDigit: _amount.appendDigit, onDecimal: _amount.appendDecimal, onBackspace: _amount.backspace),
-                    const SizedBox(height: 16),
                     PrimaryGradientButton(
                       key: const Key('submitButton'),
                       label: isTransfer ? 'โอนเงิน' : 'บันทึกรายการ',
@@ -450,5 +453,41 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
       if (idOf(item) == id) return item;
     }
     return null;
+  }
+}
+
+double _parseAmount(String formatted) => double.tryParse(formatted.replaceAll(',', '')) ?? 0;
+
+/// Ticket 07: replaces the removed custom on-screen numpad — the amount
+/// field now takes the native numeric keyboard, and this formatter keeps
+/// the same comma-grouped-thousands / max-2-decimal-places display the
+/// numpad's live preview used, live as the user types. Always collapses the
+/// cursor to the end, which is fine for a field only ever appended to (no
+/// mid-string editing use case for a monetary amount).
+class _AmountInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var raw = newValue.text.replaceAll(RegExp(r'[^0-9.]'), '');
+
+    final firstDot = raw.indexOf('.');
+    if (firstDot != -1) {
+      raw = raw.substring(0, firstDot + 1) + raw.substring(firstDot + 1).replaceAll('.', '');
+    }
+
+    final dotIndex = raw.indexOf('.');
+    if (dotIndex != -1 && raw.length - dotIndex - 1 > 2) {
+      raw = raw.substring(0, dotIndex + 3);
+    }
+
+    final parts = raw.split('.');
+    final wholeDigits = parts[0];
+    final grouped = StringBuffer();
+    for (var i = 0; i < wholeDigits.length; i++) {
+      if (i > 0 && (wholeDigits.length - i) % 3 == 0) grouped.write(',');
+      grouped.write(wholeDigits[i]);
+    }
+    final formatted = parts.length > 1 ? '$grouped.${parts[1]}' : grouped.toString();
+
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
   }
 }

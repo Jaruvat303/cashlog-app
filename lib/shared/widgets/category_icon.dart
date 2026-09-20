@@ -2,37 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../features/categories/domain/category.dart';
+import 'remix_icon_codepoints.dart';
 
-/// Curated picker data only — unlike `BankIcon` (client-owned identity, never
-/// sent as color to the backend), `CachedCategories`/the category API really
-/// do persist `icon_key` and `color_hex` as free strings (see
-/// `category_mapper.dart`), so this map exists purely to give the create/edit
-/// form a fixed set of choices rather than a raw text field. The resolver
-/// below tolerates any key/hex this list doesn't cover (e.g. hand-edited
-/// data, a future client version) so display never crashes.
-///
-/// Keys are real Remix icon names, and this list is now the exact 21
-/// `icon_key` values seeded on the live dev backend (confirmed via
-/// `GET /api/v1/categories`) — not an invented/curated subset. That
-/// verification is what caught two real bugs during T8's DoD review:
-///
-/// 1. `flutter_remix` (the package originally used here) is an
-///    older/incomplete Remix Icon port — most of these 21 real keys weren't
-///    in it at all, so most real categories silently showed the generic
-///    fallback icon. Migrated to `remix_icons_flutter` (maps to Remix Icon
-///    v4.9.1, current) to fix that.
-/// 2. `remix_icons_flutter` constants are camelCase with a `Fill`/`Line`
-///    suffix, generated straight from remixicon.com's own names (e.g.
-///    `restaurant-fill` -> `RemixIcon.restaurantFill`, confirmed against
-///    the package's own README/generated source — not guessed).
-///
-/// One real key doesn't actually exist in Remix Icon under that name: the
-/// backend's `sparkles-fill` has no matching `RemixIcon.sparklesFill` —
-/// the real remixicon.com icon is named `sparkling-fill`
-/// (`RemixIcon.sparklingFill`). Aliased deliberately below rather than left
-/// to fall back, since it's clearly the intended icon — but this is a
-/// backend seed-data naming inconsistency, not a client guess, and is worth
-/// fixing at the source rather than papering over here indefinitely.
+/// Curated *picker* data only, for the create/edit category form's icon
+/// grid — a deliberately small, friendly-labeled subset of the full Remix
+/// Icon set for a user to choose from when making a new category, not an
+/// attempt to enumerate every `icon_key` a category can have. [resolveCategoryIcon]
+/// below does NOT read from this list (see its own doc comment) — resolving
+/// an *existing* category's icon and offering icon *choices* for a brand
+/// new one are different problems, and conflating them (one combined
+/// "known icon_key -> icon" list serving both) is exactly what caused the
+/// fallback-icon bug to ship three times in a row (post-launch UI polish
+/// tickets 01, 07, 08): every time the backend's seed data grew, this list
+/// didn't, and nothing forced it to.
 ///
 /// Lives in `shared/` (not `features/categories/domain/`) because it's
 /// resolved from three features — categories (the picker itself), the
@@ -49,9 +31,7 @@ const List<(String key, String label, IconData icon)> kExpenseCategoryIconChoice
   ('flashlight-fill', 'ค่าน้ำไฟ', RemixIcon.flashlightFill),
   ('wifi-fill', 'อินเทอร์เน็ต/โทรศัพท์', RemixIcon.wifiFill),
   ('t-shirt-fill', 'เสื้อผ้า', RemixIcon.tShirtFill),
-  // Backend seed data names this "sparkles-fill"; the real Remix Icon name
-  // is "sparkling-fill" — see the class doc comment above.
-  ('sparkles-fill', 'ความงาม/ผิวพรรณ', RemixIcon.sparklingFill),
+  ('sparkling-fill', 'ความงาม/ผิวพรรณ', RemixIcon.sparklingFill),
   ('clapperboard-fill', 'บันเทิง', RemixIcon.clapperboardFill),
   ('goblet-fill', 'สังสรรค์', RemixIcon.gobletFill),
   ('plane-fill', 'เดินทาง', RemixIcon.planeFill),
@@ -62,14 +42,19 @@ const List<(String key, String label, IconData icon)> kExpenseCategoryIconChoice
   ('footprint-fill', 'สัตว์เลี้ยง', RemixIcon.footprintFill),
   ('heart-3-fill', 'บริจาค', RemixIcon.heart3Fill),
   ('archive-fill', 'อื่นๆ', RemixIcon.archiveFill),
+  ('bank-card-fill', 'หนี้บัตรเครดิต', RemixIcon.bankCardFill),
+  ('government-fill', 'ภาษี/ราชการ', RemixIcon.governmentFill),
+  ('gift-2-fill', 'ของขวัญ', RemixIcon.gift2Fill),
+  ('parent-fill', 'เลี้ยงดูครอบครัว', RemixIcon.parentFill),
+  ('stock-fill', 'ลงทุน', RemixIcon.stockFill),
+  ('ticket-2-fill', 'หวย/พนัน', RemixIcon.ticket2Fill),
+  ('parking-box-fill', 'จอดรถ/ทางด่วน', RemixIcon.parkingBoxFill),
+  ('hammer-fill', 'ซ่อมแซม', RemixIcon.hammerFill),
+  ('bank-fill', 'ธรรมเนียมธนาคาร', RemixIcon.bankFill),
 ];
 
-/// The 10 real income `icon_key` values the backend returns (confirmed via
-/// `GET /api/v1/categories`) — same provenance as
-/// [kExpenseCategoryIconChoices]. Every one of these exists verbatim as a
-/// `remix_icons_flutter` constant (checked against the package's generated
-/// source, same way the sparkles-fill/sparkling-fill mismatch above was
-/// caught) — none needed the alias treatment this time.
+/// Curated picker data for income categories — same purpose and caveats as
+/// [kExpenseCategoryIconChoices] above.
 const List<(String key, String label, IconData icon)> kIncomeCategoryIconChoices = [
   ('wallet-3-fill', 'เงินเดือน', RemixIcon.wallet3Fill),
   ('gift-fill', 'ของขวัญ', RemixIcon.giftFill),
@@ -81,15 +66,9 @@ const List<(String key, String label, IconData icon)> kIncomeCategoryIconChoices
   ('hand-heart-fill', 'เงินช่วยเหลือ', RemixIcon.handHeartFill),
   ('coins-fill', 'รายได้เสริม', RemixIcon.coinsFill),
   ('money-dollar-circle-fill', 'รายได้อื่นๆ', RemixIcon.moneyDollarCircleFill),
-];
-
-/// All resolvable icon choices, expense followed by income — used by
-/// [resolveCategoryIcon], which doesn't care about category type. The
-/// create/edit picker uses [categoryIconChoicesFor] instead, to only offer
-/// the choices matching the category's currently selected type.
-const List<(String key, String label, IconData icon)> kCategoryIconChoices = [
-  ...kExpenseCategoryIconChoices,
-  ...kIncomeCategoryIconChoices,
+  ('refund-2-fill', 'เงินคืนภาษี', RemixIcon.refund2Fill),
+  ('percent-fill', 'ดอกเบี้ย', RemixIcon.percentFill),
+  ('recycle-fill', 'ขายของมือสอง', RemixIcon.recycleFill),
 ];
 
 /// Type-scoped choices for the create/edit category icon picker — income
@@ -112,20 +91,49 @@ const List<String> kCategoryColorChoices = [
 const _fallbackIcon = RemixIcon.folderFill;
 const Color fallbackCategoryColor = Color(0xFF9E9E9E);
 
-/// A `icon_key` not in [kCategoryIconChoices] (older client, hand-edited
-/// data) falls back to a generic icon rather than crashing — same
-/// resilience pattern as `resolveBankIcon`. The backend's own bare
-/// `"folder"` default (sent when a category has no `icon_key` at all,
-/// confirmed against a live `GET /api/v1/transactions/summary` response for
-/// an uncategorized transaction) is recognized explicitly here rather than
-/// left to fall through, even though it happens to resolve to the same icon
-/// as the unrecognized-key fallback.
+/// Genuine backend seed-data naming quirks — an `icon_key` that doesn't
+/// match any real Remix Icon name at all, but whose intended icon is
+/// unambiguous. Deliberately tiny and hand-maintained, unlike the per-
+/// category list this ticket (post-launch UI polish 09) removed: this only
+/// grows when the backend *misnames* something, never when it simply adds a
+/// new category in the same icon set — [kRemixIconCodepoints] already
+/// covers that with zero maintenance.
+const Map<String, String> _iconKeyAliases = {
+  // Backend seed data calls this "sparkles-fill"; no such Remix Icon
+  // exists — the real name is "sparkling-fill".
+  'sparkles-fill': 'sparkling-fill',
+};
+
+/// Resolves a category's `icon_key` straight against the *complete* Remix
+/// Icon set (`kRemixIconCodepoints`, mechanically generated from
+/// `package:remix_icons_flutter`'s own source — see
+/// `tool/generate_remix_icon_codepoints.dart`) instead of a hand-curated
+/// subset. This is the root-cause fix for the fallback-icon bug that shipped
+/// three times in a row (post-launch UI polish tickets 01, 07, 08): every
+/// time, the backend added a category with a valid `icon_key` the old
+/// hand-typed list simply hadn't been extended to include yet. A real
+/// backend category can now use *any* Remix Icon name and resolve
+/// correctly with zero frontend changes.
+///
+/// Only two things ever fall back to the generic icon now: the backend's
+/// own bare `"folder"` default (sent when a category has no `icon_key` at
+/// all, confirmed against a live `GET /api/v1/transactions/summary`
+/// response for an uncategorized transaction) recognized explicitly, and a
+/// truly unrecognized key (not a real Remix Icon name under any alias) —
+/// e.g. pre-Remix-migration client-invented keys ("food", "transport", ...)
+/// still sitting on old data.
 IconData resolveCategoryIcon(String iconKey) {
-  if (iconKey == 'folder') return _fallbackIcon;
-  for (final choice in kCategoryIconChoices) {
-    if (choice.$1 == iconKey) return choice.$3;
-  }
-  return _fallbackIcon;
+  if (iconKey.isEmpty || iconKey == 'folder') return _fallbackIcon;
+  final resolvedKey = _iconKeyAliases[iconKey] ?? iconKey;
+  final codepoint = kRemixIconCodepoints[resolvedKey];
+  if (codepoint == null) return _fallbackIcon;
+  // A codepoint resolved at runtime, by design (see doc comment above) — not
+  // a compile-time constant, so Flutter's release-build icon tree-shaker
+  // can't statically enumerate which glyphs are used. The project's release
+  // build passes `--no-tree-shake-icons` accordingly (see
+  // .github/workflows/ci.yml), shipping the full Remix Icon font instead.
+  // ignore: non_const_argument_for_const_parameter
+  return IconData(codepoint, fontFamily: _fallbackIcon.fontFamily, fontPackage: _fallbackIcon.fontPackage);
 }
 
 /// A `color_hex` that isn't a parseable `#RRGGBB`/`#AARRGGBB` string falls

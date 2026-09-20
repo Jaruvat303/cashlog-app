@@ -109,6 +109,7 @@ class AccountDetailPage extends ConsumerWidget {
                             CurrentBalanceText(
                               accountId: account.id,
                               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white),
+                              subtitleStyle: const TextStyle(fontSize: 13, color: Colors.white),
                             ),
                           ],
                         ),

@@ -130,9 +130,21 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 4,
-                        mainAxisSpacing: 18,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.8,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        // Ticket 07 fixed a 2-line-label overflow by shrinking
+                        // `childAspectRatio`, but aspect ratio scales tile
+                        // height with tile *width* — on top of a tight fit,
+                        // that left a lot of dead space below shorter, single
+                        // -line labels before the next row starts, reading as
+                        // "too much gap between icons" (ticket 08). A fixed
+                        // `mainAxisExtent` sized to the tile's actual content
+                        // (icon + spacing + up to 2 text lines, plus a small
+                        // safety margin for font-scale variance) decouples
+                        // row height from tile width entirely, so it can be
+                        // packed tight without the overflow risk returning on
+                        // narrower screens.
+                        mainAxisExtent: 100,
                       ),
                       itemCount: matching.length,
                       itemBuilder: (context, index) {
@@ -145,21 +157,21 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 56,
-                                height: 56,
+                                width: 52,
+                                height: 52,
                                 decoration: BoxDecoration(
                                   color: colorFromHex(category.colorHex).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(AppRadii.cardLarge),
                                 ),
-                                child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 23),
+                                child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 22),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 5),
                               Text(
                                 category.name,
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.chipUnselectedText),
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.15, color: AppColors.chipUnselectedText),
                               ),
                             ],
                           ),

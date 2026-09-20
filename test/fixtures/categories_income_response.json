@@ -1,0 +1,97 @@
+{
+    "success": true,
+    "data": [
+        {
+            "id": 2733,
+            "name": "\u0e40\u0e07\u0e34\u0e19\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e1b\u0e23\u0e30\u0e08\u0e33",
+            "type": "income",
+            "icon_key": "wallet-3-fill",
+            "color_hex": "#22C55E"
+        },
+        {
+            "id": 2734,
+            "name": "\u0e42\u0e1a\u0e19\u0e31\u0e2a\u0e41\u0e25\u0e30\u0e40\u0e07\u0e34\u0e19\u0e23\u0e32\u0e07\u0e27\u0e31\u0e25",
+            "type": "income",
+            "icon_key": "gift-fill",
+            "color_hex": "#10B981"
+        },
+        {
+            "id": 2735,
+            "name": "\u0e07\u0e32\u0e19\u0e1f\u0e23\u0e35\u0e41\u0e25\u0e19\u0e0b\u0e4c\u0e41\u0e25\u0e30\u0e1e\u0e32\u0e23\u0e4c\u0e17\u0e44\u0e17\u0e21\u0e4c",
+            "type": "income",
+            "icon_key": "tools-fill",
+            "color_hex": "#84CC16"
+        },
+        {
+            "id": 2736,
+            "name": "\u0e18\u0e38\u0e23\u0e01\u0e34\u0e08\u0e2a\u0e48\u0e27\u0e19\u0e15\u0e31\u0e27 / \u0e04\u0e49\u0e32\u0e02\u0e32\u0e22",
+            "type": "income",
+            "icon_key": "store-2-fill",
+            "color_hex": "#06B6D4"
+        },
+        {
+            "id": 2737,
+            "name": "\u0e40\u0e07\u0e34\u0e19\u0e1b\u0e31\u0e19\u0e1c\u0e25\u0e08\u0e32\u0e01\u0e01\u0e32\u0e23\u0e25\u0e07\u0e17\u0e38\u0e19",
+            "type": "income",
+            "icon_key": "line-chart-fill",
+            "color_hex": "#2563EB"
+        },
+        {
+            "id": 2738,
+            "name": "\u0e01\u0e33\u0e44\u0e23\u0e08\u0e32\u0e01\u0e01\u0e32\u0e23\u0e02\u0e32\u0e22\u0e2a\u0e34\u0e19\u0e17\u0e23\u0e31\u0e1e\u0e22\u0e4c",
+            "type": "income",
+            "icon_key": "trophy-fill",
+            "color_hex": "#1D4ED8"
+        },
+        {
+            "id": 2739,
+            "name": "\u0e04\u0e48\u0e32\u0e40\u0e0a\u0e48\u0e32\u0e23\u0e31\u0e1a (\u0e2d\u0e2a\u0e31\u0e07\u0e2b\u0e32\u0e23\u0e34\u0e21\u0e17\u0e23\u0e31\u0e1e\u0e22\u0e4c)",
+            "type": "income",
+            "icon_key": "key-2-fill",
+            "color_hex": "#EA580C"
+        },
+        {
+            "id": 2740,
+            "name": "\u0e40\u0e07\u0e34\u0e19\u0e0a\u0e48\u0e27\u0e22\u0e40\u0e2b\u0e25\u0e37\u0e2d / \u0e40\u0e07\u0e34\u0e19\u0e08\u0e32\u0e01\u0e04\u0e23\u0e2d\u0e1a\u0e04\u0e23\u0e31\u0e27",
+            "type": "income",
+            "icon_key": "hand-heart-fill",
+            "color_hex": "#A855F7"
+        },
+        {
+            "id": 2741,
+            "name": "\u0e40\u0e04\u0e23\u0e14\u0e34\u0e15\u0e40\u0e07\u0e34\u0e19\u0e04\u0e37\u0e19 / \u0e41\u0e04\u0e0a\u0e41\u0e1a\u0e47\u0e01",
+            "type": "income",
+            "icon_key": "coins-fill",
+            "color_hex": "#EAB308"
+        },
+        {
+            "id": 2742,
+            "name": "\u0e23\u0e32\u0e22\u0e23\u0e31\u0e1a\u0e2d\u0e37\u0e48\u0e19 \u0e46",
+            "type": "income",
+            "icon_key": "money-dollar-circle-fill",
+            "color_hex": "#71717A"
+        },
+        {
+            "id": 2743,
+            "name": "\u0e40\u0e07\u0e34\u0e19\u0e04\u0e37\u0e19\u0e20\u0e32\u0e29\u0e35",
+            "type": "income",
+            "icon_key": "refund-2-fill",
+            "color_hex": "#059669"
+        },
+        {
+            "id": 2744,
+            "name": "\u0e14\u0e2d\u0e01\u0e40\u0e1a\u0e35\u0e49\u0e22\u0e40\u0e07\u0e34\u0e19\u0e1d\u0e32\u0e01/\u0e1e\u0e31\u0e19\u0e18\u0e1a\u0e31\u0e15\u0e23",
+            "type": "income",
+            "icon_key": "percent-fill",
+            "color_hex": "#15803D"
+        },
+        {
+            "id": 2745,
+            "name": "\u0e02\u0e32\u0e22\u0e02\u0e2d\u0e07\u0e21\u0e37\u0e2d\u0e2a\u0e2d\u0e07/\u0e40\u0e28\u0e29\u0e27\u0e31\u0e2a\u0e14\u0e38",
+            "type": "income",
+            "icon_key": "recycle-fill",
+            "color_hex": "#65A30D"
+        }
+    ],
+    "message": "FetchCategoriesByType successfull"
+}

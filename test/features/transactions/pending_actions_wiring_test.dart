@@ -259,13 +259,12 @@ void main() {
       await tester.tap(find.byKey(const Key('accountOption_1')));
       await _pumpBounded(tester);
 
-      for (final digit in '5000'.split('')) {
-        final finder = find.text(digit);
-        await tester.ensureVisible(finder);
-        await tester.pump();
-        await tester.tap(finder);
-        await tester.pump();
-      }
+      // Ticket 07: the custom on-screen numpad is gone — amount entry now
+      // goes through a real TextField with the native numeric keyboard.
+      final amountFinder = find.byKey(const Key('amountField'));
+      await tester.ensureVisible(amountFinder);
+      await tester.enterText(amountFinder, '5000');
+      await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('submitButton')));
     await tester.pump();
     await tester.tap(find.byKey(const Key('submitButton')));

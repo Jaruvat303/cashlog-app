@@ -138,15 +138,6 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
                   children: [
-                    FormTextField(
-                      key: const Key('nameField'),
-                      icon: RemixIcon.editLine,
-                      controller: _nameController,
-                      hintText: 'ชื่อหมวดหมู่ เช่น ค่ากาแฟ',
-                      maxLength: 100,
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อหมวดหมู่' : null,
-                    ),
-                    const SizedBox(height: 12),
                     SegmentedTabs<CategoryType>(
                       values: CategoryType.values,
                       labels: CategoryType.values.map((t) => t.label).toList(),
@@ -158,6 +149,15 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                           _iconKey = choices.first.$1;
                         }
                       }),
+                    ),
+                    const SizedBox(height: 12),
+                    FormTextField(
+                      key: const Key('nameField'),
+                      icon: RemixIcon.editLine,
+                      controller: _nameController,
+                      hintText: 'ชื่อหมวดหมู่ เช่น ค่ากาแฟ',
+                      maxLength: 100,
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อหมวดหมู่' : null,
                     ),
                     const SizedBox(height: 20),
                     Row(

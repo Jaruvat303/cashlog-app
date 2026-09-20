@@ -254,9 +254,6 @@ CategoryBreakdown _breakdown(int id, String name, double amount) =>
 Transaction _expense(int id, String note, DateTime date, {int? categoryId}) =>
     Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
 
-Transaction _income(int id, String note, DateTime date, {int? categoryId}) =>
-    Transaction(id: id, amount: 200, type: TransactionType.income, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
-
 Transaction _transfer(int id, double amount, DateTime date) =>
     Transaction(id: id, amount: amount, type: TransactionType.transfer, source: 'manual', transactionDate: date);
 
@@ -392,7 +389,7 @@ void main() {
   // the mockup redesign — it's now the AppShell's raised camera FAB
   // (reachable from every tab), not a Transactions-page-only AppBar action.
 
-  group('ticket 07: summary tabs + category drill-through', () {
+  group('ticket 07: summary tabs', () {
     setUp(() {
       fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
         DashboardSummary(
@@ -433,58 +430,11 @@ void main() {
       expect(find.text('อาหาร'), findsNothing);
     });
 
-    testWidgets(
-      'tapping a category row filters the list below to only that category, and the chip clears it',
-      (tester) async {
-        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
-          transactions: [
-            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
-            _expense(2, 'Uncategorized expense row', thisMonth),
-          ],
-          currentPage: 1,
-          totalPages: 1,
-        );
-
-        await tester.pumpWidget(buildApp());
-        await _pumpBounded(tester);
-        await _scrollToFinder(tester, find.text('Food expense row'));
-
-        expect(find.text('Food expense row'), findsOneWidget);
-        expect(find.text('Uncategorized expense row'), findsOneWidget);
-
-        // Back to the top before tapping the summary card's category row —
-        // it scrolled out of view to reveal the rows above.
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
-        await _pumpBounded(tester);
-        // Tap the list row via its own key rather than its category name
-        // text.
-        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
-        await _pumpBounded(tester);
-        await _scrollToFinder(tester, find.text('Food expense row'));
-
-        expect(find.text('Food expense row'), findsOneWidget);
-        expect(find.text('Uncategorized expense row'), findsNothing);
-        expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
-        expect(find.text('ทั้งหมด'), findsNothing); // old type-chip row replaced by the filter chip
-
-        // `categoryFilterChip` lives in the AppBar's fixed bottom row, not
-        // the scrollable body, so it's reachable regardless of scroll
-        // position.
-        await tester.tap(find.byKey(const Key('categoryFilterChip')));
-        await _pumpBounded(tester);
-        await _scrollToFinder(tester, find.text('Food expense row'));
-
-        expect(find.text('Food expense row'), findsOneWidget);
-        expect(find.text('Uncategorized expense row'), findsOneWidget);
-        expect(find.text('ทั้งหมด'), findsOneWidget);
-      },
-    );
-
-    testWidgets('tapping a different category from an already-filtered view switches the filter', (tester) async {
+    testWidgets('a category row is a plain, non-interactive total — no tap-to-filter (ticket 08 removed it)', (tester) async {
       fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
         transactions: [
           _expense(1, 'Food expense row', thisMonth, categoryId: 10),
-          _expense(2, 'Transport expense row', thisMonth, categoryId: 11),
+          _expense(2, 'Uncategorized expense row', thisMonth),
         ],
         currentPage: 1,
         totalPages: 1,
@@ -496,40 +446,12 @@ void main() {
       await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
       await _pumpBounded(tester);
       await _scrollToFinder(tester, find.text('Food expense row'));
+
+      // Tapping a category row does nothing — both rows are still present,
+      // and no filter chip of any kind appears anywhere.
       expect(find.text('Food expense row'), findsOneWidget);
-      expect(find.text('Transport expense row'), findsNothing);
-
-      // Back to the top — the summary card (and its tab row) scrolled out
-      // of view to reveal the row above.
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('summaryTab-expense'))); // summary card is still visible/tappable while filtered
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('categoryTotalRow-11')));
-      await _pumpBounded(tester);
-      await _scrollToFinder(tester, find.text('Transport expense row'));
-
-      expect(find.text('Food expense row'), findsNothing);
-      expect(find.text('Transport expense row'), findsOneWidget);
-      expect(find.text('หมวดหมู่: เดินทาง'), findsOneWidget);
-    });
-
-    testWidgets('income transactions are unaffected by an expense category filter', (tester) async {
-      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
-        transactions: [_expense(1, 'Food expense row', thisMonth, categoryId: 10), _income(2, 'Salary row', thisMonth, categoryId: 20)],
-        currentPage: 1,
-        totalPages: 1,
-      );
-
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
-      await _pumpBounded(tester);
-      await _scrollToFinder(tester, find.text('Food expense row'));
-
-      expect(find.text('Food expense row'), findsOneWidget);
-      expect(find.text('Salary row'), findsNothing);
+      expect(find.text('Uncategorized expense row'), findsOneWidget);
+      expect(find.textContaining('หมวดหมู่:'), findsNothing);
     });
   });
 
@@ -585,7 +507,7 @@ void main() {
       expect(find.text('ไม่มีรายการย้ายเงินในเดือนนี้'), findsOneWidget);
     });
 
-    testWidgets('an Expense category drill-through does not empty the Transfer tab, and survives visiting it', (tester) async {
+    testWidgets('switching between Expense and Transfer tabs never empties either one', (tester) async {
       fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
         DashboardSummary(
           totalIncome: 0,
@@ -598,11 +520,7 @@ void main() {
         ),
       );
       fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
-        transactions: [
-          _expense(1, 'Food expense row', thisMonth, categoryId: 10),
-          _expense(2, 'Uncategorized expense row', thisMonth),
-          _transfer(3, 999, thisMonth),
-        ],
+        transactions: [_expense(1, 'Food expense row', thisMonth, categoryId: 10), _transfer(3, 999, thisMonth)],
         currentPage: 1,
         totalPages: 1,
       );
@@ -610,25 +528,18 @@ void main() {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
 
-      // Drill into the Food category from the Expense tab.
-      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
-      await _pumpBounded(tester);
-      expect(find.text('Food expense row'), findsOneWidget);
-      expect(find.text('Uncategorized expense row'), findsNothing);
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
 
-      // Ticket 08: switching to Transfer must not inherit that category
-      // filter — the tab's own transfer still shows.
       await tester.tap(find.byKey(const Key('summaryTab-transfer')));
       await _pumpBounded(tester);
-      expect(find.text(formatAmount(999)), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(const Key('transferTabList')), matching: find.text(formatAmount(999))),
+        findsOneWidget,
+      );
 
-      // ...and switching back to Expense preserves the drill-through
-      // filter exactly as it was, independent of the Transfer visit.
       await tester.tap(find.byKey(const Key('summaryTab-expense')));
       await _pumpBounded(tester);
-      expect(find.text('หมวดหมู่: อาหาร'), findsOneWidget);
-      expect(find.text('Food expense row'), findsOneWidget);
-      expect(find.text('Uncategorized expense row'), findsNothing);
+      expect(find.descendant(of: find.byKey(const Key('categoryTotalRow-10')), matching: find.text('อาหาร')), findsOneWidget);
     });
   });
 
@@ -657,18 +568,28 @@ void main() {
       expect(find.byKey(const Key('pendingActionsButton')), findsOneWidget);
     });
 
-    testWidgets('post-launch-polish-03: the Topbar has no Filter icon — only the month switcher and the one action button ticket 02 placed', (
-      tester,
-    ) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+    testWidgets(
+      'post-launch-polish-08: the Topbar has no Filter icon and no filter chip row beneath it — only the month switcher and the one action button ticket 02 placed',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
 
-      final appBar = tester.widget<AppBar>(find.byType(AppBar));
-      expect(appBar.actions, hasLength(1), reason: 'ticket 02\'s own action button, nothing else beside it');
-      expect(find.byIcon(RemixIcon.filterLine), findsNothing);
-      expect(find.byIcon(RemixIcon.filter3Line), findsNothing);
-      expect(find.byIcon(RemixIcon.equalizerLine), findsNothing);
-    });
+        final appBar = tester.widget<AppBar>(find.byType(AppBar));
+        expect(appBar.actions, hasLength(1), reason: 'ticket 02\'s own action button, nothing else beside it');
+        expect(find.byIcon(RemixIcon.filterLine), findsNothing);
+        expect(find.byIcon(RemixIcon.filter3Line), findsNothing);
+        expect(find.byIcon(RemixIcon.equalizerLine), findsNothing);
+        // Ticket 08: not just the icon — ticket 07 only removed the AppBar
+        // icon and left the whole type-chip row (ทั้งหมด/รายรับ/รายจ่าย/
+        // ไม่ระบุหมวด N) sitting in `AppBar.bottom`. That row, and the
+        // category-drill-through feature it doubled as a clear-button for,
+        // are both gone now — asserting `bottom` is null is the direct way
+        // to prove no secondary row survives under any state.
+        expect(appBar.bottom, isNull);
+        expect(find.text('ทั้งหมด'), findsNothing);
+        expect(find.textContaining('ไม่ระบุหมวด'), findsNothing);
+      },
+    );
 
     testWidgets('the account-info strip renders on this page, showing each account and its balance', (tester) async {
       await tester.pumpWidget(
