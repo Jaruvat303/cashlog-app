@@ -10,11 +10,9 @@ import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/format/datetime.dart';
 import '../../../../shared/widgets/anchored_dropdown_panel.dart';
-import '../../../../shared/widgets/category_icon.dart';
 import '../../../../shared/widgets/category_picker_sheet.dart';
 import '../../../../shared/widgets/circular_icon_button.dart';
 import '../../../../shared/widgets/full_screen_image_viewer.dart';
-import '../../../../shared/widgets/pill_form_row.dart';
 import '../../../../shared/widgets/primary_gradient_button.dart';
 import '../../../../shared/widgets/segmented_tabs.dart';
 import '../../../accounts/domain/account.dart';
@@ -27,6 +25,7 @@ import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../../domain/transaction_validation.dart';
+import '../widgets/transaction_form_fields.dart';
 
 /// The mockup's `EditTransaction` screen — the full-edit escape hatch for
 /// abnormal data (junk rows, fixing amount/account/note), per CLAUDE.md.
@@ -44,7 +43,11 @@ class TransactionFormPage extends ConsumerStatefulWidget {
 
 class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late final _amountController = TextEditingController(text: widget.initial.amount.toStringAsFixed(2));
+  // Ticket 13: pre-formatted the same way `AmountInputFormatter` formats
+  // every keystroke, so this opens already matching Add's live-typed
+  // comma-grouped style instead of only starting to match it after the
+  // user's first edit.
+  late final _amountController = TextEditingController(text: formatAmountForInput(widget.initial.amount));
   late final _noteController = TextEditingController(text: widget.initial.note);
   late TransactionType _type = widget.initial.type;
   late DateTime _date = widget.initial.transactionDate;
@@ -129,7 +132,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
       _transferError = null;
     });
     final repo = ref.read(transactionsRepositoryProvider);
-    final amount = double.parse(_amountController.text);
+    final amount = parseAmountInput(_amountController.text);
     final note = _noteController.text.trim();
     final isTransfer = _type == TransactionType.transfer;
 
@@ -236,12 +239,6 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
-  Color get _typeColor => switch (_type) {
-    TransactionType.income => AppColors.income,
-    TransactionType.expense => AppColors.expense,
-    TransactionType.transfer => AppColors.accentA,
-  };
-
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(activeAccountsProvider);
@@ -298,105 +295,45 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                       }),
                     ),
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
-                      child: TextFormField(
-                        key: const Key('amountField'),
-                        controller: _amountController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: _typeColor),
-                        decoration: const InputDecoration(border: InputBorder.none, isDense: true, labelText: 'จำนวนเงิน'),
-                        validator: (value) {
-                          final parsed = double.tryParse(value ?? '');
-                          if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
-                          if (parsed <= 0) return 'ต้องมากกว่า 0';
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    PillFormRow(icon: RemixIcon.calendarLine, label: 'วันที่', value: relativeDayLabel(_date), onTap: _pickDate),
-                    const SizedBox(height: 10),
                     accountsAsync.when(
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
                       data: (accounts) {
-                        if (isTransfer) {
-                          final from = _findAccount(accounts, _fromAccountId);
-                          final to = _findAccount(accounts, _toAccountId);
-                          return Column(
-                            children: [
-                              Builder(
-                                builder: (anchorContext) => PillFormRow(
-                                  key: const Key('fromAccountPill'),
-                                  icon: RemixIcon.arrowUpLine,
-                                  label: 'จากบัญชี',
-                                  value: from?.name ?? 'เลือกบัญชีต้นทาง',
-                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                                    _fromAccountId = id;
-                                    _transferError = null;
-                                  })),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Builder(
-                                builder: (anchorContext) => PillFormRow(
-                                  key: const Key('toAccountPill'),
-                                  icon: RemixIcon.arrowDownLine,
-                                  label: 'ไปบัญชี',
-                                  value: to?.name ?? 'เลือกบัญชีปลายทาง',
-                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                                    _toAccountId = id;
-                                    _transferError = null;
-                                  })),
-                                ),
-                              ),
-                              if (_transferError != null) ...[
-                                const SizedBox(height: 6),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(_transferError!, style: const TextStyle(fontSize: 12, color: AppColors.expense)),
-                                ),
-                              ],
-                            ],
-                          );
-                        }
                         final account = _findAccount(accounts, _accountId);
-                        return Builder(
-                          builder: (anchorContext) => PillFormRow(
-                            key: const Key('accountPill'),
-                            icon: RemixIcon.wallet3Line,
-                            label: 'บัญชี',
-                            value: account?.name ?? 'เลือกบัญชี',
-                            onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
-                          ),
+                        final from = _findAccount(accounts, _fromAccountId);
+                        final to = _findAccount(accounts, _toAccountId);
+                        return TransactionFormFields(
+                          type: _type,
+                          amountController: _amountController,
+                          amountValidator: (value) {
+                            // `value` now carries `AmountInputFormatter`'s
+                            // thousands-commas (e.g. "1,234.50") — strip them
+                            // before parsing, same as [parseAmountInput].
+                            final parsed = double.tryParse((value ?? '').replaceAll(',', ''));
+                            if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
+                            if (parsed <= 0) return 'ต้องมากกว่า 0';
+                            return null;
+                          },
+                          category: category,
+                          accountName: account?.name,
+                          fromAccountName: from?.name,
+                          toAccountName: to?.name,
+                          dateLabel: relativeDayLabel(_date),
+                          onCategoryTap: _pickCategory,
+                          onDateTap: (anchorContext) => _pickDate(),
+                          onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
+                          onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                            _fromAccountId = id;
+                            _transferError = null;
+                          })),
+                          onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                            _toAccountId = id;
+                            _transferError = null;
+                          })),
+                          transferError: _transferError,
+                          noteController: _noteController,
                         );
                       },
-                    ),
-                    if (!isTransfer) ...[
-                      const SizedBox(height: 10),
-                      PillFormRow(
-                        key: const Key('categoryPill'),
-                        icon: RemixIcon.folderLine,
-                        label: 'หมวดหมู่',
-                        value: category?.name ?? 'ยังไม่ระบุหมวดหมู่',
-                        iconColor: category == null ? AppColors.warningIcon : colorFromHex(category.colorHex),
-                        onTap: _pickCategory,
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      child: TextField(
-                        key: const Key('noteField'),
-                        controller: _noteController,
-                        minLines: 1,
-                        maxLines: 3,
-                        style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                        decoration: const InputDecoration(border: InputBorder.none, labelText: 'โน้ต'),
-                      ),
                     ),
                     if (isTransfer) ...[
                       const SizedBox(height: 12),

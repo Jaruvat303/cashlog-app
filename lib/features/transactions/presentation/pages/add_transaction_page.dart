@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
@@ -7,10 +6,8 @@ import '../../../../core/cache/cache_invalidator.dart';
 import '../../../../core/network/failure.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/widgets/anchored_dropdown_panel.dart';
-import '../../../../shared/widgets/category_icon.dart';
 import '../../../../shared/widgets/category_picker_sheet.dart';
 import '../../../../shared/widgets/circular_icon_button.dart';
-import '../../../../shared/widgets/pill_form_row.dart';
 import '../../../../shared/widgets/primary_gradient_button.dart';
 import '../../../../shared/widgets/segmented_tabs.dart';
 import '../../../accounts/domain/account.dart';
@@ -22,6 +19,7 @@ import '../../data/transactions_repository.dart';
 import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../../domain/transaction_validation.dart';
+import '../widgets/transaction_form_fields.dart';
 
 /// The mockup's `AddTransaction`/`AddTransactionIncome`/`AddTransactionTransfer`
 /// screens, unified into one page (same `sc-if`-per-type structure the
@@ -55,20 +53,8 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     super.dispose();
   }
 
-  Color get _typeColor => switch (_type) {
-    TransactionType.income => AppColors.income,
-    TransactionType.expense => AppColors.expense,
-    TransactionType.transfer => AppColors.accentA,
-  };
-
-  IconData get _typeIcon => switch (_type) {
-    TransactionType.income => RemixIcon.arrowUpLine,
-    TransactionType.expense => RemixIcon.arrowDownLine,
-    TransactionType.transfer => RemixIcon.arrowLeftRightLine,
-  };
-
   Future<void> _submit() async {
-    final amount = _parseAmount(_amountController.text);
+    final amount = parseAmountInput(_amountController.text);
     if (amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรอกจำนวนเงินให้ถูกต้อง')));
       return;
@@ -226,201 +212,28 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                       onChanged: _onTypeChanged,
                     ),
                     const SizedBox(height: 14),
-                    Container(
-                      key: const Key('amountCard'),
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppRadii.cardLarge),
-                        boxShadow: const [AppShadows.card],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('จำนวนเงิน', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(color: AppColors.pillChipBg, borderRadius: BorderRadius.circular(6)),
-                                child: const Text('THB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(color: _typeColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-                                child: Icon(_typeIcon, color: _typeColor, size: 20),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: TextField(
-                                  key: const Key('amountField'),
-                                  controller: _amountController,
-                                  autofocus: true,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  inputFormatters: [_AmountInputFormatter()],
-                                  style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor),
-                                  decoration: InputDecoration(
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                    isCollapsed: true,
-                                    hintText: '0',
-                                    hintStyle: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor.withValues(alpha: 0.3)),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: AppColors.divider)),
-                          if (isTransfer)
-                            Row(
-                              children: [
-                                const Icon(RemixIcon.arrowRightLine, size: 14, color: AppColors.textSecondary),
-                                const SizedBox(width: 6),
-                                Text('${fromAccountName ?? 'เลือกบัญชีต้นทาง'} → ${toAccountName ?? 'เลือกบัญชีปลายทาง'}', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                              ],
-                            )
-                          else
-                            Row(
-                              children: [
-                                Container(width: 8, height: 8, decoration: BoxDecoration(color: category == null ? AppColors.warningIcon : colorFromHex(category.colorHex), shape: BoxShape.circle)),
-                                const SizedBox(width: 6),
-                                Text('${category?.name ?? 'ยังไม่ระบุหมวดหมู่'} • ${accountName ?? 'ยังไม่เลือกบัญชี'}', style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    if (!isTransfer) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Builder(
-                              builder: (anchorContext) => PillFormRow(
-                                key: const Key('categoryPill'),
-                                icon: RemixIcon.folderLine,
-                                label: 'หมวดหมู่',
-                                value: category?.name ?? 'ยังไม่ระบุ',
-                                onTap: _pickCategory,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Builder(
-                              builder: (anchorContext) => PillFormRow(
-                                key: const Key('datePill'),
-                                icon: RemixIcon.calendarLine,
-                                label: 'วันที่',
-                                value: _dateLabel(_date),
-                                onTap: () => _pickDate(anchorContext),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Builder(
-                        builder: (anchorContext) => PillFormRow(
-                          key: const Key('accountPill'),
-                          icon: RemixIcon.wallet3Line,
-                          label: 'บัญชี',
-                          value: accountName ?? 'เลือกบัญชี',
-                          onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
-                        ),
-                      ),
-                    ] else ...[
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Column(
-                            children: [
-                              Builder(
-                                builder: (anchorContext) => PillFormRow(
-                                  key: const Key('fromAccountPill'),
-                                  icon: RemixIcon.arrowUpLine,
-                                  label: 'จากบัญชี',
-                                  value: fromAccountName ?? 'เลือกบัญชีต้นทาง',
-                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                                    _fromAccountId = id;
-                                    _transferError = null;
-                                  })),
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Builder(
-                                builder: (anchorContext) => PillFormRow(
-                                  key: const Key('toAccountPill'),
-                                  icon: RemixIcon.arrowDownLine,
-                                  label: 'ไปบัญชี',
-                                  value: toAccountName ?? 'เลือกบัญชีปลายทาง',
-                                  onTap: () => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                                    _toAccountId = id;
-                                    _transferError = null;
-                                  })),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Positioned(
-                            right: 14,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: Container(
-                                width: 34,
-                                height: 34,
-                                decoration: const BoxDecoration(shape: BoxShape.circle, gradient: AppColors.accentGradient, border: Border.fromBorderSide(BorderSide(color: AppColors.background, width: 3))),
-                                child: const Icon(RemixIcon.arrowUpDownLine, color: Colors.white, size: 16),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_transferError != null) ...[
-                        const SizedBox(height: 6),
-                        Text(_transferError!, style: const TextStyle(fontSize: 12, color: AppColors.expense)),
-                      ],
-                      const SizedBox(height: 10),
-                      Builder(
-                        builder: (anchorContext) => PillFormRow(
-                          key: const Key('transferDatePill'),
-                          icon: RemixIcon.calendarLine,
-                          label: 'วันที่',
-                          value: _dateLabel(_date),
-                          onTap: () => _pickDate(anchorContext),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      child: Row(
-                        children: [
-                          const Icon(RemixIcon.editLine, size: 16, color: AppColors.accentA),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              key: const Key('noteField'),
-                              controller: _noteController,
-                              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                hintText: 'เพิ่มบันทึกย่อ',
-                                hintStyle: TextStyle(color: AppColors.accentA, fontSize: 14),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    TransactionFormFields(
+                      type: _type,
+                      amountController: _amountController,
+                      autofocusAmount: true,
+                      category: category,
+                      accountName: accountName,
+                      fromAccountName: fromAccountName,
+                      toAccountName: toAccountName,
+                      dateLabel: _dateLabel(_date),
+                      onCategoryTap: _pickCategory,
+                      onDateTap: (anchorContext) => _pickDate(anchorContext),
+                      onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
+                      onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                        _fromAccountId = id;
+                        _transferError = null;
+                      })),
+                      onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+                        _toAccountId = id;
+                        _transferError = null;
+                      })),
+                      transferError: _transferError,
+                      noteController: _noteController,
                     ),
                     const SizedBox(height: 16),
                     PrimaryGradientButton(
@@ -456,38 +269,3 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   }
 }
 
-double _parseAmount(String formatted) => double.tryParse(formatted.replaceAll(',', '')) ?? 0;
-
-/// Ticket 07: replaces the removed custom on-screen numpad — the amount
-/// field now takes the native numeric keyboard, and this formatter keeps
-/// the same comma-grouped-thousands / max-2-decimal-places display the
-/// numpad's live preview used, live as the user types. Always collapses the
-/// cursor to the end, which is fine for a field only ever appended to (no
-/// mid-string editing use case for a monetary amount).
-class _AmountInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    var raw = newValue.text.replaceAll(RegExp(r'[^0-9.]'), '');
-
-    final firstDot = raw.indexOf('.');
-    if (firstDot != -1) {
-      raw = raw.substring(0, firstDot + 1) + raw.substring(firstDot + 1).replaceAll('.', '');
-    }
-
-    final dotIndex = raw.indexOf('.');
-    if (dotIndex != -1 && raw.length - dotIndex - 1 > 2) {
-      raw = raw.substring(0, dotIndex + 3);
-    }
-
-    final parts = raw.split('.');
-    final wholeDigits = parts[0];
-    final grouped = StringBuffer();
-    for (var i = 0; i < wholeDigits.length; i++) {
-      if (i > 0 && (wholeDigits.length - i) % 3 == 0) grouped.write(',');
-      grouped.write(wholeDigits[i]);
-    }
-    final formatted = parts.length > 1 ? '$grouped.${parts[1]}' : grouped.toString();
-
-    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
-  }
-}

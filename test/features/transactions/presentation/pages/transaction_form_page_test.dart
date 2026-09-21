@@ -306,8 +306,24 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 /// test viewport, so fields further down the `ListView` (submit/delete) are
 /// no longer built until scrolled into view — the sliver list only builds
 /// visible (+cache-extent) children, same as any other scrollable list.
-Future<void> _scrollToKey(WidgetTester tester, Key key) =>
-    tester.scrollUntilVisible(find.byKey(key), 300, scrollable: find.byType(Scrollable).first);
+/// `scrollUntilVisible` alone stops as soon as any sliver of the target is
+/// on screen, which can still leave its center outside the viewport (and so
+/// un-tappable) — `ensureVisible` afterward settles it fully into view.
+/// Ticket 13 made the amount card taller (it now matches Add's, with the
+/// THB tag + status line Edit's card didn't have before), which was enough
+/// to tip the slip card's thumbnail past what `scrollUntilVisible` alone
+/// used to already reach.
+Future<void> _scrollToKey(WidgetTester tester, Key key) async {
+  final finder = find.byKey(key);
+  await tester.scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);
+  await tester.ensureVisible(finder);
+  // `ensureVisible` moves the scroll position via `jumpTo`, which doesn't
+  // relayout until the next frame — without this pump, a `tap()` right
+  // after would still hit-test the pre-scroll geometry (this was the
+  // actual cause of the "offset unchanged" failures ticket 13 introduced,
+  // not insufficient scrolling).
+  await _pumpBounded(tester);
+}
 
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
@@ -619,7 +635,7 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(withSlip));
       await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
 
       await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
       await _pumpBounded(tester);
@@ -649,7 +665,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('noteField')), 'note before opening viewer');
       await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
       await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
       await _pumpBounded(tester);
       expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsOneWidget);
@@ -675,7 +691,7 @@ void main() {
 
       await tester.pumpWidget(buildEditApp(noSlip));
       await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
+      await _scrollToKey(tester, const Key('slipImagePlaceholder'));
 
       expect(find.byKey(const Key('slipThumbnailTapTarget')), findsNothing);
       await tester.tap(find.byKey(const Key('slipImagePlaceholder')));
