@@ -122,7 +122,7 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 /// mounts).
 class _FakeTransactionsRepository implements TransactionsRepository {
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) => Stream.value(const []);
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) => Stream.value(const []);
 
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async =>

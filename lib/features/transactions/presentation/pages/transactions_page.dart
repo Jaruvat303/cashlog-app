@@ -50,6 +50,24 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   /// user has to remember to use).
   int? _categoryFilterId;
 
+  /// Ticket 12: the transaction type to scope [_categoryFilterId] by, so an
+  /// active filter never leaks rows from an unrelated type into the list —
+  /// most visibly, [kUncategorizedCategoryId] on its own matches every
+  /// transfer too (transfers never carry a category), which used to show up
+  /// under an Uncategorized filter opened from the Expense tab. `null` while
+  /// no filter is active, matching [_categoryFilterId]'s own null-means-
+  /// unfiltered convention — category rows only ever render on the
+  /// Income/Expense tabs (never Transfer), so this never needs a transfer
+  /// case.
+  TransactionType? get _categoryFilterType {
+    if (_categoryFilterId == null) return null;
+    return switch (_summaryTab) {
+      _SummaryTab.income => TransactionType.income,
+      _SummaryTab.expense => TransactionType.expense,
+      _SummaryTab.transfer => null,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
@@ -126,7 +144,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final year = month.year;
     final monthNum = month.month;
 
-    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId));
+    final transactionsAsync = ref.watch(
+      monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId, type: _categoryFilterType),
+    );
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
     final categoriesById = {for (final category in categories) category.id: category};

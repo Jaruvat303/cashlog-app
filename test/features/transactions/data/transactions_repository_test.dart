@@ -222,13 +222,13 @@ void main() {
   });
 
   group('watchMonth', () {
-    Future<void> seed(int id, DateTime date, {int? categoryId}) => db
+    Future<void> seed(int id, DateTime date, {int? categoryId, TransactionType type = TransactionType.expense}) => db
         .into(db.cachedTransactions)
         .insert(
           CachedTransactionsCompanion.insert(
             id: Value(id),
             amount: 10,
-            transactionType: 'expense',
+            transactionType: type.name,
             source: 'manual',
             transactionDate: date,
             categoryId: Value(categoryId),
@@ -279,6 +279,87 @@ void main() {
         await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
         await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
         await seed(3, DateTime.utc(2026, 9, 3));
+
+        final rows = await repository.watchMonth(year: 2026, month: 9).first;
+
+        expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
+      });
+    });
+
+    group('categoryId == kUncategorizedCategoryId (ticket 12: "Uncategorized" drill-through)', () {
+      test('narrows to rows with no category — a real uncategorized row has categoryId null, not 0', () async {
+        await seed(1, DateTime.utc(2026, 9, 1)); // truly uncategorized — categoryId left null
+        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 10); // a real category — excluded
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+
+      test(
+        'the bug this guards against: a row whose categoryId happens to literally be 0 is not treated as uncategorized',
+        () async {
+          // Not a shape the real backend ever produces (category ids start
+          // well above 0) — seeded only to prove the fix branches on
+          // `IS NULL`, not `= 0`, so it can never regress back to the
+          // ticket 12 bug even if a stray 0 ever reached the local cache.
+          await seed(1, DateTime.utc(2026, 9, 1), categoryId: kUncategorizedCategoryId);
+          await seed(2, DateTime.utc(2026, 9, 2)); // the actually-uncategorized row
+
+          final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+
+          expect(rows.map((t) => t.id).toList(), [2]);
+        },
+      );
+
+      test('still respects the month bounds even when the Uncategorized filter is active', () async {
+        await seed(1, DateTime.utc(2026, 9, 30, 23, 59, 59)); // uncategorized, in-month
+        await seed(2, DateTime.utc(2026, 10, 1)); // uncategorized, next month — excluded
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+    });
+
+    group('type (ticket 12: scoping a category filter to one transaction type)', () {
+      test(
+        'the bug this guards against: without a type filter, a transfer (always categoryId null) '
+        'leaks into an Uncategorized-expense query',
+        () async {
+          await seed(1, DateTime.utc(2026, 9, 1)); // uncategorized expense
+          await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer); // always uncategorized
+
+          // No `type` passed — reproduces the pre-fix call shape.
+          final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+
+          expect(rows.map((t) => t.id).toSet(), {1, 2}, reason: 'the transfer leaks in without a type filter — this is the bug, not the fix');
+        },
+      );
+
+      test('passing type: expense alongside the Uncategorized filter excludes the transfer', () async {
+        await seed(1, DateTime.utc(2026, 9, 1)); // uncategorized expense
+        await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer); // always uncategorized
+        await seed(3, DateTime.utc(2026, 9, 3), type: TransactionType.income); // uncategorized income — also excluded
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId, type: TransactionType.expense).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+
+      test('type also scopes a real categoryId filter, though real category ids are already type-specific', () async {
+        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10, type: TransactionType.expense);
+        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 10, type: TransactionType.income);
+
+        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10, type: TransactionType.expense).first;
+
+        expect(rows.map((t) => t.id).toList(), [1]);
+      });
+
+      test('omitting type (the default) matches every type, unchanged from before', () async {
+        await seed(1, DateTime.utc(2026, 9, 1));
+        await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer);
+        await seed(3, DateTime.utc(2026, 9, 3), type: TransactionType.income);
 
         final rows = await repository.watchMonth(year: 2026, month: 9).first;
 

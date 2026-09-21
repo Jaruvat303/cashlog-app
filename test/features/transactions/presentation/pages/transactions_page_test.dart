@@ -125,8 +125,23 @@ class _MonthChannel {
   /// narrowing as a `.map()` over the same underlying stream — a real drift
   /// `.watch()` re-filters on every emission the same way, so this fake
   /// stays faithful without needing a second channel per category.
-  Stream<List<Transaction>> streamFor({int? categoryId}) =>
-      stream.map((list) => categoryId == null ? list : list.where((t) => t.categoryId == categoryId).toList());
+  ///
+  /// Ticket 12: mirrors the real repository's other two fixes too —
+  /// `kUncategorizedCategoryId` matches `categoryId == null` (never a
+  /// literal `0`, which no real [Transaction] ever carries), and [type]
+  /// narrows independently, so a transfer (always `categoryId == null`)
+  /// doesn't leak into an Uncategorized filter opened from the Expense tab.
+  Stream<List<Transaction>> streamFor({int? categoryId, TransactionType? type}) => stream.map(
+    (list) => list.where((t) {
+      final matchesCategory = switch (categoryId) {
+        null => true,
+        kUncategorizedCategoryId => t.categoryId == null,
+        _ => t.categoryId == categoryId,
+      };
+      final matchesType = type == null || t.type == type;
+      return matchesCategory && matchesType;
+    }).toList(),
+  );
 
   void append(List<Transaction> page) {
     current = [...current, ...page];
@@ -146,8 +161,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   _MonthChannel _channelFor(int year, int month) => _channels.putIfAbsent((year, month), () => _MonthChannel());
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
-      _channelFor(year, month).streamFor(categoryId: categoryId);
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
+      _channelFor(year, month).streamFor(categoryId: categoryId, type: type);
 
   @override
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
@@ -254,6 +269,9 @@ CategoryBreakdown _breakdown(int id, String name, double amount) =>
 
 Transaction _expense(int id, String note, DateTime date, {int? categoryId}) =>
     Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
+
+Transaction _income(int id, String note, DateTime date, {int? categoryId}) =>
+    Transaction(id: id, amount: 200, type: TransactionType.income, note: note, source: 'manual', transactionDate: date, categoryId: categoryId);
 
 Transaction _transfer(int id, double amount, DateTime date) =>
     Transaction(id: id, amount: amount, type: TransactionType.transfer, source: 'manual', transactionDate: date);
@@ -627,6 +645,120 @@ void main() {
         expect(find.text('Uncategorized expense row'), findsOneWidget);
       });
     });
+  });
+
+  group('ticket 12: "Uncategorized" drill-through', () {
+    // The backend's own sentinel for the breakdown's Uncategorized bucket
+    // (confirmed against a live `GET /api/v1/transactions/summary`
+    // response) — distinct from a real, categorized [Transaction], which
+    // always has `categoryId == null` when uncategorized, never `0`. See
+    // `kUncategorizedCategoryId`'s doc comment.
+    setUp(() {
+      fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
+        DashboardSummary(
+          totalIncome: 200,
+          totalExpense: 100,
+          totalTransfer: 0,
+          year: thisMonth.year,
+          month: thisMonth.month,
+          income: [_breakdown(kUncategorizedCategoryId, 'Uncategorized', 200)],
+          expense: [_breakdown(kUncategorizedCategoryId, 'Uncategorized', 100)],
+        ),
+      );
+    });
+
+    testWidgets(
+      'tapping the Uncategorized row from the Expense tab shows the uncategorized expense — '
+      'not empty, and not leaking in the uncategorized income or the (always-uncategorized) transfer',
+      (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Uncategorized expense row', thisMonth),
+            _expense(2, 'Categorized expense row', thisMonth, categoryId: 10),
+            _income(3, 'Uncategorized income row', thisMonth),
+            _transfer(4, 999, thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Uncategorized expense row'));
+
+        // Before filtering: everything for the month is visible (sanity
+        // check that the fixture itself isn't accidentally already narrow).
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+        expect(find.text('Categorized expense row'), findsOneWidget);
+
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(Key('categoryTotalRow-$kUncategorizedCategoryId')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Uncategorized expense row'));
+
+        // This is the ticket 12 bug, reproduced then fixed: previously this
+        // list came back completely empty despite the breakdown showing a
+        // real ฿100 Uncategorized total.
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+        // Everything else — a real category, an uncategorized *income* row,
+        // and a transfer (which is *always* uncategorized) — must not leak
+        // into an Expense-tab Uncategorized filter.
+        expect(find.text('Categorized expense row'), findsNothing);
+        expect(find.text('Uncategorized income row'), findsNothing);
+        // The transfer (id 4, amount 999) is always uncategorized too —
+        // this is the row that used to leak into the filter.
+        expect(find.text(formatAmount(999)), findsNothing);
+      },
+    );
+
+    testWidgets('the Uncategorized row toggles off like any other category row, restoring the full list', (tester) async {
+      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+        transactions: [_expense(1, 'Uncategorized expense row', thisMonth), _expense(2, 'Categorized expense row', thisMonth, categoryId: 10)],
+        currentPage: 1,
+        totalPages: 1,
+      );
+
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      await tester.tap(find.byKey(Key('categoryTotalRow-$kUncategorizedCategoryId')));
+      await _pumpBounded(tester);
+      await _scrollToFinder(tester, find.text('Uncategorized expense row'));
+      expect(find.text('Categorized expense row'), findsNothing);
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(Key('categoryTotalRow-$kUncategorizedCategoryId')));
+      await _pumpBounded(tester);
+      await _scrollToFinder(tester, find.text('Uncategorized expense row'));
+
+      expect(find.text('Uncategorized expense row'), findsOneWidget);
+      expect(find.text('Categorized expense row'), findsOneWidget);
+    });
+
+    testWidgets(
+      'switching to the Income tab and selecting Uncategorized there scopes to uncategorized income, not expense',
+      (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [_expense(1, 'Uncategorized expense row', thisMonth), _income(2, 'Uncategorized income row', thisMonth)],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('summaryTab-income')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(Key('categoryTotalRow-$kUncategorizedCategoryId')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Uncategorized income row'));
+
+        expect(find.text('Uncategorized income row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsNothing);
+      },
+    );
   });
 
   group('ticket 08: Transfer summary tab', () {

@@ -1,3 +1,25 @@
+/// The backend's own sentinel `category_id` for its "Uncategorized" bucket
+/// in `GET /api/v1/transactions/summary`'s per-category breakdown
+/// (confirmed against a live response: `{"category_id": 0, "category_name":
+/// "Uncategorized", ...}`) — never a real category id (those start well
+/// above it, e.g. 2703+ in the current seed data), so it's safe to reuse
+/// verbatim as the frontend's own sentinel rather than inventing a second
+/// one.
+///
+/// Post-launch UI polish ticket 12: an actual uncategorized [Transaction]
+/// carries [Transaction.categoryId] `null` (see `transactionFromJson`'s
+/// `categoryJson?['id']`), not `0` — a different representation from the
+/// summary breakdown's `0`, because they come from two different backend
+/// endpoints with their own independent conventions. `categoryId: 0`
+/// reaching [TransactionsRepository.watchMonth] (e.g. from tapping the
+/// "Uncategorized" row in the ticket 10 drill-through, which just forwards
+/// whatever `categoryId` that `CategoryBreakdown` row carries) must
+/// therefore be translated to a `WHERE category_id IS NULL` query, not a
+/// literal `WHERE category_id = 0` — the ticket 12 bug was exactly this
+/// translation being missing, silently returning zero rows for a category
+/// that, from the data's own perspective, doesn't have that id at all.
+const int kUncategorizedCategoryId = 0;
+
 /// transaction_type per SRS — a transfer moves money between two of the
 /// user's own accounts and never takes a category (see
 /// `transaction_validation.dart`/`transaction_mapper.dart`).

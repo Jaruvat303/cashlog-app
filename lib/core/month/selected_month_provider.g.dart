@@ -68,7 +68,7 @@ final class SelectedMonthProvider
   }
 }
 
-String _$selectedMonthHash() => r'53fc0be47f380cba3a1f2d61830381f314487945';
+String _$selectedMonthHash() => r'ed0885f6fee20037b16ddef648cd0482f964f121';
 
 /// The month/year that drives both the transaction feed (T7) and the
 /// dashboard summary (T8) — lives in `core/` (moved here from

@@ -110,7 +110,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final _controller = StreamController<List<Transaction>>.broadcast();
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) async* {
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) async* {
     yield _current;
     yield* _controller.stream;
   }

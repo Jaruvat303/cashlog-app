@@ -37,7 +37,25 @@ class TransactionsRepository {
   /// (year, month) is unconditional and unaffected by which category (if any)
   /// the UI is currently drilled into, so pagination can't regress once a
   /// filter is active.
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) {
+  ///
+  /// Ticket 12: [kUncategorizedCategoryId] gets its own branch rather than
+  /// falling into the plain `.equals(categoryId)` case — a real
+  /// uncategorized [Transaction] has `categoryId == null` in this very
+  /// table, never `0`, so matching it needs `IS NULL`, not `= 0` (see
+  /// [kUncategorizedCategoryId]'s doc comment for why the caller can end up
+  /// passing `0` here at all).
+  ///
+  /// [type] (ticket 12): a real category id already implies a type, so
+  /// [categoryId] alone was a sufficient filter for one — but `categoryId ==
+  /// null` (Uncategorized) is true of every uncategorized income row,
+  /// every uncategorized expense row, *and* every transfer (transfers never
+  /// carry a category, full stop). Without also narrowing by [type], the
+  /// Uncategorized filter pulled in every transfer for the month regardless
+  /// of which tab (Income/Expense) it was opened from, so its total no
+  /// longer matched the tab-scoped Uncategorized figure the breakdown card
+  /// shows. Callers pass [type] whenever a category filter of any kind is
+  /// active — see `TransactionsPage._categoryFilterType`.
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) {
     final start = DateTime.utc(year, month);
     final end = DateTime.utc(year, month + 1);
     return (_db.select(_db.cachedTransactions)
@@ -45,7 +63,12 @@ class TransactionsRepository {
             (t) =>
                 t.transactionDate.isBiggerOrEqualValue(start) &
                 t.transactionDate.isSmallerThanValue(end) &
-                (categoryId == null ? const Constant(true) : t.categoryId.equals(categoryId)),
+                (type == null ? const Constant(true) : t.transactionType.equals(type.name)) &
+                switch (categoryId) {
+                  null => const Constant(true),
+                  kUncategorizedCategoryId => t.categoryId.isNull(),
+                  _ => t.categoryId.equals(categoryId),
+                },
           )
           ..orderBy([(t) => OrderingTerm.desc(t.transactionDate), (t) => OrderingTerm.desc(t.id)]))
         .watch()

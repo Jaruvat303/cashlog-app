@@ -16,9 +16,19 @@ part 'transactions_feed_providers.g.dart';
 /// instance space, not a second provider — omitting it (the existing call
 /// shape everywhere else in the app) is exactly equivalent to passing `null`,
 /// so every pre-existing caller/override is unaffected.
+///
+/// [type] (ticket 12): every real category id is already type-specific (an
+/// expense category's id never appears on an income or transfer
+/// transaction), so [categoryId] alone was enough to scope a real-category
+/// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+/// assumption — "no category" spans every transaction type, transfers
+/// included, since a transfer never carries a category at all. Without
+/// [type], selecting "Uncategorized" from the Expense tab pulled in every
+/// transfer for the month too, so its total silently stopped matching the
+/// Uncategorized figure the breakdown card shows for that tab.
 @riverpod
-Stream<List<Transaction>> monthTransactions(Ref ref, int year, int month, {int? categoryId}) =>
-    ref.watch(transactionsRepositoryProvider).watchMonth(year: year, month: month, categoryId: categoryId);
+Stream<List<Transaction>> monthTransactions(Ref ref, int year, int month, {int? categoryId, TransactionType? type}) =>
+    ref.watch(transactionsRepositoryProvider).watchMonth(year: year, month: month, categoryId: categoryId, type: type);
 
 /// Pagination progress for one (year, month) — separate from the list
 /// itself so switching pages never re-renders/re-fetches the whole list,

@@ -140,7 +140,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   _MonthChannel channelFor(int year, int month) => _channels.putIfAbsent((year, month), () => _MonthChannel());
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
       channelFor(year, month).stream.map((list) => categoryId == null ? list : list.where((t) => t.categoryId == categoryId).toList());
 
   @override

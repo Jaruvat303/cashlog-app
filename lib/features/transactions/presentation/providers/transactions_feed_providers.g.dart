@@ -17,6 +17,16 @@ part of 'transactions_feed_providers.dart';
 /// instance space, not a second provider — omitting it (the existing call
 /// shape everywhere else in the app) is exactly equivalent to passing `null`,
 /// so every pre-existing caller/override is unaffected.
+///
+/// [type] (ticket 12): every real category id is already type-specific (an
+/// expense category's id never appears on an income or transfer
+/// transaction), so [categoryId] alone was enough to scope a real-category
+/// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+/// assumption — "no category" spans every transaction type, transfers
+/// included, since a transfer never carries a category at all. Without
+/// [type], selecting "Uncategorized" from the Expense tab pulled in every
+/// transfer for the month too, so its total silently stopped matching the
+/// Uncategorized figure the breakdown card shows for that tab.
 
 @ProviderFor(monthTransactions)
 final monthTransactionsProvider = MonthTransactionsFamily._();
@@ -30,6 +40,16 @@ final monthTransactionsProvider = MonthTransactionsFamily._();
 /// instance space, not a second provider — omitting it (the existing call
 /// shape everywhere else in the app) is exactly equivalent to passing `null`,
 /// so every pre-existing caller/override is unaffected.
+///
+/// [type] (ticket 12): every real category id is already type-specific (an
+/// expense category's id never appears on an income or transfer
+/// transaction), so [categoryId] alone was enough to scope a real-category
+/// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+/// assumption — "no category" spans every transaction type, transfers
+/// included, since a transfer never carries a category at all. Without
+/// [type], selecting "Uncategorized" from the Expense tab pulled in every
+/// transfer for the month too, so its total silently stopped matching the
+/// Uncategorized figure the breakdown card shows for that tab.
 
 final class MonthTransactionsProvider
     extends
@@ -50,9 +70,20 @@ final class MonthTransactionsProvider
   /// instance space, not a second provider — omitting it (the existing call
   /// shape everywhere else in the app) is exactly equivalent to passing `null`,
   /// so every pre-existing caller/override is unaffected.
+  ///
+  /// [type] (ticket 12): every real category id is already type-specific (an
+  /// expense category's id never appears on an income or transfer
+  /// transaction), so [categoryId] alone was enough to scope a real-category
+  /// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+  /// assumption — "no category" spans every transaction type, transfers
+  /// included, since a transfer never carries a category at all. Without
+  /// [type], selecting "Uncategorized" from the Expense tab pulled in every
+  /// transfer for the month too, so its total silently stopped matching the
+  /// Uncategorized figure the breakdown card shows for that tab.
   MonthTransactionsProvider._({
     required MonthTransactionsFamily super.from,
-    required (int, int, {int? categoryId}) super.argument,
+    required (int, int, {int? categoryId, TransactionType? type})
+    super.argument,
   }) : super(
          retry: null,
          name: r'monthTransactionsProvider',
@@ -79,12 +110,14 @@ final class MonthTransactionsProvider
 
   @override
   Stream<List<Transaction>> create(Ref ref) {
-    final argument = this.argument as (int, int, {int? categoryId});
+    final argument =
+        this.argument as (int, int, {int? categoryId, TransactionType? type});
     return monthTransactions(
       ref,
       argument.$1,
       argument.$2,
       categoryId: argument.categoryId,
+      type: argument.type,
     );
   }
 
@@ -99,7 +132,7 @@ final class MonthTransactionsProvider
   }
 }
 
-String _$monthTransactionsHash() => r'a44c984a269521163f9f7b5f7fbaedd3cc0aa316';
+String _$monthTransactionsHash() => r'7a7dd7da4f39609318384e510abf82dba15ef587';
 
 /// The feed's list source — always reads from the `cached_transactions`
 /// drift watch (same idiom as `activeAccountsProvider`/`allCategoriesProvider`),
@@ -110,12 +143,22 @@ String _$monthTransactionsHash() => r'a44c984a269521163f9f7b5f7fbaedd3cc0aa316';
 /// instance space, not a second provider — omitting it (the existing call
 /// shape everywhere else in the app) is exactly equivalent to passing `null`,
 /// so every pre-existing caller/override is unaffected.
+///
+/// [type] (ticket 12): every real category id is already type-specific (an
+/// expense category's id never appears on an income or transfer
+/// transaction), so [categoryId] alone was enough to scope a real-category
+/// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+/// assumption — "no category" spans every transaction type, transfers
+/// included, since a transfer never carries a category at all. Without
+/// [type], selecting "Uncategorized" from the Expense tab pulled in every
+/// transfer for the month too, so its total silently stopped matching the
+/// Uncategorized figure the breakdown card shows for that tab.
 
 final class MonthTransactionsFamily extends $Family
     with
         $FunctionalFamilyOverride<
           Stream<List<Transaction>>,
-          (int, int, {int? categoryId})
+          (int, int, {int? categoryId, TransactionType? type})
         > {
   MonthTransactionsFamily._()
     : super(
@@ -135,12 +178,26 @@ final class MonthTransactionsFamily extends $Family
   /// instance space, not a second provider — omitting it (the existing call
   /// shape everywhere else in the app) is exactly equivalent to passing `null`,
   /// so every pre-existing caller/override is unaffected.
+  ///
+  /// [type] (ticket 12): every real category id is already type-specific (an
+  /// expense category's id never appears on an income or transfer
+  /// transaction), so [categoryId] alone was enough to scope a real-category
+  /// filter correctly. `categoryId: kUncategorizedCategoryId` breaks that
+  /// assumption — "no category" spans every transaction type, transfers
+  /// included, since a transfer never carries a category at all. Without
+  /// [type], selecting "Uncategorized" from the Expense tab pulled in every
+  /// transfer for the month too, so its total silently stopped matching the
+  /// Uncategorized figure the breakdown card shows for that tab.
 
-  MonthTransactionsProvider call(int year, int month, {int? categoryId}) =>
-      MonthTransactionsProvider._(
-        argument: (year, month, categoryId: categoryId),
-        from: this,
-      );
+  MonthTransactionsProvider call(
+    int year,
+    int month, {
+    int? categoryId,
+    TransactionType? type,
+  }) => MonthTransactionsProvider._(
+    argument: (year, month, categoryId: categoryId, type: type),
+    from: this,
+  );
 
   @override
   String toString() => r'monthTransactionsProvider';

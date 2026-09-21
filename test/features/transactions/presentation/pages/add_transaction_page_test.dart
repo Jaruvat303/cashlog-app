@@ -101,7 +101,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, Transaction>? nextCreateResult;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId}) =>
+  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
       throw UnimplementedError('not exercised by this page test');
 
   @override
