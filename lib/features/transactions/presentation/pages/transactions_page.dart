@@ -40,6 +40,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   final _scrollController = ScrollController();
   _SummaryTab _summaryTab = _SummaryTab.expense;
 
+  /// Ticket 10: which category (if any) the transaction list below the
+  /// summary card is currently narrowed to — `null` means "no filter".
+  /// Cleared automatically on every month switch (`_switchMonth`) and every
+  /// summary-tab change (`_onSummaryTabChanged`) so it never silently
+  /// carries over into a context it wasn't set for (the exact "leftover
+  /// filter state" bug ticket 08 removed the whole feature over — this time
+  /// the clear is unconditional and structural, not a UI affordance the
+  /// user has to remember to use).
+  int? _categoryFilterId;
+
   @override
   void initState() {
     super.initState();
@@ -86,7 +96,28 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     // A new month's data is a different list entirely — jump back to the
     // top rather than leaving the scroll offset wherever it was.
     if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    // Ticket 10: a category filter scoped to the old month makes no sense
+    // once the month itself has changed — clear it unconditionally rather
+    // than leaving a stale, invisible-until-you-notice-the-list-is-short
+    // filter active.
+    setState(() => _categoryFilterId = null);
     _loadFirstPage(month.year, month.month, showErrorSnackBar: false);
+  }
+
+  void _onSummaryTabChanged(_SummaryTab tab) {
+    setState(() {
+      _summaryTab = tab;
+      // Ticket 10: same reasoning as `_switchMonth` — a category filter
+      // picked while looking at Expense totals doesn't mean anything once
+      // the tab switches to Income (different categories entirely) or
+      // Transfer (no categories at all), so it's cleared unconditionally
+      // rather than left to silently narrow a list it was never meant to.
+      _categoryFilterId = null;
+    });
+  }
+
+  void _toggleCategoryFilter(int categoryId) {
+    setState(() => _categoryFilterId = _categoryFilterId == categoryId ? null : categoryId);
   }
 
   @override
@@ -95,7 +126,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final year = month.year;
     final monthNum = month.month;
 
-    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
+    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId));
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
     final categoriesById = {for (final category in categories) category.id: category};
@@ -160,7 +191,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               year: year,
               month: monthNum,
               tab: _summaryTab,
-              onTabChanged: (tab) => setState(() => _summaryTab = tab),
+              onTabChanged: _onSummaryTabChanged,
+              selectedCategoryId: _categoryFilterId,
+              onCategoryTap: _toggleCategoryFilter,
               categoriesById: categoriesById,
             );
 
@@ -172,9 +205,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   const SizedBox(height: 16),
                   summarySection,
                   const SizedBox(height: 14),
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
+                  Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(_categoryFilterId == null ? 'ไม่มีรายการในเดือนนี้' : 'ไม่มีรายการในหมวดหมู่นี้'),
+                    ),
                   ),
                 ],
               );
@@ -471,6 +506,8 @@ class _SummarySection extends ConsumerWidget {
     required this.month,
     required this.tab,
     required this.onTabChanged,
+    required this.selectedCategoryId,
+    required this.onCategoryTap,
     required this.categoriesById,
   });
 
@@ -478,6 +515,8 @@ class _SummarySection extends ConsumerWidget {
   final int month;
   final _SummaryTab tab;
   final ValueChanged<_SummaryTab> onTabChanged;
+  final int? selectedCategoryId;
+  final ValueChanged<int> onCategoryTap;
   final Map<int, Category> categoriesById;
 
   @override
@@ -518,11 +557,15 @@ class _SummarySection extends ConsumerWidget {
                     _SummaryTab.income => _CategoryBreakdownSection(
                       breakdown: summary.income,
                       total: summary.totalIncome,
+                      selectedCategoryId: selectedCategoryId,
+                      onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายรับในเดือนนี้',
                     ),
                     _SummaryTab.expense => _CategoryBreakdownSection(
                       breakdown: summary.expense,
                       total: summary.totalExpense,
+                      selectedCategoryId: selectedCategoryId,
+                      onTap: onCategoryTap,
                       emptyMessage: 'ไม่มีรายจ่ายในเดือนนี้',
                     ),
                     _SummaryTab.transfer => const SizedBox.shrink(),
@@ -567,15 +610,25 @@ class _SummarySection extends ConsumerWidget {
 /// through to `_CategoryTotalsList`'s own empty-state message, same as
 /// before this ticket.
 ///
-/// Ticket 08: the list's tap-to-filter behavior (and the AppBar chip row it
-/// depended on to display/clear the active filter) is gone — these rows are
-/// plain totals now, per the same fix that removed the leftover type-chip
-/// row.
+/// Ticket 10: tap-to-filter is back (ticket 08 removed it along with the
+/// AppBar chip row it used to display/clear the filter) — this time the
+/// filter is toggled by tapping the same row again, and cleared
+/// automatically on month/tab changes (see `TransactionsPage._switchMonth`/
+/// `_onSummaryTabChanged`), so there's no separate "clear" affordance to
+/// leave behind.
 class _CategoryBreakdownSection extends StatelessWidget {
-  const _CategoryBreakdownSection({required this.breakdown, required this.total, required this.emptyMessage});
+  const _CategoryBreakdownSection({
+    required this.breakdown,
+    required this.total,
+    required this.selectedCategoryId,
+    required this.onTap,
+    required this.emptyMessage,
+  });
 
   final List<CategoryBreakdown> breakdown;
   final double total;
+  final int? selectedCategoryId;
+  final ValueChanged<int> onTap;
   final String emptyMessage;
 
   @override
@@ -587,7 +640,7 @@ class _CategoryBreakdownSection extends StatelessWidget {
           ExpensePieChart(expense: breakdown, total: total),
           const SizedBox(height: 14),
         ],
-        _CategoryTotalsList(breakdown: breakdown, emptyMessage: emptyMessage),
+        _CategoryTotalsList(breakdown: breakdown, selectedCategoryId: selectedCategoryId, onTap: onTap, emptyMessage: emptyMessage),
       ],
     );
   }
@@ -598,9 +651,16 @@ class _CategoryBreakdownSection extends StatelessWidget {
 /// `_CategoryBreakdownSection`'s `ExpensePieChart` (ticket 03), unchanged
 /// itself.
 class _CategoryTotalsList extends StatelessWidget {
-  const _CategoryTotalsList({required this.breakdown, required this.emptyMessage});
+  const _CategoryTotalsList({
+    required this.breakdown,
+    required this.selectedCategoryId,
+    required this.onTap,
+    required this.emptyMessage,
+  });
 
   final List<CategoryBreakdown> breakdown;
+  final int? selectedCategoryId;
+  final ValueChanged<int> onTap;
   final String emptyMessage;
 
   @override
@@ -617,7 +677,11 @@ class _CategoryTotalsList extends StatelessWidget {
       children: [
         for (var i = 0; i < sorted.length; i++) ...[
           if (i > 0) const Divider(height: 1, color: AppColors.divider),
-          _CategoryTotalRow(breakdown: sorted[i]),
+          _CategoryTotalRow(
+            breakdown: sorted[i],
+            selected: sorted[i].categoryId == selectedCategoryId,
+            onTap: () => onTap(sorted[i].categoryId),
+          ),
         ],
       ],
     );
@@ -625,24 +689,35 @@ class _CategoryTotalsList extends StatelessWidget {
 }
 
 class _CategoryTotalRow extends StatelessWidget {
-  const _CategoryTotalRow({required this.breakdown});
+  const _CategoryTotalRow({required this.breakdown, required this.selected, required this.onTap});
 
   final CategoryBreakdown breakdown;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
       key: ValueKey('categoryTotalRow-${breakdown.categoryId}'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      child: Row(
-        children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
-          ),
-          Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-        ],
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primarySurface : null,
+          borderRadius: BorderRadius.circular(10),
+          border: selected ? Border.all(color: AppColors.primarySurfaceBorder) : null,
+        ),
+        child: Row(
+          children: [
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+            ),
+            Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          ],
+        ),
       ),
     );
   }

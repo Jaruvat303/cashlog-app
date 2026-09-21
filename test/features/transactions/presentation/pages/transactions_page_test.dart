@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:cashlog/core/month/selected_month_provider.dart';
 import 'package:cashlog/core/network/failure.dart';
+import 'package:cashlog/core/theme/app_theme.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/accounts/presentation/widgets/current_balance_text.dart';
@@ -274,6 +275,19 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 Future<void> _scrollToFinder(WidgetTester tester, Finder finder) =>
     tester.scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);
 
+/// Ticket 10's visual-selected-state check: the row's highlight is a
+/// `BoxDecoration.color`/`border` on the `Container` directly under its
+/// keyed `InkWell`, not a separate marker widget — read that decoration
+/// straight off the tree rather than re-deriving the same condition the
+/// widget itself uses, so this actually catches a broken/missing highlight.
+bool _categoryRowIsHighlighted(WidgetTester tester, int categoryId) {
+  final container = tester.widget<Container>(
+    find.descendant(of: find.byKey(Key('categoryTotalRow-$categoryId')), matching: find.byType(Container)).first,
+  );
+  final decoration = container.decoration as BoxDecoration?;
+  return decoration?.color == AppColors.primarySurface;
+}
+
 void main() {
   late _FakeTransactionsRepository fakeTransactions;
   late DateTime thisMonth;
@@ -389,7 +403,7 @@ void main() {
   // the mockup redesign — it's now the AppShell's raised camera FAB
   // (reachable from every tab), not a Transactions-page-only AppBar action.
 
-  group('ticket 07: summary tabs', () {
+  group('summary tabs (ticket 07) and category drill-through (ticket 10)', () {
     setUp(() {
       fakeDashboard.results[(thisMonth.year, thisMonth.month)] = Right(
         DashboardSummary(
@@ -430,28 +444,188 @@ void main() {
       expect(find.text('อาหาร'), findsNothing);
     });
 
-    testWidgets('a category row is a plain, non-interactive total — no tap-to-filter (ticket 08 removed it)', (tester) async {
-      fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
-        transactions: [
-          _expense(1, 'Food expense row', thisMonth, categoryId: 10),
-          _expense(2, 'Uncategorized expense row', thisMonth),
-        ],
-        currentPage: 1,
-        totalPages: 1,
-      );
+    group('ticket 10: category drill-through', () {
+      testWidgets('tapping a category row filters the day-grouped list below to only that category', (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Transport expense row', thisMonth, categoryId: 11),
+            _expense(3, 'Uncategorized expense row', thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
 
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Transport expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
-      await _pumpBounded(tester);
-      await _scrollToFinder(tester, find.text('Food expense row'));
+        // Back to the top before tapping the summary card's category row —
+        // it scrolled out of view to reveal the rows above.
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
 
-      // Tapping a category row does nothing — both rows are still present,
-      // and no filter chip of any kind appears anywhere.
-      expect(find.text('Food expense row'), findsOneWidget);
-      expect(find.text('Uncategorized expense row'), findsOneWidget);
-      expect(find.textContaining('หมวดหมู่:'), findsNothing);
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Transport expense row'), findsNothing);
+        expect(find.text('Uncategorized expense row'), findsNothing);
+      });
+
+      testWidgets('tapping the same category row again clears the filter, restoring the full list', (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Uncategorized expense row', thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+        expect(find.text('Uncategorized expense row'), findsNothing);
+
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+      });
+
+      testWidgets('the selected category row is visually highlighted; tapping it off removes the highlight', (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        expect(_categoryRowIsHighlighted(tester, 10), isFalse);
+        expect(_categoryRowIsHighlighted(tester, 11), isFalse);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        expect(_categoryRowIsHighlighted(tester, 10), isTrue);
+        expect(_categoryRowIsHighlighted(tester, 11), isFalse);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        expect(_categoryRowIsHighlighted(tester, 10), isFalse);
+      });
+
+      testWidgets('tapping a different category while one is already selected moves the highlight and the filter', (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Transport expense row', thisMonth, categoryId: 11),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('categoryTotalRow-11')));
+        await _pumpBounded(tester);
+
+        expect(_categoryRowIsHighlighted(tester, 10), isFalse);
+        expect(_categoryRowIsHighlighted(tester, 11), isTrue);
+        await _scrollToFinder(tester, find.text('Transport expense row'));
+        expect(find.text('Transport expense row'), findsOneWidget);
+        expect(find.text('Food expense row'), findsNothing);
+      });
+
+      testWidgets('switching months clears an active category filter', (tester) async {
+        final nextMonth = DateTime.utc(thisMonth.year, thisMonth.month + 1);
+        fakeDashboard.results[(nextMonth.year, nextMonth.month)] = Right(
+          DashboardSummary(
+            totalIncome: 0,
+            totalExpense: 500,
+            totalTransfer: 0,
+            year: nextMonth.year,
+            month: nextMonth.month,
+            income: const [],
+            expense: [_breakdown(10, 'อาหาร', 500)],
+          ),
+        );
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Uncategorized expense row', thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+        fakeTransactions.pages[(nextMonth.year, nextMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(3, 'Next month food row', nextMonth, categoryId: 10),
+            _expense(4, 'Next month uncategorized row', nextMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+        expect(find.text('Uncategorized expense row'), findsNothing);
+
+        await tester.tap(find.byIcon(RemixIcon.arrowRightSLine));
+        await _pumpBounded(tester);
+
+        // Ticket 10: the filter is cleared, not carried over to the new
+        // month — both of next month's rows show, and the row that used to
+        // be selected is no longer highlighted.
+        expect(_categoryRowIsHighlighted(tester, 10), isFalse);
+        await _scrollToFinder(tester, find.text('Next month food row'));
+        expect(find.text('Next month food row'), findsOneWidget);
+        expect(find.text('Next month uncategorized row'), findsOneWidget);
+      });
+
+      testWidgets('switching the summary tab clears an active category filter', (tester) async {
+        fakeTransactions.pages[(thisMonth.year, thisMonth.month, 1)] = TransactionPage(
+          transactions: [
+            _expense(1, 'Food expense row', thisMonth, categoryId: 10),
+            _expense(2, 'Uncategorized expense row', thisMonth),
+          ],
+          currentPage: 1,
+          totalPages: 1,
+        );
+
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('categoryTotalRow-10')));
+        await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+        expect(find.text('Uncategorized expense row'), findsNothing);
+
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, 1000));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('summaryTab-income')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('summaryTab-expense')));
+        await _pumpBounded(tester);
+
+        expect(_categoryRowIsHighlighted(tester, 10), isFalse);
+        await _scrollToFinder(tester, find.text('Food expense row'));
+        expect(find.text('Food expense row'), findsOneWidget);
+        expect(find.text('Uncategorized expense row'), findsOneWidget);
+      });
     });
   });
 

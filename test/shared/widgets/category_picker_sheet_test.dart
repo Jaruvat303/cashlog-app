@@ -65,6 +65,18 @@ Widget _buildApp(List<Category> categories) => ProviderScope(
   ),
 );
 
+/// `flutter_test`'s default 800x600 surface is unrealistically wide for a
+/// phone-only app (CLAUDE.md: Android only, real devices) and doesn't
+/// reproduce the ticket 11 overflow at all — a realistic phone width is
+/// what actually squeezes `CategoryGridTile`'s grid cells down to where a
+/// 2-line label used to overflow.
+void _usePhoneSizedViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(390, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — a bounded pump loop fails fast instead (same reasoning as
 /// transaction_list_tile_test.dart's `_pumpBounded`).
@@ -132,5 +144,34 @@ void main() {
 
     expect(_lastResult?.categoryId, 1);
     expect(find.byKey(const Key('categoryOption_1')), findsNothing);
+  });
+
+  group('ticket 11: CategoryGridTile overflow regression', () {
+    testWidgets('a long, 2-line category name does not overflow its grid tile at phone width', (tester) async {
+      _usePhoneSizedViewport(tester);
+      final categories = [
+        // Real category names confirmed to reproduce the exact "overflowed
+        // by 7.6 pixels" QA reported, before this ticket's fix.
+        Category(id: 1, name: 'ที่อยู่อาศัย (ค่าเช่า/ผ่อนบ้าน)', type: CategoryType.expense, iconKey: 'home-4-fill', colorHex: '#FF6B6B'),
+        Category(id: 2, name: 'เบี้ยประกัน (ชีวิต/สุขภาพ/รถ)', type: CategoryType.expense, iconKey: 'shield-check-fill', colorHex: '#FF6B6B'),
+      ];
+
+      await tester.pumpWidget(_buildApp(categories));
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
+
+      // A RenderFlex overflow throws during layout/paint, surfaced here as
+      // an exception `tester.takeException()` would otherwise swallow
+      // silently if unchecked — this is the actual regression guard, not
+      // just "the widget rendered something". This also incidentally
+      // guards the unrelated footer-hint-text overflow found and fixed
+      // alongside this ticket (see `category_picker_sheet.dart`'s footer
+      // `Row` comment) — that row renders on every sheet open regardless of
+      // category content, so the same exception check covers it too.
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('categoryOption_1')), findsOneWidget);
+      expect(find.byKey(const Key('categoryOption_2')), findsOneWidget);
+      expect(find.textContaining('แตะไอคอนเดียว'), findsOneWidget);
+    });
   });
 }

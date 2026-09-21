@@ -102,71 +102,101 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                   error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
                   data: (categories) {
                     final matching = categories.where((c) => c.type == widget.categoryType).toList();
+                    final tiles = [
+                      CategoryGridTile(
+                        key: const Key('categoryOptionUncategorized'),
+                        label: 'ยังไม่ระบุ',
+                        icon: RemixIcon.questionFill,
+                        iconColor: AppColors.textSecondary,
+                        backgroundColor: AppColors.background,
+                        borderColor: AppColors.textSecondary,
+                        selected: widget.currentCategoryId == null,
+                        onTap: () => Navigator.of(
+                          context,
+                        ).pop(widget.currentCategoryId == null ? null : const CategoryPickerResult(null)),
+                      ),
+                      for (final category in matching)
+                        CategoryGridTile(
+                          key: Key('categoryOption_${category.id}'),
+                          label: category.name,
+                          icon: resolveCategoryIcon(category.iconKey),
+                          iconColor: colorFromHex(category.colorHex),
+                          backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.15),
+                          borderColor: colorFromHex(category.colorHex),
+                          selected: widget.currentCategoryId == category.id,
+                          onTap: () => Navigator.of(
+                            context,
+                          ).pop(widget.currentCategoryId == category.id ? null : CategoryPickerResult(category.id)),
+                        ),
+                      CategoryGridTile(
+                        key: const Key('categoryOptionAddNew'),
+                        label: 'เพิ่มใหม่',
+                        icon: RemixIcon.addLine,
+                        iconColor: AppColors.textSecondary,
+                        backgroundColor: AppColors.background,
+                        borderColor: AppColors.textFaint,
+                        dashed: true,
+                        selected: false,
+                        onTap: () async {
+                          final navigator = Navigator.of(context);
+                          final created = await Navigator.of(context).push<bool>(
+                            MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: widget.categoryType)),
+                          );
+                          if (created == true) navigator.pop();
+                        },
+                      ),
+                    ];
                     return Scrollbar(
                       controller: _gridScrollController,
                       thumbVisibility: true,
-                      child: GridView.count(
+                      child: GridView.builder(
                         controller: _gridScrollController,
-                        crossAxisCount: 4,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 10,
-                        childAspectRatio: 0.82,
-                        children: [
-                          CategoryGridTile(
-                            key: const Key('categoryOptionUncategorized'),
-                            label: 'ยังไม่ระบุ',
-                            icon: RemixIcon.questionFill,
-                            iconColor: AppColors.textSecondary,
-                            backgroundColor: AppColors.background,
-                            borderColor: AppColors.textSecondary,
-                            selected: widget.currentCategoryId == null,
-                            onTap: () => Navigator.of(
-                              context,
-                            ).pop(widget.currentCategoryId == null ? null : const CategoryPickerResult(null)),
-                          ),
-                          for (final category in matching)
-                            CategoryGridTile(
-                              key: Key('categoryOption_${category.id}'),
-                              label: category.name,
-                              icon: resolveCategoryIcon(category.iconKey),
-                              iconColor: colorFromHex(category.colorHex),
-                              backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.15),
-                              borderColor: colorFromHex(category.colorHex),
-                              selected: widget.currentCategoryId == category.id,
-                              onTap: () => Navigator.of(
-                                context,
-                              ).pop(widget.currentCategoryId == category.id ? null : CategoryPickerResult(category.id)),
-                            ),
-                          CategoryGridTile(
-                            key: const Key('categoryOptionAddNew'),
-                            label: 'เพิ่มใหม่',
-                            icon: RemixIcon.addLine,
-                            iconColor: AppColors.textSecondary,
-                            backgroundColor: AppColors.background,
-                            borderColor: AppColors.textFaint,
-                            dashed: true,
-                            selected: false,
-                            onTap: () async {
-                              final navigator = Navigator.of(context);
-                              final created = await Navigator.of(context).push<bool>(
-                                MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: widget.categoryType)),
-                              );
-                              if (created == true) navigator.pop();
-                            },
-                          ),
-                        ],
+                        // Ticket 11: this grid used to size cells by
+                        // `childAspectRatio` (0.82), which scales cell
+                        // *height* with cell *width* — on a real phone
+                        // width that came out shorter than `CategoryGridTile`
+                        // actually needs for its 56px icon + up to 2 lines of
+                        // label, overflowing by 7.6px (confirmed by
+                        // reproducing the exact figure QA reported). A fixed
+                        // `mainAxisExtent` sized to the tile's real content
+                        // decouples row height from cell width, the same fix
+                        // ticket 08 already applied to the Categories grid
+                        // screen's own (separate — see `CategoryGridTile`'s
+                        // doc comment) tile/grid.
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          mainAxisSpacing: 14,
+                          crossAxisSpacing: 10,
+                          mainAxisExtent: 108,
+                        ),
+                        itemCount: tiles.length,
+                        itemBuilder: (context, index) => tiles[index],
                       ),
                     );
                   },
                 ),
               ),
               const SizedBox(height: 6),
+              // Found while verifying ticket 11's fix, not part of what it
+              // described: an unrelated, independent overflow — this footer
+              // hint's `Text` had no `Expanded`/`Flexible`, so at a
+              // realistic phone width (390dp, well within the 360-412dp
+              // real Android phones use) it doesn't fit on one line and
+              // overflows ~197px to the right. `Flexible` here lets it wrap
+              // to 2 lines instead.
               const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(RemixIcon.flashlightLine, size: 13, color: AppColors.textSecondary),
+                  Padding(padding: EdgeInsets.only(top: 1), child: Icon(RemixIcon.flashlightLine, size: 13, color: AppColors.textSecondary)),
                   SizedBox(width: 7),
-                  Text('แตะไอคอนเดียว = บันทึกและปิดทันที ไม่มีปุ่มยืนยัน', style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary)),
+                  Flexible(
+                    child: Text(
+                      'แตะไอคอนเดียว = บันทึกและปิดทันที ไม่มีปุ่มยืนยัน',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -177,11 +207,22 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
   }
 }
 
-/// The 56×56 rounded category tile used by the category picker sheet, the
-/// Categories grid screen, and SelectCategory: a colored-tint icon square
-/// that gets a `2px solid {categoryColor}` border plus a small
-/// accent-gradient checkmark badge when selected (vs. `2px solid
-/// transparent` otherwise).
+/// The 56×56 rounded category tile used by this file's category picker
+/// sheet: a colored-tint icon square that gets a `2px solid
+/// {categoryColor}` border plus a small accent-gradient checkmark badge
+/// when selected (vs. `2px solid transparent` otherwise).
+///
+/// Ticket 11: despite this doc comment's previous claim, this widget is
+/// **not** shared with the Categories grid screen
+/// (`features/categories/presentation/pages/categories_page.dart`) — that
+/// screen builds its own separate `InkWell`/`Column`/`Container` tile
+/// inline and has never referenced `CategoryGridTile` (confirmed against
+/// full git history). The two independently overflowed on a 2-line label at
+/// phone width for the same underlying reason (aspect-ratio-based grid
+/// cells scale height with cell width, not with content) — ticket 08 fixed
+/// the Categories grid screen's own copy; ticket 11 fixed this one — but
+/// they are two separate widgets that must each be fixed on their own if
+/// this happens again, not one shared component.
 class CategoryGridTile extends StatelessWidget {
   const CategoryGridTile({
     super.key,
@@ -251,7 +292,12 @@ class CategoryGridTile extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             maxLines: 2,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.chipUnselectedText),
+            // Ticket 11: an explicit `height` tightens the font's own
+            // (Thai-script-generous) default line spacing — same fix ticket
+            // 08 applied to the Categories grid screen's tile label, needed
+            // here for the same reason: without it, two lines at this font
+            // size don't fit `mainAxisExtent` above.
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.15, color: AppColors.chipUnselectedText),
             overflow: TextOverflow.ellipsis,
           ),
         ],
