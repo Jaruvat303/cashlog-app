@@ -74,14 +74,17 @@ jobs:
       - name: Run build_runner (codegen)
         run: dart run build_runner build --delete-conflicting-outputs
 
-      # สร้างไฟล์ env จาก GitHub Secrets แทนการ commit ค่าจริง
+      # This job is a compile check only — its APK is never uploaded (the repo
+      # is public, and an uploaded release APK embeds whatever --dart-define
+      # values built it, so a real DEV_API_KEY there would leak). Dummy values
+      # exercise the exact same build path without needing real secrets.
       - name: Prepare env file
         run: |
           mkdir -p env
           cat <<EOF > env/dev.json
           {
-            "BASE_URL": "${{ secrets.DEV_BASE_URL }}",
-            "API_KEY": "${{ secrets.DEV_API_KEY }}"
+            "BASE_URL": "https://example.invalid",
+            "API_KEY": "ci-dummy"
           }
           EOF
 
@@ -98,10 +101,3 @@ jobs:
       # a frontend code change every time the backend adds a category.
       - name: Build APK
         run: flutter build apk --release --dart-define-from-file=env/dev.json --no-tree-shake-icons
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: cashlog-app-dev
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 14
