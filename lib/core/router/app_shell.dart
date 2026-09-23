@@ -38,16 +38,41 @@ class AppShell extends StatelessWidget {
         selectedIndex: currentIndex,
         onDestinationSelected: navigationShell.goBranch,
         destinations: [
-          _destination(RemixIcon.home5Line, RemixIcon.home5Fill, 'หน้าแรก', currentIndex == 0),
-          _destination(RemixIcon.listCheck2, RemixIcon.listCheck2, 'ดูสรุป', currentIndex == 1),
-          _destination(RemixIcon.wallet3Line, RemixIcon.wallet3Fill, 'บัญชี', currentIndex == 2),
-          _destination(RemixIcon.moreLine, RemixIcon.moreFill, 'เพิ่มเติม', currentIndex == 3),
+          _destination(
+            RemixIcon.home5Line,
+            RemixIcon.home5Fill,
+            'หน้าแรก',
+            currentIndex == 0,
+          ),
+          _destination(
+            RemixIcon.listCheck2,
+            RemixIcon.listCheck2,
+            'ดูสรุป',
+            currentIndex == 1,
+          ),
+          _destination(
+            RemixIcon.wallet3Line,
+            RemixIcon.wallet3Fill,
+            'บัญชี',
+            currentIndex == 2,
+          ),
+          _destination(
+            RemixIcon.moreLine,
+            RemixIcon.moreFill,
+            'เพิ่มเติม',
+            currentIndex == 3,
+          ),
         ],
       ),
     );
   }
 
-  NavigationDestination _destination(IconData icon, IconData selectedIcon, String label, bool selected) {
+  NavigationDestination _destination(
+    IconData icon,
+    IconData selectedIcon,
+    String label,
+    bool selected,
+  ) {
     final color = selected ? AppColors.primary : AppColors.textSecondary;
     return NavigationDestination(
       icon: Icon(icon, color: color),

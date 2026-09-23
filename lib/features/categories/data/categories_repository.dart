@@ -24,31 +24,42 @@ class CategoriesRepository {
   final ApiClient _apiClient;
   final AppDatabase _db;
 
-  Stream<List<Category>> watchAll() =>
-      _db.select(_db.cachedCategories).watch().map((rows) => rows.map(categoryFromCached).toList());
+  Stream<List<Category>> watchAll() => _db
+      .select(_db.cachedCategories)
+      .watch()
+      .map((rows) => rows.map(categoryFromCached).toList());
 
-  Future<Either<Failure, List<Category>>> _fetchByType(CategoryType type) => _apiClient.get<List<Category>>(
-    '/api/v1/categories',
-    queryParameters: {'type': type.name},
-    parse: (data) => ((data as Map)['data'] as List).map((e) => categoryFromJson(e as Map<String, dynamic>)).toList(),
-  );
+  Future<Either<Failure, List<Category>>> _fetchByType(CategoryType type) =>
+      _apiClient.get<List<Category>>(
+        '/api/v1/categories',
+        queryParameters: {'type': type.name},
+        parse: (data) => ((data as Map)['data'] as List)
+            .map((e) => categoryFromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 
   /// Unparameterized `GET /api/v1/categories` only ever returns one type, so
   /// both types are fetched explicitly and merged before the cache upsert
   /// (spec: Bug 2).
   Future<Either<Failure, void>> refreshFromApi() async {
     final incomeResult = await _fetchByType(CategoryType.income);
-    return incomeResult.fold(
-      (failure) async => Left(failure),
-      (incomeCategories) async {
-        final expenseResult = await _fetchByType(CategoryType.expense);
-        return expenseResult.fold((failure) async => Left(failure), (expenseCategories) async {
-          final categories = [...incomeCategories, ...expenseCategories];
-          await _db.batch((b) => b.insertAllOnConflictUpdate(_db.cachedCategories, categories.map(categoryToCompanion)));
-          return const Right(null);
-        });
-      },
-    );
+    return incomeResult.fold((failure) async => Left(failure), (
+      incomeCategories,
+    ) async {
+      final expenseResult = await _fetchByType(CategoryType.expense);
+      return expenseResult.fold((failure) async => Left(failure), (
+        expenseCategories,
+      ) async {
+        final categories = [...incomeCategories, ...expenseCategories];
+        await _db.batch(
+          (b) => b.insertAllOnConflictUpdate(
+            _db.cachedCategories,
+            categories.map(categoryToCompanion),
+          ),
+        );
+        return const Right(null);
+      });
+    });
   }
 
   Future<Either<Failure, Category>> create({
@@ -59,11 +70,19 @@ class CategoriesRepository {
   }) async {
     final result = await _apiClient.post<Category>(
       '/api/v1/categories',
-      data: createCategoryBody(name: name, type: type, iconKey: iconKey, colorHex: colorHex),
-      parse: (data) => categoryFromJson((data as Map)['data'] as Map<String, dynamic>),
+      data: createCategoryBody(
+        name: name,
+        type: type,
+        iconKey: iconKey,
+        colorHex: colorHex,
+      ),
+      parse: (data) =>
+          categoryFromJson((data as Map)['data'] as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (category) async {
-      await _db.into(_db.cachedCategories).insertOnConflictUpdate(categoryToCompanion(category));
+      await _db
+          .into(_db.cachedCategories)
+          .insertOnConflictUpdate(categoryToCompanion(category));
       return Right(category);
     });
   }
@@ -77,11 +96,19 @@ class CategoriesRepository {
   }) async {
     final result = await _apiClient.patch<Category>(
       '/api/v1/categories/$id',
-      data: updateCategoryBody(name: name, type: type, iconKey: iconKey, colorHex: colorHex),
-      parse: (data) => categoryFromJson((data as Map)['data'] as Map<String, dynamic>),
+      data: updateCategoryBody(
+        name: name,
+        type: type,
+        iconKey: iconKey,
+        colorHex: colorHex,
+      ),
+      parse: (data) =>
+          categoryFromJson((data as Map)['data'] as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (category) async {
-      await _db.into(_db.cachedCategories).insertOnConflictUpdate(categoryToCompanion(category));
+      await _db
+          .into(_db.cachedCategories)
+          .insertOnConflictUpdate(categoryToCompanion(category));
       return Right(category);
     });
   }
@@ -89,7 +116,9 @@ class CategoriesRepository {
   /// Pure local read — powers the delete-guard dialog before the user
   /// confirms. No network call.
   Future<int> countLinkedTransactions(int categoryId) async {
-    final rows = await (_db.select(_db.cachedTransactions)..where((t) => t.categoryId.equals(categoryId))).get();
+    final rows = await (_db.select(
+      _db.cachedTransactions,
+    )..where((t) => t.categoryId.equals(categoryId))).get();
     return rows.length;
   }
 
@@ -99,13 +128,18 @@ class CategoriesRepository {
   /// happen separately (a category-deleted-but-transactions-still-linked
   /// state has nothing to resolve the category name/color from).
   Future<Either<Failure, void>> delete(int id) async {
-    final result = await _apiClient.delete<void>('/api/v1/categories/$id', parse: (_) {});
+    final result = await _apiClient.delete<void>(
+      '/api/v1/categories/$id',
+      parse: (_) {},
+    );
     return result.fold((failure) async => Left(failure), (_) async {
       await _db.transaction(() async {
-        await (_db.delete(_db.cachedCategories)..where((t) => t.id.equals(id))).go();
-        await (_db.update(_db.cachedTransactions)..where((t) => t.categoryId.equals(id))).write(
-          const CachedTransactionsCompanion(categoryId: Value(null)),
-        );
+        await (_db.delete(
+          _db.cachedCategories,
+        )..where((t) => t.id.equals(id))).go();
+        await (_db.update(_db.cachedTransactions)
+              ..where((t) => t.categoryId.equals(id)))
+            .write(const CachedTransactionsCompanion(categoryId: Value(null)));
       });
       return const Right(null);
     });
@@ -113,4 +147,7 @@ class CategoriesRepository {
 }
 
 @riverpod
-CategoriesRepository categoriesRepository(Ref ref) => CategoriesRepository(ref.watch(apiClientProvider), ref.watch(appDatabaseProvider));
+CategoriesRepository categoriesRepository(Ref ref) => CategoriesRepository(
+  ref.watch(apiClientProvider),
+  ref.watch(appDatabaseProvider),
+);

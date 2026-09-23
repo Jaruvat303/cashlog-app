@@ -60,10 +60,14 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   Completer<void>? uploadOneGate;
 
   @override
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) async => newFiles;
+  Future<List<SlipCandidate>> diffNewFiles(
+    List<SlipCandidate> candidates,
+  ) async => newFiles;
 
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) async {
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(
+    SlipCandidate candidate,
+  ) async {
     if (uploadOneGate != null) await uploadOneGate!.future;
     uploadedInOrder.add(candidate.filename);
     uploadedAt.add(DateTime.now());
@@ -85,7 +89,10 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   /// same way (by filename) so tests can script a manual upload's outcome
   /// with the same `resultByFilename` map.
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
     if (uploadOneGate != null) await uploadOneGate!.future;
     uploadedInOrder.add(filename);
     uploadedAt.add(DateTime.now());
@@ -118,10 +125,12 @@ class _RecordingCacheInvalidator implements CacheInvalidator {
   final List<Set<(int, int)>> invalidateMonthsCalls = [];
 
   @override
-  void invalidateMonth(int year, int month) => invalidateMonthsCalls.add({(year, month)});
+  void invalidateMonth(int year, int month) =>
+      invalidateMonthsCalls.add({(year, month)});
 
   @override
-  void invalidateMonths(Set<(int, int)> months) => invalidateMonthsCalls.add(months);
+  void invalidateMonths(Set<(int, int)> months) =>
+      invalidateMonthsCalls.add(months);
 }
 
 void main() {
@@ -151,25 +160,42 @@ void main() {
     container.listen(slipScanPipelineProvider, (prev, next) {});
   });
 
-  const candidateA = SlipCandidate(id: '1', filename: 'a.jpg', sourceAlbum: 'SCB EASY');
-  const candidateB = SlipCandidate(id: '2', filename: 'b.jpg', sourceAlbum: 'SCB EASY');
-  const candidateC = SlipCandidate(id: '3', filename: 'c.jpg', sourceAlbum: 'Dime!');
+  const candidateA = SlipCandidate(
+    id: '1',
+    filename: 'a.jpg',
+    sourceAlbum: 'SCB EASY',
+  );
+  const candidateB = SlipCandidate(
+    id: '2',
+    filename: 'b.jpg',
+    sourceAlbum: 'SCB EASY',
+  );
+  const candidateC = SlipCandidate(
+    id: '3',
+    filename: 'c.jpg',
+    sourceAlbum: 'Dime!',
+  );
 
   test('the production default delay is spec §7.6.1\'s ~7s, not just whatever a caller happens to pass', () {
     expect(kSlipUploadDelay, const Duration(seconds: 7));
   });
 
-  test('denied access short-circuits before querying albums, leaves results empty', () async {
-    galleryRepository.access = GalleryAccessLevel.denied;
+  test(
+    'denied access short-circuits before querying albums, leaves results empty',
+    () async {
+      galleryRepository.access = GalleryAccessLevel.denied;
 
-    await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+      await container
+          .read(slipScanPipelineProvider.notifier)
+          .runScan(delay: Duration.zero);
 
-    final state = container.read(slipScanPipelineProvider);
-    expect(state.isScanning, isFalse);
-    expect(state.accessLevel, GalleryAccessLevel.denied);
-    expect(state.results, isEmpty);
-    expect(galleryRepository.queryCalls, 0);
-  });
+      final state = container.read(slipScanPipelineProvider);
+      expect(state.isScanning, isFalse);
+      expect(state.accessLevel, GalleryAccessLevel.denied);
+      expect(state.results, isEmpty);
+      expect(galleryRepository.queryCalls, 0);
+    },
+  );
 
   test('uploads new files sequentially and buckets uploaded/duplicate/failed outcomes', () async {
     galleryRepository.access = GalleryAccessLevel.full;
@@ -177,10 +203,14 @@ void main() {
     uploadRepository.newFiles = [candidateA, candidateB, candidateC];
     uploadRepository.resultByFilename = {
       'b.jpg': const Right(SlipDuplicate()),
-      'c.jpg': const Left(SlipParseFailedFailure(message: 'could not read slip')),
+      'c.jpg': const Left(
+        SlipParseFailedFailure(message: 'could not read slip'),
+      ),
     };
 
-    await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+    await container
+        .read(slipScanPipelineProvider.notifier)
+        .runScan(delay: Duration.zero);
 
     final state = container.read(slipScanPipelineProvider);
     expect(state.isScanning, isFalse);
@@ -209,18 +239,32 @@ void main() {
       uploadRepository.resultByFilename = {
         'a.jpg': Right(
           SlipUploaded(
-            Transaction(id: 1, amount: 100, type: TransactionType.expense, source: 'slip', transactionDate: DateTime.utc(2026, 8, 31)),
+            Transaction(
+              id: 1,
+              amount: 100,
+              type: TransactionType.expense,
+              source: 'slip',
+              transactionDate: DateTime.utc(2026, 8, 31),
+            ),
           ),
         ),
         'b.jpg': const Right(SlipDuplicate()),
         'c.jpg': Right(
           SlipUploaded(
-            Transaction(id: 2, amount: 100, type: TransactionType.expense, source: 'slip', transactionDate: DateTime.utc(2026, 9, 1)),
+            Transaction(
+              id: 2,
+              amount: 100,
+              type: TransactionType.expense,
+              source: 'slip',
+              transactionDate: DateTime.utc(2026, 9, 1),
+            ),
           ),
         ),
       };
 
-      await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+      await container
+          .read(slipScanPipelineProvider.notifier)
+          .runScan(delay: Duration.zero);
 
       // Exactly one call, covering both months from the whole batch — not
       // one call per file.
@@ -235,10 +279,14 @@ void main() {
       uploadRepository.newFiles = [candidateB, candidateC];
       uploadRepository.resultByFilename = {
         'b.jpg': const Right(SlipDuplicate()),
-        'c.jpg': const Left(SlipParseFailedFailure(message: 'could not read slip')),
+        'c.jpg': const Left(
+          SlipParseFailedFailure(message: 'could not read slip'),
+        ),
       };
 
-      await container.read(slipScanPipelineProvider.notifier).runScan(delay: Duration.zero);
+      await container
+          .read(slipScanPipelineProvider.notifier)
+          .runScan(delay: Duration.zero);
 
       expect(cacheInvalidator.invalidateMonthsCalls, isEmpty);
     });
@@ -251,7 +299,9 @@ void main() {
     const testDelay = Duration(milliseconds: 150);
 
     final started = DateTime.now();
-    await container.read(slipScanPipelineProvider.notifier).runScan(delay: testDelay);
+    await container
+        .read(slipScanPipelineProvider.notifier)
+        .runScan(delay: testDelay);
     final totalElapsed = DateTime.now().difference(started);
 
     expect(uploadRepository.uploadedAt, hasLength(3));
@@ -259,8 +309,12 @@ void main() {
     // spec §7.6.1's "sequential + ~7s apart" pacing, exercised here at a
     // test-sized delay instead of the real 7s so this stays fast.
     expect(totalElapsed, greaterThanOrEqualTo(testDelay * 2));
-    final gapBeforeSecond = uploadRepository.uploadedAt[1].difference(uploadRepository.uploadedAt[0]);
-    final gapBeforeThird = uploadRepository.uploadedAt[2].difference(uploadRepository.uploadedAt[1]);
+    final gapBeforeSecond = uploadRepository.uploadedAt[1].difference(
+      uploadRepository.uploadedAt[0],
+    );
+    final gapBeforeThird = uploadRepository.uploadedAt[2].difference(
+      uploadRepository.uploadedAt[1],
+    );
     expect(gapBeforeSecond, greaterThanOrEqualTo(testDelay));
     expect(gapBeforeThird, greaterThanOrEqualTo(testDelay));
   });
@@ -282,64 +336,87 @@ void main() {
     test('a manual upload with no auto-scan running fires immediately and invalidates its month', () async {
       final notifier = container.read(slipScanPipelineProvider.notifier);
 
-      final result = await notifier.uploadManual(bytes: Uint8List.fromList([1, 2, 3]), filename: 'manual.jpg');
+      final result = await notifier.uploadManual(
+        bytes: Uint8List.fromList([1, 2, 3]),
+        filename: 'manual.jpg',
+      );
 
       expect(result.isRight(), isTrue);
       expect(uploadRepository.uploadedInOrder, ['manual.jpg']);
-      expect(container.read(slipScanPipelineProvider).isManualUploading, isFalse);
+      expect(
+        container.read(slipScanPipelineProvider).isManualUploading,
+        isFalse,
+      );
       expect(cacheInvalidator.invalidateMonthsCalls, [
         {(2026, 9)},
       ]);
     });
 
-    test(
-      'tapping manual attach while an auto-scan batch is mid-flight waits for the batch to finish, '
-      'then fires automatically without a second tap',
-      () async {
-        galleryRepository.access = GalleryAccessLevel.full;
-        galleryRepository.candidates = [candidateA];
-        uploadRepository.newFiles = [candidateA];
-        final gate = Completer<void>();
-        uploadRepository.uploadOneGate = gate;
+    test('tapping manual attach while an auto-scan batch is mid-flight waits for the batch to finish, '
+        'then fires automatically without a second tap', () async {
+      galleryRepository.access = GalleryAccessLevel.full;
+      galleryRepository.candidates = [candidateA];
+      uploadRepository.newFiles = [candidateA];
+      final gate = Completer<void>();
+      uploadRepository.uploadOneGate = gate;
 
-        final notifier = container.read(slipScanPipelineProvider.notifier);
-        final scanFuture = notifier.runScan(delay: Duration.zero);
+      final notifier = container.read(slipScanPipelineProvider.notifier);
+      final scanFuture = notifier.runScan(delay: Duration.zero);
 
-        // Let the batch reach its (gated) uploadOne call for candidateA —
-        // several microtask/event-loop hops happen first (currentAccess,
-        // queryConfiguredAlbums, diffNewFiles), so a short real delay (not
-        // just `Future.value()`) is what reliably gets past all of them.
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        expect(uploadRepository.uploadedInOrder, isEmpty, reason: 'batch should be blocked on the gate, not yet recorded');
+      // Let the batch reach its (gated) uploadOne call for candidateA —
+      // several microtask/event-loop hops happen first (currentAccess,
+      // queryConfiguredAlbums, diffNewFiles), so a short real delay (not
+      // just `Future.value()`) is what reliably gets past all of them.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(
+        uploadRepository.uploadedInOrder,
+        isEmpty,
+        reason: 'batch should be blocked on the gate, not yet recorded',
+      );
 
-        final manualFuture = notifier.uploadManual(bytes: Uint8List.fromList([9, 9, 9]), filename: 'manual.jpg');
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+      final manualFuture = notifier.uploadManual(
+        bytes: Uint8List.fromList([9, 9, 9]),
+        filename: 'manual.jpg',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 20));
 
-        // The manual call must not have fired its HTTP-equivalent call yet
-        // — only the still-gated batch upload is pending, "manual.jpg" must
-        // not appear until after the batch's own upload finishes.
-        expect(uploadRepository.uploadedInOrder, isEmpty);
-        expect(container.read(slipScanPipelineProvider).isManualUploading, isTrue, reason: 'manual attach is queued, waiting its turn');
+      // The manual call must not have fired its HTTP-equivalent call yet
+      // — only the still-gated batch upload is pending, "manual.jpg" must
+      // not appear until after the batch's own upload finishes.
+      expect(uploadRepository.uploadedInOrder, isEmpty);
+      expect(
+        container.read(slipScanPipelineProvider).isManualUploading,
+        isTrue,
+        reason: 'manual attach is queued, waiting its turn',
+      );
 
-        gate.complete();
-        await Future.wait([scanFuture, manualFuture]);
+      gate.complete();
+      await Future.wait([scanFuture, manualFuture]);
 
-        expect(uploadRepository.uploadedInOrder, ['a.jpg', 'manual.jpg'], reason: 'batch upload completes, then the queued manual upload runs');
-        final finalState = container.read(slipScanPipelineProvider);
-        expect(finalState.isScanning, isFalse);
-        expect(finalState.isManualUploading, isFalse);
-      },
-    );
+      expect(uploadRepository.uploadedInOrder, [
+        'a.jpg',
+        'manual.jpg',
+      ], reason: 'batch upload completes, then the queued manual upload runs');
+      final finalState = container.read(slipScanPipelineProvider);
+      expect(finalState.isScanning, isFalse);
+      expect(finalState.isManualUploading, isFalse);
+    });
 
     test('a second manual upload while one is already in flight is rejected, not queued', () async {
       final gate = Completer<void>();
       uploadRepository.uploadOneGate = gate;
 
       final notifier = container.read(slipScanPipelineProvider.notifier);
-      final first = notifier.uploadManual(bytes: Uint8List.fromList([1]), filename: 'first.jpg');
+      final first = notifier.uploadManual(
+        bytes: Uint8List.fromList([1]),
+        filename: 'first.jpg',
+      );
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final second = await notifier.uploadManual(bytes: Uint8List.fromList([2]), filename: 'second.jpg');
+      final second = await notifier.uploadManual(
+        bytes: Uint8List.fromList([2]),
+        filename: 'second.jpg',
+      );
       expect(second.isLeft(), isTrue);
 
       gate.complete();

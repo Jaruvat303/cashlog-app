@@ -20,14 +20,24 @@ void main() {
   });
 
   test('categoryFromJson tolerates a missing icon_key/color_hex', () {
-    final category = categoryFromJson({'id': 1, 'name': 'Misc', 'type': 'income'});
+    final category = categoryFromJson({
+      'id': 1,
+      'name': 'Misc',
+      'type': 'income',
+    });
 
     expect(category.iconKey, '');
     expect(category.colorHex, '');
   });
 
   test('round-trips through a CachedCategoriesCompanion', () {
-    const category = Category(id: 1, name: 'Salary', type: CategoryType.income, iconKey: 'salary', colorHex: '#22C55E');
+    const category = Category(
+      id: 1,
+      name: 'Salary',
+      type: CategoryType.income,
+      iconKey: 'salary',
+      colorHex: '#22C55E',
+    );
 
     final companion = categoryToCompanion(category);
     expect(companion.name.value, 'Salary');
@@ -36,8 +46,11 @@ void main() {
     expect(companion.colorHex.value, '#22C55E');
   });
 
-  test('categoryTypeFromWire falls back to expense for an unrecognized value', () {
-    expect(categoryTypeFromWire('transfer'), CategoryType.expense);
-    expect(categoryTypeFromWire('income'), CategoryType.income);
-  });
+  test(
+    'categoryTypeFromWire falls back to expense for an unrecognized value',
+    () {
+      expect(categoryTypeFromWire('transfer'), CategoryType.expense);
+      expect(categoryTypeFromWire('income'), CategoryType.income);
+    },
+  );
 }

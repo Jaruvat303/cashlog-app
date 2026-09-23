@@ -17,14 +17,14 @@ typedef _CreateArgs = ({
   String name,
   CategoryType type,
   String iconKey,
-  String colorHex
+  String colorHex,
 });
 typedef _UpdateArgs = ({
   int id,
   String name,
   CategoryType type,
   String iconKey,
-  String colorHex
+  String colorHex,
 });
 
 class _FakeCategoriesRepository implements CategoriesRepository {
@@ -49,15 +49,22 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     required String colorHex,
   }) async {
     createCallCount++;
-    lastCreateArgs =
-        (name: name, type: type, iconKey: iconKey, colorHex: colorHex);
+    lastCreateArgs = (
+      name: name,
+      type: type,
+      iconKey: iconKey,
+      colorHex: colorHex,
+    );
     return nextResult ??
-        Right(Category(
+        Right(
+          Category(
             id: 1,
             name: name,
             type: type,
             iconKey: iconKey,
-            colorHex: colorHex));
+            colorHex: colorHex,
+          ),
+        );
   }
 
   @override
@@ -69,15 +76,23 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     required String colorHex,
   }) async {
     updateCallCount++;
-    lastUpdateArgs =
-        (id: id, name: name, type: type, iconKey: iconKey, colorHex: colorHex);
+    lastUpdateArgs = (
+      id: id,
+      name: name,
+      type: type,
+      iconKey: iconKey,
+      colorHex: colorHex,
+    );
     return nextResult ??
-        Right(Category(
+        Right(
+          Category(
             id: id,
             name: name,
             type: type,
             iconKey: iconKey,
-            colorHex: colorHex));
+            colorHex: colorHex,
+          ),
+        );
   }
 
   @override
@@ -107,8 +122,11 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 /// on screen, which can still leave its center outside the viewport (and so
 /// un-tappable) — `ensureVisible` afterward settles it fully into view.
 Future<void> _scrollToFinder(WidgetTester tester, Finder finder) async {
-  await tester.scrollUntilVisible(finder, 300,
-      scrollable: find.byType(Scrollable).first);
+  await tester.scrollUntilVisible(
+    finder,
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.ensureVisible(finder);
   await tester.pump();
 }
@@ -143,17 +161,20 @@ void main() {
   Widget buildApp({Category? initial, CategoryType? initialType}) =>
       ProviderScope(
         overrides: [
-          categoriesRepositoryProvider.overrideWithValue(fakeCategories)
+          categoriesRepositoryProvider.overrideWithValue(fakeCategories),
         ],
         child: MaterialApp(
           home: Scaffold(
             body: Builder(
               builder: (context) => ElevatedButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
                     builder: (_) => CategoryFormPage(
-                        initial: initial, initialType: initialType))),
+                      initial: initial,
+                      initialType: initialType,
+                    ),
+                  ),
+                ),
                 child: const Text('open'),
               ),
             ),
@@ -162,13 +183,15 @@ void main() {
       );
 
   Set<IconData?> gridIcons(WidgetTester tester) => tester
-      .widgetList<Icon>(find.descendant(
-          of: find.byType(GridView), matching: find.byType(Icon)))
+      .widgetList<Icon>(
+        find.descendant(of: find.byType(GridView), matching: find.byType(Icon)),
+      )
       .map((icon) => icon.icon)
       .toSet();
 
-  testWidgets('a new expense category offers only expense icons',
-      (tester) async {
+  testWidgets('a new expense category offers only expense icons', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
     await tester.tap(find.text('open'));
     await _pumpBounded(tester);
@@ -176,13 +199,19 @@ void main() {
     final icons = gridIcons(tester);
     expect(icons.length, kExpenseCategoryIconChoices.length);
     for (final choice in kExpenseCategoryIconChoices) {
-      expect(icons.contains(choice.$3), isTrue,
-          reason: 'expected expense icon "${choice.$1}" in the grid');
+      expect(
+        icons.contains(choice.$3),
+        isTrue,
+        reason: 'expected expense icon "${choice.$1}" in the grid',
+      );
     }
     for (final choice in kIncomeCategoryIconChoices) {
-      expect(icons.contains(choice.$3), isFalse,
-          reason:
-              'income icon "${choice.$1}" should not appear for an expense category');
+      expect(
+        icons.contains(choice.$3),
+        isFalse,
+        reason:
+            'income icon "${choice.$1}" should not appear for an expense category',
+      );
     }
   });
 
@@ -194,51 +223,60 @@ void main() {
     final icons = gridIcons(tester);
     expect(icons.length, kIncomeCategoryIconChoices.length);
     for (final choice in kIncomeCategoryIconChoices) {
-      expect(icons.contains(choice.$3), isTrue,
-          reason: 'expected income icon "${choice.$1}" in the grid');
+      expect(
+        icons.contains(choice.$3),
+        isTrue,
+        reason: 'expected income icon "${choice.$1}" in the grid',
+      );
     }
     for (final choice in kExpenseCategoryIconChoices) {
-      expect(icons.contains(choice.$3), isFalse,
-          reason:
-              'expense icon "${choice.$1}" should not appear for an income category');
+      expect(
+        icons.contains(choice.$3),
+        isFalse,
+        reason:
+            'expense icon "${choice.$1}" should not appear for an income category',
+      );
     }
   });
 
   testWidgets(
-      'switching the type segmented control swaps the icon grid to match',
-      (tester) async {
-    await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
-    expect(gridIcons(tester).length, kExpenseCategoryIconChoices.length);
+    'switching the type segmented control swaps the icon grid to match',
+    (tester) async {
+      await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
+      expect(gridIcons(tester).length, kExpenseCategoryIconChoices.length);
 
-    await tester.tap(find.text('รายรับ'));
-    await _pumpBounded(tester);
+      await tester.tap(find.text('รายรับ'));
+      await _pumpBounded(tester);
 
-    final icons = gridIcons(tester);
-    expect(icons.length, kIncomeCategoryIconChoices.length);
-    for (final choice in kIncomeCategoryIconChoices) {
-      expect(icons.contains(choice.$3), isTrue);
-    }
-  });
+      final icons = gridIcons(tester);
+      expect(icons.length, kIncomeCategoryIconChoices.length);
+      for (final choice in kIncomeCategoryIconChoices) {
+        expect(icons.contains(choice.$3), isTrue);
+      }
+    },
+  );
 
   testWidgets(
-      'editing an existing income category shows only income icons, with its own icon selected',
-      (tester) async {
-    final category = Category(
+    'editing an existing income category shows only income icons, with its own icon selected',
+    (tester) async {
+      final category = Category(
         id: 1,
         name: 'เงินเดือน',
         type: CategoryType.income,
         iconKey: 'wallet-3-fill',
-        colorHex: '#3B82F6');
-    await tester.pumpWidget(buildApp(initial: category));
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
+        colorHex: '#3B82F6',
+      );
+      await tester.pumpWidget(buildApp(initial: category));
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
 
-    final icons = gridIcons(tester);
-    expect(icons.length, kIncomeCategoryIconChoices.length);
-    expect(icons.contains(resolveCategoryIcon('wallet-3-fill')), isTrue);
-  });
+      final icons = gridIcons(tester);
+      expect(icons.length, kIncomeCategoryIconChoices.length);
+      expect(icons.contains(resolveCategoryIcon('wallet-3-fill')), isTrue);
+    },
+  );
 
   group('post-launch-polish-06: field/logic unchanged after restyle', () {
     testWidgets('an empty name is rejected — no create call', (tester) async {
@@ -255,118 +293,144 @@ void main() {
       expect(fakeCategories.createCallCount, 0);
     });
 
-    testWidgets('submits the name with the default type/icon/color, then pops',
-        (tester) async {
-      _usePhoneSizedViewport(tester);
-      await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
+    testWidgets(
+      'submits the name with the default type/icon/color, then pops',
+      (tester) async {
+        _usePhoneSizedViewport(tester);
+        await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
 
-      await tester.enterText(
+        await tester.enterText(
           find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'ค่ากาแฟ');
-      await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
-      await tester.pumpAndSettle(const Duration(milliseconds: 50),
-          EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+            of: find.byKey(const Key('nameField')),
+            matching: find.byType(TextFormField),
+          ),
+          'ค่ากาแฟ',
+        );
+        await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 50),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 5),
+        );
 
-      expect(fakeCategories.createCallCount, 1);
-      expect(fakeCategories.lastCreateArgs?.name, 'ค่ากาแฟ');
-      expect(fakeCategories.lastCreateArgs?.type, CategoryType.expense);
-      expect(fakeCategories.lastCreateArgs?.iconKey,
-          kExpenseCategoryIconChoices.first.$1);
-      expect(
-          fakeCategories.lastCreateArgs?.colorHex, kCategoryColorChoices.first);
-      expect(find.byType(CategoryFormPage), findsNothing);
-    });
+        expect(fakeCategories.createCallCount, 1);
+        expect(fakeCategories.lastCreateArgs?.name, 'ค่ากาแฟ');
+        expect(fakeCategories.lastCreateArgs?.type, CategoryType.expense);
+        expect(
+          fakeCategories.lastCreateArgs?.iconKey,
+          kExpenseCategoryIconChoices.first.$1,
+        );
+        expect(
+          fakeCategories.lastCreateArgs?.colorHex,
+          kCategoryColorChoices.first,
+        );
+        expect(find.byType(CategoryFormPage), findsNothing);
+      },
+    );
 
     testWidgets(
-        'picking a different icon and color sends those in the create call',
-        (tester) async {
-      _usePhoneSizedViewport(tester);
-      await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
+      'picking a different icon and color sends those in the create call',
+      (tester) async {
+        _usePhoneSizedViewport(tester);
+        await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
 
-      await tester.enterText(
+        await tester.enterText(
           find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'ค่ากาแฟ');
+            of: find.byKey(const Key('nameField')),
+            matching: find.byType(TextFormField),
+          ),
+          'ค่ากาแฟ',
+        );
 
-      final secondIconChoice = kExpenseCategoryIconChoices[1];
-      await tester.tap(find.byIcon(secondIconChoice.$3));
-      await _pumpBounded(tester);
+        final secondIconChoice = kExpenseCategoryIconChoices[1];
+        await tester.tap(find.byIcon(secondIconChoice.$3));
+        await _pumpBounded(tester);
 
-      final secondColor = kCategoryColorChoices[1];
-      final secondColorFinder = find.byWidgetPredicate(
-        (w) =>
-            w is Container &&
-            w.decoration is BoxDecoration &&
-            (w.decoration as BoxDecoration).color == colorFromHex(secondColor),
-      );
-      await _scrollToFinder(tester, secondColorFinder);
-      await tester.tap(secondColorFinder);
-      await _pumpBounded(tester);
+        final secondColor = kCategoryColorChoices[1];
+        final secondColorFinder = find.byWidgetPredicate(
+          (w) =>
+              w is Container &&
+              w.decoration is BoxDecoration &&
+              (w.decoration as BoxDecoration).color ==
+                  colorFromHex(secondColor),
+        );
+        await _scrollToFinder(tester, secondColorFinder);
+        await tester.tap(secondColorFinder);
+        await _pumpBounded(tester);
 
-      await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
+        await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
 
-      expect(fakeCategories.lastCreateArgs?.iconKey, secondIconChoice.$1);
-      expect(fakeCategories.lastCreateArgs?.colorHex, secondColor);
-    });
+        expect(fakeCategories.lastCreateArgs?.iconKey, secondIconChoice.$1);
+        expect(fakeCategories.lastCreateArgs?.colorHex, secondColor);
+      },
+    );
 
     testWidgets(
-        'editing prefills the name and submits via update(), never create()',
-        (tester) async {
-      _usePhoneSizedViewport(tester);
-      final existing = Category(
+      'editing prefills the name and submits via update(), never create()',
+      (tester) async {
+        _usePhoneSizedViewport(tester);
+        final existing = Category(
           id: 5,
           name: 'อาหาร',
           type: CategoryType.expense,
           iconKey: 'restaurant-fill',
-          colorHex: kCategoryColorChoices[2]);
-      await tester.pumpWidget(buildApp(initial: existing));
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
+          colorHex: kCategoryColorChoices[2],
+        );
+        await tester.pumpWidget(buildApp(initial: existing));
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
 
-      expect(find.text('อาหาร'), findsOneWidget);
+        expect(find.text('อาหาร'), findsOneWidget);
 
-      await tester.enterText(
+        await tester.enterText(
           find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'อาหารกลางวัน');
-      await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
+            of: find.byKey(const Key('nameField')),
+            matching: find.byType(TextFormField),
+          ),
+          'อาหารกลางวัน',
+        );
+        await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
 
-      expect(fakeCategories.createCallCount, 0);
-      expect(fakeCategories.updateCallCount, 1);
-      expect(fakeCategories.lastUpdateArgs?.id, 5);
-      expect(fakeCategories.lastUpdateArgs?.name, 'อาหารกลางวัน');
-      expect(fakeCategories.lastUpdateArgs?.iconKey, 'restaurant-fill');
-      expect(fakeCategories.lastUpdateArgs?.colorHex, kCategoryColorChoices[2]);
-    });
+        expect(fakeCategories.createCallCount, 0);
+        expect(fakeCategories.updateCallCount, 1);
+        expect(fakeCategories.lastUpdateArgs?.id, 5);
+        expect(fakeCategories.lastUpdateArgs?.name, 'อาหารกลางวัน');
+        expect(fakeCategories.lastUpdateArgs?.iconKey, 'restaurant-fill');
+        expect(
+          fakeCategories.lastUpdateArgs?.colorHex,
+          kCategoryColorChoices[2],
+        );
+      },
+    );
 
-    testWidgets('a failed submit shows the error and stays on the page',
-        (tester) async {
+    testWidgets('a failed submit shows the error and stays on the page', (
+      tester,
+    ) async {
       _usePhoneSizedViewport(tester);
-      fakeCategories.nextResult =
-          const Left(UnknownFailure(message: 'Could not save category'));
+      fakeCategories.nextResult = const Left(
+        UnknownFailure(message: 'Could not save category'),
+      );
       await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'ค่ากาแฟ');
+        find.descendant(
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'ค่ากาแฟ',
+      );
       await _scrollToFinder(tester, find.byKey(const Key('submitButton')));
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
@@ -376,40 +440,47 @@ void main() {
     });
 
     testWidgets(
-        'editing shows a delete button that counts linked transactions and confirms before deleting',
-        (tester) async {
-      _usePhoneSizedViewport(tester);
-      final existing = Category(
+      'editing shows a delete button that counts linked transactions and confirms before deleting',
+      (tester) async {
+        _usePhoneSizedViewport(tester);
+        final existing = Category(
           id: 5,
           name: 'อาหาร',
           type: CategoryType.expense,
           iconKey: 'restaurant-fill',
-          colorHex: kCategoryColorChoices.first);
-      fakeCategories.linkedTransactionCount = 3;
-      await tester.pumpWidget(buildApp(initial: existing));
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
-      await _scrollToFinder(
-          tester, find.byKey(const Key('deleteCategoryButton')));
+          colorHex: kCategoryColorChoices.first,
+        );
+        fakeCategories.linkedTransactionCount = 3;
+        await tester.pumpWidget(buildApp(initial: existing));
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
+        await _scrollToFinder(
+          tester,
+          find.byKey(const Key('deleteCategoryButton')),
+        );
 
-      expect(find.byKey(const Key('deleteCategoryButton')), findsOneWidget);
+        expect(find.byKey(const Key('deleteCategoryButton')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('deleteCategoryButton')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('deleteCategoryButton')));
+        await _pumpBounded(tester);
 
-      expect(
+        expect(
           find.text(
-              'มี 3 รายการที่ใช้หมวดหมู่นี้อยู่ — รายการเหล่านั้นจะกลายเป็น "ยังไม่ระบุหมวดหมู่" ยืนยันลบไหม'),
-          findsOneWidget);
+            'มี 3 รายการที่ใช้หมวดหมู่นี้อยู่ — รายการเหล่านั้นจะกลายเป็น "ยังไม่ระบุหมวดหมู่" ยืนยันลบไหม',
+          ),
+          findsOneWidget,
+        );
 
-      await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
-      await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(FilledButton, 'ลบ'));
+        await _pumpBounded(tester);
 
-      expect(fakeCategories.deleteCallCount, 1);
-    });
+        expect(fakeCategories.deleteCallCount, 1);
+      },
+    );
 
-    testWidgets('a new (non-editing) category shows no delete button',
-        (tester) async {
+    testWidgets('a new (non-editing) category shows no delete button', (
+      tester,
+    ) async {
       _usePhoneSizedViewport(tester);
       await tester.pumpWidget(buildApp(initialType: CategoryType.expense));
       await tester.tap(find.text('open'));

@@ -80,11 +80,19 @@ class AppShadows {
   const AppShadows._();
 
   /// The one card shadow reused everywhere in the mockup (`.cl-card`).
-  static const card = BoxShadow(color: Color(0x14141428), blurRadius: 20, offset: Offset(0, 6));
+  static const card = BoxShadow(
+    color: Color(0x14141428),
+    blurRadius: 20,
+    offset: Offset(0, 6),
+  );
 
   /// Softer, colored shadow under gradient-filled elements (FAB, primary
   /// buttons, hero banners).
-  static const accent = BoxShadow(color: Color(0x527C5CFC), blurRadius: 22, offset: Offset(0, 8));
+  static const accent = BoxShadow(
+    color: Color(0x527C5CFC),
+    blurRadius: 22,
+    offset: Offset(0, 8),
+  );
 }
 
 class AppTheme {
@@ -93,15 +101,19 @@ class AppTheme {
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: AppColors.accentB, primary: AppColors.accentA),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.accentB,
+        primary: AppColors.accentA,
+      ),
       scaffoldBackgroundColor: AppColors.background,
       fontFamily: GoogleFonts.ibmPlexSansThai().fontFamily,
     );
 
-    final textTheme = GoogleFonts.ibmPlexSansThaiTextTheme(base.textTheme).apply(
-      bodyColor: AppColors.textPrimary,
-      displayColor: AppColors.textPrimary,
-    );
+    final textTheme = GoogleFonts.ibmPlexSansThaiTextTheme(base.textTheme)
+        .apply(
+          bodyColor: AppColors.textPrimary,
+          displayColor: AppColors.textPrimary,
+        );
 
     return base.copyWith(
       textTheme: textTheme,
@@ -111,15 +123,24 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, fontSize: 18),
+        titleTextStyle: textTheme.titleLarge?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 18,
+        ),
       ),
       cardTheme: const CardThemeData(
         color: AppColors.surface,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(AppRadii.cardLarge))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.cardLarge)),
+        ),
         margin: EdgeInsets.zero,
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.divider, space: 1, thickness: 1),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.divider,
+        space: 1,
+        thickness: 1,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
@@ -135,14 +156,19 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppRadii.control),
           borderSide: const BorderSide(color: AppColors.accentA, width: 1.5),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 13,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.accentA,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control + 1)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.control + 1),
+          ),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
       ),
@@ -152,9 +178,17 @@ class AppTheme {
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppRadii.sheet),
+          ),
+        ),
       ),
-      dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.cardLarge))),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+        ),
+      ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.textPrimary,
         contentTextStyle: const TextStyle(color: Colors.white),
@@ -175,7 +209,10 @@ class SheetHandle extends StatelessWidget {
       width: 38,
       height: 4,
       margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(color: const Color(0xFFE2E5EA), borderRadius: BorderRadius.circular(2)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E5EA),
+        borderRadius: BorderRadius.circular(2),
+      ),
     );
   }
 }

@@ -38,12 +38,17 @@ class CategoryFormPage extends ConsumerStatefulWidget {
 
 class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.initial?.name ?? '');
-  late CategoryType _type = widget.initial?.type ?? widget.initialType ?? CategoryType.expense;
+  late final _nameController = TextEditingController(
+    text: widget.initial?.name ?? '',
+  );
+  late CategoryType _type =
+      widget.initial?.type ?? widget.initialType ?? CategoryType.expense;
   late String _iconKey = widget.initial?.iconKey.isNotEmpty == true
       ? widget.initial!.iconKey
       : categoryIconChoicesFor(_type).first.$1;
-  late String _colorHex = widget.initial?.colorHex.isNotEmpty == true ? widget.initial!.colorHex : kCategoryColorChoices.first;
+  late String _colorHex = widget.initial?.colorHex.isNotEmpty == true
+      ? widget.initial!.colorHex
+      : kCategoryColorChoices.first;
   bool _isSubmitting = false;
 
   @override
@@ -58,15 +63,28 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
     setState(() => _isSubmitting = true);
     final repo = ref.read(categoriesRepositoryProvider);
     final result = widget.isEditing
-        ? await repo.update(widget.initial!.id, name: _nameController.text.trim(), type: _type, iconKey: _iconKey, colorHex: _colorHex)
-        : await repo.create(name: _nameController.text.trim(), type: _type, iconKey: _iconKey, colorHex: _colorHex);
+        ? await repo.update(
+            widget.initial!.id,
+            name: _nameController.text.trim(),
+            type: _type,
+            iconKey: _iconKey,
+            colorHex: _colorHex,
+          )
+        : await repo.create(
+            name: _nameController.text.trim(),
+            type: _type,
+            iconKey: _iconKey,
+            colorHex: _colorHex,
+          );
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
       (_) => Navigator.of(context).pop(true),
     );
   }
@@ -78,7 +96,9 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
   /// delete.
   Future<void> _confirmDelete() async {
     final category = widget.initial!;
-    final count = await ref.read(categoriesRepositoryProvider).countLinkedTransactions(category.id);
+    final count = await ref
+        .read(categoriesRepositoryProvider)
+        .countLinkedTransactions(category.id);
     if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
@@ -91,17 +111,29 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
               : 'มี $count รายการที่ใช้หมวดหมู่นี้อยู่ — รายการเหล่านั้นจะกลายเป็น "ยังไม่ระบุหมวดหมู่" ยืนยันลบไหม',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ลบ')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ลบ'),
+          ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    final result = await ref.read(categoriesRepositoryProvider).delete(category.id);
+    final result = await ref
+        .read(categoriesRepositoryProvider)
+        .delete(category.id);
     if (!mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
       (_) => Navigator.of(context).pop(true),
     );
   }
@@ -120,12 +152,18 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CircularIconButton(
-                      icon: widget.isEditing ? RemixIcon.arrowLeftLine : RemixIcon.closeLine,
+                      icon: widget.isEditing
+                          ? RemixIcon.arrowLeftLine
+                          : RemixIcon.closeLine,
                       onTap: () => Navigator.of(context).pop(),
                     ),
                     Text(
                       widget.isEditing ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่',
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     // No trailing action — deleting an existing category
                     // stays a secondary action below the form (unchanged
@@ -157,14 +195,30 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                       controller: _nameController,
                       hintText: 'ชื่อหมวดหมู่ เช่น ค่ากาแฟ',
                       maxLength: 100,
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อหมวดหมู่' : null,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'กรุณากรอกชื่อหมวดหมู่'
+                          : null,
                     ),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        Text('เลือกไอคอน', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-                        Text('เลื่อนดูเพิ่ม', style: TextStyle(fontSize: 10.5, color: AppColors.textFaint)),
+                        Text(
+                          'เลือกไอคอน',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          'เลื่อนดูเพิ่ม',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.textFaint,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -176,15 +230,25 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                       crossAxisSpacing: 8,
                       children: categoryIconChoicesFor(_type).map((choice) {
                         final selected = _iconKey == choice.$1;
-                        final accent = selected ? colorFromHex(_colorHex) : AppColors.textSecondary;
+                        final accent = selected
+                            ? colorFromHex(_colorHex)
+                            : AppColors.textSecondary;
                         return InkWell(
                           onTap: () => setState(() => _iconKey = choice.$1),
                           borderRadius: BorderRadius.circular(13),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: selected ? colorFromHex(_colorHex).withValues(alpha: 0.14) : AppColors.background,
+                              color: selected
+                                  ? colorFromHex(_colorHex)
+                                        .withValues(alpha: 0.14)
+                                  : AppColors.background,
                               borderRadius: BorderRadius.circular(13),
-                              border: selected ? Border.all(color: colorFromHex(_colorHex), width: 2) : null,
+                              border: selected
+                                  ? Border.all(
+                                      color: colorFromHex(_colorHex),
+                                      width: 2,
+                                    )
+                                  : null,
                             ),
                             child: Icon(choice.$3, size: 19, color: accent),
                           ),
@@ -192,7 +256,14 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                       }).toList(),
                     ),
                     const SizedBox(height: 20),
-                    const Text('เลือกสี', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                    const Text(
+                      'เลือกสี',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                     const SizedBox(height: 10),
                     Wrap(
                       spacing: 10,
@@ -209,10 +280,23 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                                   color: colorFromHex(hex),
                                   shape: BoxShape.circle,
                                   boxShadow: _colorHex == hex
-                                      ? [BoxShadow(color: colorFromHex(hex).withValues(alpha: 0.5), blurRadius: 0, spreadRadius: 2.5)]
+                                      ? [
+                                          BoxShadow(
+                                            color: colorFromHex(hex)
+                                                .withValues(alpha: 0.5),
+                                            blurRadius: 0,
+                                            spreadRadius: 2.5,
+                                          ),
+                                        ]
                                       : null,
                                 ),
-                                child: _colorHex == hex ? const Icon(Icons.check, color: Colors.white, size: 16) : null,
+                                child: _colorHex == hex
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 16,
+                                      )
+                                    : null,
                               ),
                             ),
                           )
@@ -231,7 +315,9 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                         child: TextButton(
                           key: const Key('deleteCategoryButton'),
                           onPressed: _isSubmitting ? null : _confirmDelete,
-                          style: TextButton.styleFrom(foregroundColor: AppColors.expense),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppColors.expense,
+                          ),
                           child: const Text('ลบหมวดหมู่'),
                         ),
                       ),

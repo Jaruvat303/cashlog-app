@@ -38,7 +38,8 @@ class TransactionFormPage extends ConsumerStatefulWidget {
   final Transaction initial;
 
   @override
-  ConsumerState<TransactionFormPage> createState() => _TransactionFormPageState();
+  ConsumerState<TransactionFormPage> createState() =>
+      _TransactionFormPageState();
 }
 
 class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
@@ -47,7 +48,9 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   // every keystroke, so this opens already matching Add's live-typed
   // comma-grouped style instead of only starting to match it after the
   // user's first edit.
-  late final _amountController = TextEditingController(text: formatAmountForInput(widget.initial.amount));
+  late final _amountController = TextEditingController(
+    text: formatAmountForInput(widget.initial.amount),
+  );
   late final _noteController = TextEditingController(text: widget.initial.note);
   late TransactionType _type = widget.initial.type;
   late DateTime _date = widget.initial.transactionDate;
@@ -69,7 +72,10 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
 
     final imageName = widget.initial.localImageName;
     if (imageName != null && imageName.isNotEmpty) {
-      _slipImageFuture = _lookupSlipImageBytes(ref.read(slipGalleryRepositoryProvider), imageName);
+      _slipImageFuture = _lookupSlipImageBytes(
+        ref.read(slipGalleryRepositoryProvider),
+        imageName,
+      );
     }
   }
 
@@ -78,7 +84,10 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   /// matching filename, or the asset was deleted since it was scanned)
   /// resolves to `null` rather than throwing, so the slip section falls back
   /// to the placeholder silently instead of surfacing an error state.
-  Future<Uint8List?> _lookupSlipImageBytes(SlipGalleryRepository repo, String filename) async {
+  Future<Uint8List?> _lookupSlipImageBytes(
+    SlipGalleryRepository repo,
+    String filename,
+  ) async {
     final candidates = await repo.queryConfiguredAlbums();
     for (final candidate in candidates) {
       if (candidate.filename == filename) return repo.readBytes(candidate.id);
@@ -94,23 +103,46 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: DateTime(2100));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
     if (picked != null) setState(() => _date = picked);
   }
 
   Future<void> _pickCategory() async {
-    final categoryType = _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
-    final selection = await showCategoryGridPicker(context, categoryType: categoryType, currentCategoryId: _categoryId, subtitle: 'เลือกหมวดหมู่สำหรับรายการนี้');
+    final categoryType = _type == TransactionType.income
+        ? CategoryType.income
+        : CategoryType.expense;
+    final selection = await showCategoryGridPicker(
+      context,
+      categoryType: categoryType,
+      currentCategoryId: _categoryId,
+      subtitle: 'เลือกหมวดหมู่สำหรับรายการนี้',
+    );
     if (selection == null) return;
     setState(() => _categoryId = selection.categoryId);
   }
 
-  Future<void> _pickAccount(BuildContext anchorContext, List<Account> accounts, void Function(int id) onPicked) async {
+  Future<void> _pickAccount(
+    BuildContext anchorContext,
+    List<Account> accounts,
+    void Function(int id) onPicked,
+  ) async {
     final result = await showAnchoredDropdown<int>(
       anchorContext: anchorContext,
       panelBuilder: (context, close) => Column(
         mainAxisSize: MainAxisSize.min,
-        children: [for (final a in accounts) DropdownPanelOption(key: Key('accountOption_${a.id}'), label: a.name, onTap: () => close(a.id))],
+        children: [
+          for (final a in accounts)
+            DropdownPanelOption(
+              key: Key('accountOption_${a.id}'),
+              label: a.name,
+              onTap: () => close(a.id),
+            ),
+        ],
       ),
     );
     if (result != null) onPicked(result);
@@ -151,7 +183,12 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     setState(() => _isSubmitting = false);
 
     await result.fold(
-      (failure) => _handleFailure(failure, amount: amount, note: note, isTransfer: isTransfer),
+      (failure) => _handleFailure(
+        failure,
+        amount: amount,
+        note: note,
+        isTransfer: isTransfer,
+      ),
       (_) async {
         _invalidateAffectedMonths();
         Navigator.of(context).pop(true);
@@ -163,7 +200,12 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
   /// `pending_manual_actions` so the user's typed data isn't lost; a
   /// permanent one stays snackbar-only, since retrying an identical payload
   /// against it can't succeed.
-  Future<void> _handleFailure(Failure failure, {required double amount, required String note, required bool isTransfer}) async {
+  Future<void> _handleFailure(
+    Failure failure, {
+    required double amount,
+    required String note,
+    required bool isTransfer,
+  }) async {
     final payload = updateTransactionPayload(
       type: _type,
       amount: amount,
@@ -186,14 +228,24 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
         );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      SnackBar(
+        content: Text(
+          queued
+              ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'
+              : (failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
     );
   }
 
   /// CLAUDE.md: invalidate only the affected month's cache — both the old
   /// and new month when an edit moves the date across a month boundary.
   void _invalidateAffectedMonths() {
-    ref.read(cacheInvalidatorProvider).invalidateMonths(monthsAffectedByEdit(widget.initial.transactionDate, _date));
+    ref
+        .read(cacheInvalidatorProvider)
+        .invalidateMonths(
+          monthsAffectedByEdit(widget.initial.transactionDate, _date),
+        );
   }
 
   /// Ticket 04's sole delete path for any transaction, junk or not: real
@@ -206,15 +258,23 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
         title: const Text('ลบรายการนี้ใช่ไหม'),
         content: const Text('การลบไม่สามารถกู้คืนได้'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ลบ')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ลบ'),
+          ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
 
     final transaction = widget.initial;
-    final result = await ref.read(transactionsRepositoryProvider).delete(transaction.id);
+    final result = await ref
+        .read(transactionsRepositoryProvider)
+        .delete(transaction.id);
     if (!context.mounted) return;
 
     await result.fold(
@@ -224,16 +284,29 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
             .recordIfTransient(
               failure: failure,
               actionType: PendingActionType.deleteTransaction,
-              payload: deleteTransactionPayload(date: transaction.transactionDate),
+              payload: deleteTransactionPayload(
+                date: transaction.transactionDate,
+              ),
               targetTransactionId: transaction.id,
             );
         if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ลบรายการไม่สำเร็จ'))),
+          SnackBar(
+            content: Text(
+              queued
+                  ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'
+                  : (failure.message ?? 'ลบรายการไม่สำเร็จ'),
+            ),
+          ),
         );
       },
       (_) async {
-        ref.read(cacheInvalidatorProvider).invalidateMonth(transaction.transactionDate.year, transaction.transactionDate.month);
+        ref
+            .read(cacheInvalidatorProvider)
+            .invalidateMonth(
+              transaction.transactionDate.year,
+              transaction.transactionDate.month,
+            );
         if (context.mounted) Navigator.of(context).pop(true);
       },
     );
@@ -258,8 +331,18 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    CircularIconButton(icon: RemixIcon.arrowLeftLine, onTap: () => Navigator.of(context).pop()),
-                    const Text('แก้ไขรายการ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    CircularIconButton(
+                      icon: RemixIcon.arrowLeftLine,
+                      onTap: () => Navigator.of(context).pop(),
+                    ),
+                    const Text(
+                      'แก้ไขรายการ',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                     // Ticket 04: a direct delete action (trash icon) replaces
                     // the old overflow ("...") button, which never actually
                     // opened a menu — this is the page's sole delete entry
@@ -269,7 +352,9 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                       key: const Key('deleteTransactionButton'),
                       icon: RemixIcon.deleteBinLine,
                       iconColor: AppColors.expense,
-                      onTap: _isSubmitting ? null : () => _confirmDelete(context),
+                      onTap: _isSubmitting
+                          ? null
+                          : () => _confirmDelete(context),
                     ),
                   ],
                 ),
@@ -280,7 +365,9 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                   children: [
                     SegmentedTabs<TransactionType>(
                       values: TransactionType.values,
-                      labels: TransactionType.values.map((t) => t.label).toList(),
+                      labels: TransactionType.values
+                          .map((t) => t.label)
+                          .toList(),
                       selected: _type,
                       onChanged: (type) => setState(() {
                         _type = type;
@@ -305,12 +392,18 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                     // instead of gating on `.when`), so they always
                     // register with `_formKey` regardless of the accounts
                     // stream's state.
-                    _buildFormFields(accountsAsync.value ?? const <Account>[], category),
+                    _buildFormFields(
+                      accountsAsync.value ?? const <Account>[],
+                      category,
+                    ),
                     if (accountsAsync.hasError) ...[
                       const SizedBox(height: 6),
                       Text(
                         'โหลดบัญชีไม่สำเร็จ: ${accountsAsync.error}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.expense),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.expense,
+                        ),
                       ),
                     ],
                     if (isTransfer) ...[
@@ -318,17 +411,28 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                       const Text(
                         'การย้ายเงินไม่นับเป็นรายรับหรือรายจ่าย ใช้สำหรับโอนเงินระหว่างบัญชีของคุณเอง เติมเงินกระเป๋า หรือจ่ายหนี้',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),
-                    PrimaryGradientButton(key: const Key('submitButton'), label: 'บันทึก', onTap: _isSubmitting ? null : _submit, enabled: !_isSubmitting),
+                    PrimaryGradientButton(
+                      key: const Key('submitButton'),
+                      label: 'บันทึก',
+                      onTap: _isSubmitting ? null : _submit,
+                      enabled: !_isSubmitting,
+                    ),
                     // Ticket 04: "ข้อมูลจากสลิป" always sits at the bottom of
                     // the form now (spec: the fields edited most often —
                     // amount, category, account — should be reachable
                     // first), previously the form's very first item.
                     const SizedBox(height: 20),
-                    _SlipInfoCard(transaction: widget.initial, future: _slipImageFuture),
+                    _SlipInfoCard(
+                      transaction: widget.initial,
+                      future: _slipImageFuture,
+                    ),
                   ],
                 ),
               ),
@@ -359,15 +463,27 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
       dateLabel: relativeDayLabel(_date),
       onCategoryTap: _pickCategory,
       onDateTap: (anchorContext) => _pickDate(),
-      onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
-      onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-        _fromAccountId = id;
-        _transferError = null;
-      })),
-      onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-        _toAccountId = id;
-        _transferError = null;
-      })),
+      onAccountTap: (anchorContext) => _pickAccount(
+        anchorContext,
+        accounts,
+        (id) => setState(() => _accountId = id),
+      ),
+      onFromAccountTap: (anchorContext) => _pickAccount(
+        anchorContext,
+        accounts,
+        (id) => setState(() {
+          _fromAccountId = id;
+          _transferError = null;
+        }),
+      ),
+      onToAccountTap: (anchorContext) => _pickAccount(
+        anchorContext,
+        accounts,
+        (id) => setState(() {
+          _toAccountId = id;
+          _transferError = null;
+        }),
+      ),
       transferError: _transferError,
       noteController: _noteController,
     );
@@ -419,11 +535,17 @@ class _SlipInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
-    final counterparty = isIncome ? transaction.senderName : transaction.receiverName;
+    final counterparty = isIncome
+        ? transaction.senderName
+        : transaction.receiverName;
     return Container(
       key: const Key('slipInfoCard'),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+        boxShadow: const [AppShadows.card],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -431,19 +553,46 @@ class _SlipInfoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ข้อมูลจากสลิป', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                const Text(
+                  'ข้อมูลจากสลิป',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 if (counterparty.isNotEmpty) ...[
                   Row(
                     children: [
-                      const Icon(RemixIcon.userLine, size: 14, color: AppColors.textSecondary),
+                      const Icon(
+                        RemixIcon.userLine,
+                        size: 14,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 6),
-                      Expanded(child: Text(counterparty, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary), overflow: TextOverflow.ellipsis)),
+                      Expanded(
+                        child: Text(
+                          counterparty,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
                 ],
-                Text(dateTimeLabel(transaction.transactionDate), style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                Text(
+                  dateTimeLabel(transaction.transactionDate),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -488,7 +637,13 @@ class _Thumbnail extends StatelessWidget {
               onTap: () => showFullScreenImageViewer(context, bytes),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.memory(bytes, key: const Key('slipThumbnail'), width: _width, height: _height, fit: BoxFit.cover),
+                child: Image.memory(
+                  bytes,
+                  key: const Key('slipThumbnail'),
+                  width: _width,
+                  height: _height,
+                  fit: BoxFit.cover,
+                ),
               ),
             ),
             const SizedBox(height: 4),
@@ -518,7 +673,10 @@ class _Thumbnail extends StatelessWidget {
       key: const Key('slipImagePlaceholder'),
       width: _width,
       height: _height,
-      decoration: BoxDecoration(gradient: AppColors.accentGradient, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        gradient: AppColors.accentGradient,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: const Icon(RemixIcon.imageLine, color: Colors.white, size: 20),
     );
   }

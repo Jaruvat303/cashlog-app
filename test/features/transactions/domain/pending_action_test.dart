@@ -4,23 +4,40 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('PendingActionType wire round-trip', () {
-    test('every value round-trips through toWire/pendingActionTypeFromWire', () {
-      for (final type in PendingActionType.values) {
-        expect(pendingActionTypeFromWire(type.toWire()), type);
-      }
-    });
+    test(
+      'every value round-trips through toWire/pendingActionTypeFromWire',
+      () {
+        for (final type in PendingActionType.values) {
+          expect(pendingActionTypeFromWire(type.toWire()), type);
+        }
+      },
+    );
 
     test('matches spec §8\'s exact documented strings', () {
-      expect(PendingActionType.createTransaction.toWire(), 'create_transaction');
+      expect(
+        PendingActionType.createTransaction.toWire(),
+        'create_transaction',
+      );
       expect(PendingActionType.createTransfer.toWire(), 'create_transfer');
-      expect(PendingActionType.updateTransaction.toWire(), 'update_transaction');
-      expect(PendingActionType.deleteTransaction.toWire(), 'delete_transaction');
+      expect(
+        PendingActionType.updateTransaction.toWire(),
+        'update_transaction',
+      );
+      expect(
+        PendingActionType.deleteTransaction.toWire(),
+        'delete_transaction',
+      );
     });
   });
 
   group('createTransactionPayload round-trip', () {
     test('required fields only', () {
-      final payload = createTransactionPayload(type: TransactionType.income, amount: 100, date: DateTime.utc(2026, 9, 5), accountId: 3);
+      final payload = createTransactionPayload(
+        type: TransactionType.income,
+        amount: 100,
+        date: DateTime.utc(2026, 9, 5),
+        accountId: 3,
+      );
       final args = readCreateTransactionPayload(payload);
 
       expect(args.type, TransactionType.income);
@@ -48,7 +65,13 @@ void main() {
   });
 
   test('createTransferPayload round-trip', () {
-    final payload = createTransferPayload(amount: 200, date: DateTime.utc(2026, 9, 5), fromAccountId: 1, toAccountId: 2, categoryId: 7);
+    final payload = createTransferPayload(
+      amount: 200,
+      date: DateTime.utc(2026, 9, 5),
+      fromAccountId: 1,
+      toAccountId: 2,
+      categoryId: 7,
+    );
     final args = readCreateTransferPayload(payload);
 
     expect(args.amount, 200);

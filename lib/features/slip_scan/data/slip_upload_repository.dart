@@ -2,7 +2,8 @@ import 'dart:typed_data';
 
 import 'package:dartz/dartz.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
-import 'package:drift/drift.dart' show BooleanExpressionOperators, OrderingTerm, Value;
+import 'package:drift/drift.dart'
+    show BooleanExpressionOperators, OrderingTerm, Value;
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -48,11 +49,20 @@ class SlipUploadRepository {
   /// is a real permanent failure (matches spec §4's "surface to user, no
   /// auto-retry") and must not be re-attempted automatically. `junk` never
   /// appears here since T10 never writes that status (T12's job).
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) async {
-    final resolvedNames = await (_db.select(_db.scannedSlips)
-          ..where((s) => s.status.isInValues(const [SlipStatus.uploaded, SlipStatus.duplicate, SlipStatus.failed, SlipStatus.junk])))
-        .map((row) => row.localImageName)
-        .get();
+  Future<List<SlipCandidate>> diffNewFiles(
+    List<SlipCandidate> candidates,
+  ) async {
+    final resolvedNames =
+        await (_db.select(_db.scannedSlips)..where(
+              (s) => s.status.isInValues(const [
+                SlipStatus.uploaded,
+                SlipStatus.duplicate,
+                SlipStatus.failed,
+                SlipStatus.junk,
+              ]),
+            ))
+            .map((row) => row.localImageName)
+            .get();
     final resolved = resolvedNames.toSet();
     return candidates.where((c) => !resolved.contains(c.filename)).toList();
   }
@@ -62,12 +72,16 @@ class SlipUploadRepository {
   /// records the attempt in `scanned_slips` before returning, so a caller
   /// that never inspects the result still gets a durable record of what was
   /// attempted.
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) async {
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(
+    SlipCandidate candidate,
+  ) async {
     final retryCount = await _retryCountFor(candidate.filename);
 
     final rawBytes = await _galleryRepository.readBytes(candidate.id);
     if (rawBytes == null) {
-      const failure = UnknownFailure(message: 'Source image is no longer available in the gallery.');
+      const failure = UnknownFailure(
+        message: 'Source image is no longer available in the gallery.',
+      );
       await _recordFailure(candidate, retryCount, failure);
       return const Left(failure);
     }
@@ -86,8 +100,15 @@ class SlipUploadRepository {
   /// across both intake channels (never concurrent with an auto-scan batch)
   /// is `SlipScanPipeline`'s job, not this repository's — same division of
   /// responsibility as [uploadOne]'s own doc comment.
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
-    final candidate = SlipCandidate(id: filename, filename: filename, sourceAlbum: kManualSlipSourceFolder);
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
+    final candidate = SlipCandidate(
+      id: filename,
+      filename: filename,
+      sourceAlbum: kManualSlipSourceFolder,
+    );
     final retryCount = await _retryCountFor(filename);
     return _uploadBytes(candidate, bytes, retryCount);
   }
@@ -104,7 +125,11 @@ class SlipUploadRepository {
   /// never makes a stalled auto-scan look falsely healthy.
   Stream<DateTime?> watchLastSuccessfulAutoScanUpload() {
     final query = _db.select(_db.scannedSlips)
-      ..where((s) => s.status.equalsValue(SlipStatus.uploaded) & s.sourceFolder.equals(kManualSlipSourceFolder).not())
+      ..where(
+        (s) =>
+            s.status.equalsValue(SlipStatus.uploaded) &
+            s.sourceFolder.equals(kManualSlipSourceFolder).not(),
+      )
       ..orderBy([(s) => OrderingTerm.desc(s.scannedAt)])
       ..limit(1);
     return query.watchSingleOrNull().map((row) => row?.scannedAt);
@@ -117,13 +142,20 @@ class SlipUploadRepository {
     return priorRow == null ? 0 : priorRow.retryCount + 1;
   }
 
-  Future<Either<Failure, SlipUploadOutcome>> _uploadBytes(SlipCandidate candidate, Uint8List rawBytes, int retryCount) async {
+  Future<Either<Failure, SlipUploadOutcome>> _uploadBytes(
+    SlipCandidate candidate,
+    Uint8List rawBytes,
+    int retryCount,
+  ) async {
     final compressed = await _compress(rawBytes);
     final result = await _apiClient.post<SlipUploadOutcome>(
       '/api/v1/transactions/upload-slip',
       data: FormData.fromMap({
         'local_image_name': candidate.filename,
-        'image': MultipartFile.fromBytes(compressed, filename: candidate.filename),
+        'image': MultipartFile.fromBytes(
+          compressed,
+          filename: candidate.filename,
+        ),
       }),
       parse: _parseUploadOutcome,
     );
@@ -163,7 +195,9 @@ class SlipUploadRepository {
   SlipUploadOutcome _parseUploadOutcome(dynamic data) {
     final map = data as Map<String, dynamic>;
     final txJson = map['data'] as Map<String, dynamic>?;
-    return txJson == null ? const SlipDuplicate() : SlipUploaded(transactionFromJson(txJson));
+    return txJson == null
+        ? const SlipDuplicate()
+        : SlipUploaded(transactionFromJson(txJson));
   }
 
   /// Single-pass compress targeting well under the backend's 4MB
@@ -172,29 +206,48 @@ class SlipUploadRepository {
   /// slip screenshots are small enough in practice that a second pass
   /// should never be needed.
   Future<Uint8List> _compress(Uint8List bytes) async {
-    var compressed = await FlutterImageCompress.compressWithList(bytes, quality: 80, minWidth: 1600, minHeight: 1600);
+    var compressed = await FlutterImageCompress.compressWithList(
+      bytes,
+      quality: 80,
+      minWidth: 1600,
+      minHeight: 1600,
+    );
     if (compressed.lengthInBytes > 3.5 * 1024 * 1024) {
-      compressed = await FlutterImageCompress.compressWithList(bytes, quality: 50, minWidth: 1280, minHeight: 1280);
+      compressed = await FlutterImageCompress.compressWithList(
+        bytes,
+        quality: 50,
+        minWidth: 1280,
+        minHeight: 1280,
+      );
     }
     return compressed;
   }
 
-  Future<void> _recordUploaded(SlipCandidate candidate, int retryCount, Transaction transaction) => _db.transaction(() async {
-    await _db.into(_db.scannedSlips).insertOnConflictUpdate(
-      ScannedSlipsCompanion.insert(
-        localImageName: candidate.filename,
-        sourceFolder: candidate.sourceAlbum,
-        status: SlipStatus.uploaded,
-        serverTransactionId: Value(transaction.id),
-        retryCount: Value(retryCount),
-        scannedAt: DateTime.now(),
-      ),
-    );
-    await _db.into(_db.cachedTransactions).insertOnConflictUpdate(transactionToCompanion(transaction));
+  Future<void> _recordUploaded(
+    SlipCandidate candidate,
+    int retryCount,
+    Transaction transaction,
+  ) => _db.transaction(() async {
+    await _db
+        .into(_db.scannedSlips)
+        .insertOnConflictUpdate(
+          ScannedSlipsCompanion.insert(
+            localImageName: candidate.filename,
+            sourceFolder: candidate.sourceAlbum,
+            status: SlipStatus.uploaded,
+            serverTransactionId: Value(transaction.id),
+            retryCount: Value(retryCount),
+            scannedAt: DateTime.now(),
+          ),
+        );
+    await _db
+        .into(_db.cachedTransactions)
+        .insertOnConflictUpdate(transactionToCompanion(transaction));
   });
 
-  Future<void> _recordDuplicate(SlipCandidate candidate, int retryCount) =>
-      _db.into(_db.scannedSlips).insertOnConflictUpdate(
+  Future<void> _recordDuplicate(SlipCandidate candidate, int retryCount) => _db
+      .into(_db.scannedSlips)
+      .insertOnConflictUpdate(
         ScannedSlipsCompanion.insert(
           localImageName: candidate.filename,
           sourceFolder: candidate.sourceAlbum,
@@ -204,8 +257,13 @@ class SlipUploadRepository {
         ),
       );
 
-  Future<void> _recordFailure(SlipCandidate candidate, int retryCount, Failure failure) =>
-      _db.into(_db.scannedSlips).insertOnConflictUpdate(
+  Future<void> _recordFailure(
+    SlipCandidate candidate,
+    int retryCount,
+    Failure failure,
+  ) => _db
+      .into(_db.scannedSlips)
+      .insertOnConflictUpdate(
         ScannedSlipsCompanion.insert(
           localImageName: candidate.filename,
           sourceFolder: candidate.sourceAlbum,
@@ -223,8 +281,13 @@ class SlipUploadRepository {
   /// same as any other status — there's no retry cap here by design (spec:
   /// retried indefinitely until it either succeeds or fails for a different,
   /// non-quota reason).
-  Future<void> _recordQuotaExceeded(SlipCandidate candidate, int retryCount, Failure failure) =>
-      _db.into(_db.scannedSlips).insertOnConflictUpdate(
+  Future<void> _recordQuotaExceeded(
+    SlipCandidate candidate,
+    int retryCount,
+    Failure failure,
+  ) => _db
+      .into(_db.scannedSlips)
+      .insertOnConflictUpdate(
         ScannedSlipsCompanion.insert(
           localImageName: candidate.filename,
           sourceFolder: candidate.sourceAlbum,
@@ -253,12 +316,16 @@ class SlipUploadRepository {
     SlipParseFailedFailure() => 'SLIP_PARSE_FAILED',
     AccountInactiveFailure() => 'ACCOUNT_INACTIVE',
     TransferSameAccountFailure() => 'TRANSFER_SAME_ACCOUNT',
-    CategoryNotAllowedForTransferFailure() => 'CATEGORY_NOT_ALLOWED_FOR_TRANSFER',
+    CategoryNotAllowedForTransferFailure() =>
+      'CATEGORY_NOT_ALLOWED_FOR_TRANSFER',
     GeminiQuotaExhaustedFailure() => 'GEMINI_QUOTA_EXHAUSTED',
     UnknownFailure(code: final code) => code ?? 'UNKNOWN',
   };
 }
 
 @riverpod
-SlipUploadRepository slipUploadRepository(Ref ref) =>
-    SlipUploadRepository(ref.watch(apiClientProvider), ref.watch(appDatabaseProvider), ref.watch(slipGalleryRepositoryProvider));
+SlipUploadRepository slipUploadRepository(Ref ref) => SlipUploadRepository(
+  ref.watch(apiClientProvider),
+  ref.watch(appDatabaseProvider),
+  ref.watch(slipGalleryRepositoryProvider),
+);

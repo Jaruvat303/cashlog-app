@@ -33,18 +33,28 @@ class _FakeTransactionResponseAdapter implements HttpClientAdapter {
   Map<int, (List<Map<String, dynamic>>, int)> getPages = {};
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requestedPaths.add(options.path);
 
     if (options.method == 'GET') {
       getQueryParameters.add(options.queryParameters);
       final page = options.queryParameters['page'] as int;
-      final (rows, totalPages) = getPages[page] ?? (const <Map<String, dynamic>>[], 1);
+      final (rows, totalPages) =
+          getPages[page] ?? (const <Map<String, dynamic>>[], 1);
       return ResponseBody.fromString(
         jsonEncode({
           'success': true,
           'data': rows,
-          'meta': {'current_page': page, 'page_size': options.queryParameters['limit'], 'total_items': 0, 'total_pages': totalPages},
+          'meta': {
+            'current_page': page,
+            'page_size': options.queryParameters['limit'],
+            'total_items': 0,
+            'total_pages': totalPages,
+          },
         }),
         200,
         headers: {
@@ -55,7 +65,10 @@ class _FakeTransactionResponseAdapter implements HttpClientAdapter {
 
     if (options.method == 'DELETE') {
       return ResponseBody.fromString(
-        jsonEncode({'success': true, 'message': 'Transaction deleted successfully'}),
+        jsonEncode({
+          'success': true,
+          'message': 'Transaction deleted successfully',
+        }),
         200,
         headers: {
           Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -64,7 +77,9 @@ class _FakeTransactionResponseAdapter implements HttpClientAdapter {
     }
 
     final isTransfer = options.path.endsWith('/transfer');
-    final sentBody = options.data is Map ? Map<String, dynamic>.from(options.data as Map) : <String, dynamic>{};
+    final sentBody = options.data is Map
+        ? Map<String, dynamic>.from(options.data as Map)
+        : <String, dynamic>{};
     final categoryId = sentBody.remove('category_id');
 
     final responseData = <String, dynamic>{
@@ -73,13 +88,21 @@ class _FakeTransactionResponseAdapter implements HttpClientAdapter {
       // transaction_type field at all, so the live response's
       // "transaction_type": "transfer" isn't an echo of anything sent —
       // synthesize it the same way the real backend does.
-      'transaction_type': isTransfer ? 'transfer' : sentBody['transaction_type'],
+      'transaction_type': isTransfer
+          ? 'transfer'
+          : sentBody['transaction_type'],
       ...sentBody,
       // The live response nests category info, never a flat category_id —
       // reproduce that here instead of echoing category_id back flat.
       'category': categoryId == null
           ? null
-          : {'id': categoryId, 'name': 'Food', 'type': 'expense', 'icon_key': 'food', 'color_hex': '#EF4444'},
+          : {
+              'id': categoryId,
+              'name': 'Food',
+              'type': 'expense',
+              'icon_key': 'food',
+              'color_hex': '#EF4444',
+            },
     };
     return ResponseBody.fromString(
       jsonEncode({'data': responseData}),
@@ -101,8 +124,15 @@ class _FakeTransactionResponseAdapter implements HttpClientAdapter {
 /// about (never lose local state on a failed mutation).
 class _FailingDeleteAdapter implements HttpClientAdapter {
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
-    return ResponseBody.fromString(jsonEncode({'success': false, 'message': 'not found'}), 404);
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return ResponseBody.fromString(
+      jsonEncode({'success': false, 'message': 'not found'}),
+      404,
+    );
   }
 
   @override
@@ -117,7 +147,10 @@ void main() {
   setUp(() {
     db = AppDatabase.withExecutor(NativeDatabase.memory());
     adapter = _FakeTransactionResponseAdapter(1);
-    repository = TransactionsRepository(ApiClient(Dio()..httpClientAdapter = adapter), db);
+    repository = TransactionsRepository(
+      ApiClient(Dio()..httpClientAdapter = adapter),
+      db,
+    );
   });
 
   tearDown(() async {
@@ -132,7 +165,12 @@ void main() {
       accountId: 5,
       categoryId: 9,
     );
-    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    expect(
+      result.isRight(),
+      isTrue,
+      reason:
+          'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+    );
     expect(adapter.requestedPaths, ['/api/v1/transactions']);
 
     final row = await db.select(db.cachedTransactions).getSingle();
@@ -144,8 +182,18 @@ void main() {
   });
 
   test('create income hits POST /transactions, categoryId optional', () async {
-    final result = await repository.create(type: TransactionType.income, amount: 5000, date: DateTime.utc(2026, 9, 1), accountId: 3);
-    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    final result = await repository.create(
+      type: TransactionType.income,
+      amount: 5000,
+      date: DateTime.utc(2026, 9, 1),
+      accountId: 3,
+    );
+    expect(
+      result.isRight(),
+      isTrue,
+      reason:
+          'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+    );
     expect(adapter.requestedPaths, ['/api/v1/transactions']);
 
     final row = await db.select(db.cachedTransactions).getSingle();
@@ -162,7 +210,12 @@ void main() {
       fromAccountId: 1,
       toAccountId: 2,
     );
-    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    expect(
+      result.isRight(),
+      isTrue,
+      reason:
+          'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+    );
     expect(adapter.requestedPaths, ['/api/v1/transactions/transfer']);
 
     final row = await db.select(db.cachedTransactions).getSingle();
@@ -175,32 +228,46 @@ void main() {
 
   group('fetchPage (GET /transactions)', () {
     test('sends year/month/page/limit as query parameters', () async {
-      adapter.getPages = {
-        1: (const [], 1),
-      };
+      adapter.getPages = {1: (const [], 1)};
       await repository.fetchPage(year: 2026, month: 9, page: 1, limit: 15);
 
       expect(adapter.requestedPaths, ['/api/v1/transactions']);
-      expect(adapter.getQueryParameters.single, {'year': 2026, 'month': 9, 'page': 1, 'limit': 15});
+      expect(adapter.getQueryParameters.single, {
+        'year': 2026,
+        'month': 9,
+        'page': 1,
+        'limit': 15,
+      });
     });
 
     test('upserts the returned page into cached_transactions and parses pagination meta', () async {
       adapter.getPages = {
-        1: ([
-          {
-            'id': 101,
-            'amount': 50,
-            'transaction_type': 'expense',
-            'account_id': 1,
-            'transaction_date': '2026-09-05T00:00:00.000Z',
-            'category': null,
-          },
-        ], 2),
+        1: (
+          [
+            {
+              'id': 101,
+              'amount': 50,
+              'transaction_type': 'expense',
+              'account_id': 1,
+              'transaction_date': '2026-09-05T00:00:00.000Z',
+              'category': null,
+            },
+          ],
+          2,
+        ),
       };
 
       final result = await repository.fetchPage(year: 2026, month: 9, page: 1);
-      expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
-      final page = result.fold((f) => throw StateError('unreachable'), (p) => p);
+      expect(
+        result.isRight(),
+        isTrue,
+        reason:
+            'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+      );
+      final page = result.fold(
+        (f) => throw StateError('unreachable'),
+        (p) => p,
+      );
       expect(page.currentPage, 1);
       expect(page.totalPages, 2);
       expect(page.hasMore, isTrue);
@@ -211,18 +278,24 @@ void main() {
     });
 
     test('hasMore is false once currentPage reaches totalPages', () async {
-      adapter.getPages = {
-        2: (const [], 2),
-      };
+      adapter.getPages = {2: (const [], 2)};
 
       final result = await repository.fetchPage(year: 2026, month: 9, page: 2);
-      final page = result.fold((f) => throw StateError('unreachable'), (p) => p);
+      final page = result.fold(
+        (f) => throw StateError('unreachable'),
+        (p) => p,
+      );
       expect(page.hasMore, isFalse);
     });
   });
 
   group('watchMonth', () {
-    Future<void> seed(int id, DateTime date, {int? categoryId, TransactionType type = TransactionType.expense}) => db
+    Future<void> seed(
+      int id,
+      DateTime date, {
+      int? categoryId,
+      TransactionType type = TransactionType.expense,
+    }) => db
         .into(db.cachedTransactions)
         .insert(
           CachedTransactionsCompanion.insert(
@@ -236,7 +309,10 @@ void main() {
         );
 
     test('only emits rows within the given month, newest first', () async {
-      await seed(1, DateTime.utc(2026, 8, 31, 23, 59, 59)); // just before September — excluded
+      await seed(
+        1,
+        DateTime.utc(2026, 8, 31, 23, 59, 59),
+      ); // just before September — excluded
       await seed(2, DateTime.utc(2026, 9, 1)); // start of September — included
       await seed(3, DateTime.utc(2026, 9, 15));
       await seed(4, DateTime.utc(2026, 10, 1)); // October — excluded
@@ -248,123 +324,222 @@ void main() {
 
     test('a December query rolls the exclusive upper bound into January of the next year', () async {
       await seed(1, DateTime.utc(2026, 12, 31, 23, 59, 59));
-      await seed(2, DateTime.utc(2027, 1, 1)); // next year, next month — excluded
+      await seed(
+        2,
+        DateTime.utc(2027, 1, 1),
+      ); // next year, next month — excluded
 
       final rows = await repository.watchMonth(year: 2026, month: 12).first;
 
       expect(rows.map((t) => t.id).toList(), [1]);
     });
 
-    group('categoryId (ticket 07: Transaction List category drill-through)', () {
-      test('narrows to only rows matching the given categoryId, within the same month', () async {
-        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
-        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
-        await seed(3, DateTime.utc(2026, 9, 3)); // uncategorized — excluded
+    group(
+      'categoryId (ticket 07: Transaction List category drill-through)',
+      () {
+        test('narrows to only rows matching the given categoryId, within the same month', () async {
+          await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
+          await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
+          await seed(3, DateTime.utc(2026, 9, 3)); // uncategorized — excluded
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10).first;
+          final rows = await repository
+              .watchMonth(year: 2026, month: 9, categoryId: 10)
+              .first;
 
-        expect(rows.map((t) => t.id).toList(), [1]);
-      });
+          expect(rows.map((t) => t.id).toList(), [1]);
+        });
 
-      test('still respects the month bounds even when categoryId matches outside them', () async {
-        await seed(1, DateTime.utc(2026, 9, 30, 23, 59, 59), categoryId: 10);
-        await seed(2, DateTime.utc(2026, 10, 1), categoryId: 10); // next month, same category — excluded
+        test('still respects the month bounds even when categoryId matches outside them', () async {
+          await seed(1, DateTime.utc(2026, 9, 30, 23, 59, 59), categoryId: 10);
+          await seed(
+            2,
+            DateTime.utc(2026, 10, 1),
+            categoryId: 10,
+          ); // next month, same category — excluded
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10).first;
+          final rows = await repository
+              .watchMonth(year: 2026, month: 9, categoryId: 10)
+              .first;
 
-        expect(rows.map((t) => t.id).toList(), [1]);
-      });
+          expect(rows.map((t) => t.id).toList(), [1]);
+        });
 
-      test('omitting categoryId (the default) returns every row regardless of category, unchanged from before', () async {
-        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
-        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
-        await seed(3, DateTime.utc(2026, 9, 3));
+        test('omitting categoryId (the default) returns every row regardless of category, unchanged from before', () async {
+          await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10);
+          await seed(2, DateTime.utc(2026, 9, 2), categoryId: 20);
+          await seed(3, DateTime.utc(2026, 9, 3));
 
-        final rows = await repository.watchMonth(year: 2026, month: 9).first;
+          final rows = await repository.watchMonth(year: 2026, month: 9).first;
 
-        expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
-      });
-    });
+          expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
+        });
+      },
+    );
 
     group('categoryId == kUncategorizedCategoryId (ticket 12: "Uncategorized" drill-through)', () {
       test('narrows to rows with no category — a real uncategorized row has categoryId null, not 0', () async {
-        await seed(1, DateTime.utc(2026, 9, 1)); // truly uncategorized — categoryId left null
-        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 10); // a real category — excluded
+        await seed(
+          1,
+          DateTime.utc(2026, 9, 1),
+        ); // truly uncategorized — categoryId left null
+        await seed(
+          2,
+          DateTime.utc(2026, 9, 2),
+          categoryId: 10,
+        ); // a real category — excluded
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: kUncategorizedCategoryId,
+            )
+            .first;
 
         expect(rows.map((t) => t.id).toList(), [1]);
       });
 
-      test(
-        'the bug this guards against: a row whose categoryId happens to literally be 0 is not treated as uncategorized',
-        () async {
-          // Not a shape the real backend ever produces (category ids start
-          // well above 0) — seeded only to prove the fix branches on
-          // `IS NULL`, not `= 0`, so it can never regress back to the
-          // ticket 12 bug even if a stray 0 ever reached the local cache.
-          await seed(1, DateTime.utc(2026, 9, 1), categoryId: kUncategorizedCategoryId);
-          await seed(2, DateTime.utc(2026, 9, 2)); // the actually-uncategorized row
+      test('the bug this guards against: a row whose categoryId happens to literally be 0 is not treated as uncategorized', () async {
+        // Not a shape the real backend ever produces (category ids start
+        // well above 0) — seeded only to prove the fix branches on
+        // `IS NULL`, not `= 0`, so it can never regress back to the
+        // ticket 12 bug even if a stray 0 ever reached the local cache.
+        await seed(
+          1,
+          DateTime.utc(2026, 9, 1),
+          categoryId: kUncategorizedCategoryId,
+        );
+        await seed(
+          2,
+          DateTime.utc(2026, 9, 2),
+        ); // the actually-uncategorized row
 
-          final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: kUncategorizedCategoryId,
+            )
+            .first;
 
-          expect(rows.map((t) => t.id).toList(), [2]);
-        },
-      );
+        expect(rows.map((t) => t.id).toList(), [2]);
+      });
 
       test('still respects the month bounds even when the Uncategorized filter is active', () async {
-        await seed(1, DateTime.utc(2026, 9, 30, 23, 59, 59)); // uncategorized, in-month
-        await seed(2, DateTime.utc(2026, 10, 1)); // uncategorized, next month — excluded
+        await seed(
+          1,
+          DateTime.utc(2026, 9, 30, 23, 59, 59),
+        ); // uncategorized, in-month
+        await seed(
+          2,
+          DateTime.utc(2026, 10, 1),
+        ); // uncategorized, next month — excluded
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: kUncategorizedCategoryId,
+            )
+            .first;
 
         expect(rows.map((t) => t.id).toList(), [1]);
       });
     });
 
     group('type (ticket 12: scoping a category filter to one transaction type)', () {
-      test(
-        'the bug this guards against: without a type filter, a transfer (always categoryId null) '
-        'leaks into an Uncategorized-expense query',
-        () async {
-          await seed(1, DateTime.utc(2026, 9, 1)); // uncategorized expense
-          await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer); // always uncategorized
+      test('the bug this guards against: without a type filter, a transfer (always categoryId null) '
+          'leaks into an Uncategorized-expense query', () async {
+        await seed(1, DateTime.utc(2026, 9, 1)); // uncategorized expense
+        await seed(
+          2,
+          DateTime.utc(2026, 9, 2),
+          type: TransactionType.transfer,
+        ); // always uncategorized
 
-          // No `type` passed — reproduces the pre-fix call shape.
-          final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId).first;
+        // No `type` passed — reproduces the pre-fix call shape.
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: kUncategorizedCategoryId,
+            )
+            .first;
 
-          expect(rows.map((t) => t.id).toSet(), {1, 2}, reason: 'the transfer leaks in without a type filter — this is the bug, not the fix');
-        },
-      );
+        expect(
+          rows.map((t) => t.id).toSet(),
+          {1, 2},
+          reason: 'the transfer leaks in without a type filter — this is the bug, not the fix',
+        );
+      });
 
       test('passing type: expense alongside the Uncategorized filter excludes the transfer', () async {
         await seed(1, DateTime.utc(2026, 9, 1)); // uncategorized expense
-        await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer); // always uncategorized
-        await seed(3, DateTime.utc(2026, 9, 3), type: TransactionType.income); // uncategorized income — also excluded
+        await seed(
+          2,
+          DateTime.utc(2026, 9, 2),
+          type: TransactionType.transfer,
+        ); // always uncategorized
+        await seed(
+          3,
+          DateTime.utc(2026, 9, 3),
+          type: TransactionType.income,
+        ); // uncategorized income — also excluded
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: kUncategorizedCategoryId, type: TransactionType.expense).first;
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: kUncategorizedCategoryId,
+              type: TransactionType.expense,
+            )
+            .first;
 
         expect(rows.map((t) => t.id).toList(), [1]);
       });
 
       test('type also scopes a real categoryId filter, though real category ids are already type-specific', () async {
-        await seed(1, DateTime.utc(2026, 9, 1), categoryId: 10, type: TransactionType.expense);
-        await seed(2, DateTime.utc(2026, 9, 2), categoryId: 10, type: TransactionType.income);
+        await seed(
+          1,
+          DateTime.utc(2026, 9, 1),
+          categoryId: 10,
+          type: TransactionType.expense,
+        );
+        await seed(
+          2,
+          DateTime.utc(2026, 9, 2),
+          categoryId: 10,
+          type: TransactionType.income,
+        );
 
-        final rows = await repository.watchMonth(year: 2026, month: 9, categoryId: 10, type: TransactionType.expense).first;
+        final rows = await repository
+            .watchMonth(
+              year: 2026,
+              month: 9,
+              categoryId: 10,
+              type: TransactionType.expense,
+            )
+            .first;
 
         expect(rows.map((t) => t.id).toList(), [1]);
       });
 
-      test('omitting type (the default) matches every type, unchanged from before', () async {
-        await seed(1, DateTime.utc(2026, 9, 1));
-        await seed(2, DateTime.utc(2026, 9, 2), type: TransactionType.transfer);
-        await seed(3, DateTime.utc(2026, 9, 3), type: TransactionType.income);
+      test(
+        'omitting type (the default) matches every type, unchanged from before',
+        () async {
+          await seed(1, DateTime.utc(2026, 9, 1));
+          await seed(
+            2,
+            DateTime.utc(2026, 9, 2),
+            type: TransactionType.transfer,
+          );
+          await seed(3, DateTime.utc(2026, 9, 3), type: TransactionType.income);
 
-        final rows = await repository.watchMonth(year: 2026, month: 9).first;
+          final rows = await repository.watchMonth(year: 2026, month: 9).first;
 
-        expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
-      });
+          expect(rows.map((t) => t.id).toSet(), {1, 2, 3});
+        },
+      );
     });
   });
 
@@ -387,7 +562,12 @@ void main() {
 
       final result = await repository.delete(42);
 
-      expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+      expect(
+        result.isRight(),
+        isTrue,
+        reason:
+            'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+      );
       expect(adapter.requestedPaths, ['/api/v1/transactions/42']);
       final remaining = await db.select(db.cachedTransactions).get();
       expect(remaining, isEmpty);
@@ -395,7 +575,10 @@ void main() {
 
     test('a failed delete leaves the local row untouched — never lose data on a rejected mutation', () async {
       await seedRow(42);
-      final failingRepository = TransactionsRepository(ApiClient(Dio()..httpClientAdapter = _FailingDeleteAdapter()), db);
+      final failingRepository = TransactionsRepository(
+        ApiClient(Dio()..httpClientAdapter = _FailingDeleteAdapter()),
+        db,
+      );
 
       final result = await failingRepository.delete(42);
 

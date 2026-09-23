@@ -23,7 +23,11 @@ const kSlipUploadDelay = Duration(seconds: 7);
 enum SlipUploadStatus { uploaded, duplicate, failed }
 
 class SlipFileResult {
-  const SlipFileResult({required this.filename, required this.status, this.failureMessage});
+  const SlipFileResult({
+    required this.filename,
+    required this.status,
+    this.failureMessage,
+  });
 
   final String filename;
   final SlipUploadStatus status;
@@ -187,7 +191,11 @@ class SlipScanPipeline extends _$SlipScanPipeline {
       final outcome = await uploadRepo.uploadOne(candidate);
       results.add(
         outcome.fold(
-          (failure) => SlipFileResult(filename: candidate.filename, status: SlipUploadStatus.failed, failureMessage: failure.message),
+          (failure) => SlipFileResult(
+            filename: candidate.filename,
+            status: SlipUploadStatus.failed,
+            failureMessage: failure.message,
+          ),
           (outcome) {
             if (outcome is SlipUploaded) {
               final date = outcome.transaction.transactionDate;
@@ -195,7 +203,9 @@ class SlipScanPipeline extends _$SlipScanPipeline {
             }
             return SlipFileResult(
               filename: candidate.filename,
-              status: outcome is SlipUploaded ? SlipUploadStatus.uploaded : SlipUploadStatus.duplicate,
+              status: outcome is SlipUploaded
+                  ? SlipUploadStatus.uploaded
+                  : SlipUploadStatus.duplicate,
             );
           },
         ),
@@ -241,9 +251,14 @@ class SlipScanPipeline extends _$SlipScanPipeline {
   /// the auto-scan/manual queuing above — the UI is expected to disable the
   /// attach button while [SlipScanProgress.isManualUploading] is true, so
   /// this is a defensive guard, not the primary mechanism.
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
     if (state.isManualUploading) {
-      return const Left(UnknownFailure(message: 'A manual slip upload is already in progress.'));
+      return const Left(
+        UnknownFailure(message: 'A manual slip upload is already in progress.'),
+      );
     }
     state = SlipScanProgress(
       isScanning: state.isScanning,
@@ -264,7 +279,9 @@ class SlipScanPipeline extends _$SlipScanPipeline {
       result.fold((_) {}, (outcome) {
         if (outcome is SlipUploaded) {
           final date = outcome.transaction.transactionDate;
-          ref.read(cacheInvalidatorProvider).invalidateMonths({(date.year, date.month)});
+          ref.read(cacheInvalidatorProvider).invalidateMonths({
+            (date.year, date.month),
+          });
         }
       });
       state = SlipScanProgress(

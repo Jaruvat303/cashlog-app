@@ -20,14 +20,22 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 /// them, so the only way it can go stale is the fixture itself going stale
 /// — one obvious file to refresh, not scattered Dart literals.
 List<String> _iconKeysFromFixture(String filename) {
-  final json = jsonDecode(File('test/fixtures/$filename').readAsStringSync()) as Map<String, dynamic>;
+  final json = jsonDecode(
+    File('test/fixtures/$filename').readAsStringSync(),
+  ) as Map<String, dynamic>;
   final rows = json['data'] as List<dynamic>;
-  return [for (final row in rows) (row as Map<String, dynamic>)['icon_key'] as String];
+  return [
+    for (final row in rows) (row as Map<String, dynamic>)['icon_key'] as String,
+  ];
 }
 
 void main() {
-  final expenseIconKeys = _iconKeysFromFixture('categories_expense_response.json');
-  final incomeIconKeys = _iconKeysFromFixture('categories_income_response.json');
+  final expenseIconKeys = _iconKeysFromFixture(
+    'categories_expense_response.json',
+  );
+  final incomeIconKeys = _iconKeysFromFixture(
+    'categories_income_response.json',
+  );
 
   test('fixtures actually loaded real category data (guards against an empty/broken fixture silently passing everything below)', () {
     expect(expenseIconKeys, isNotEmpty);
@@ -36,13 +44,23 @@ void main() {
 
   test('resolveCategoryIcon resolves every real expense icon_key to a real, non-fallback icon', () {
     for (final key in expenseIconKeys) {
-      expect(resolveCategoryIcon(key), isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+      expect(
+        resolveCategoryIcon(key),
+        isNot(RemixIcon.folderFill),
+        reason:
+            '"$key" should resolve to its own icon, not the generic fallback',
+      );
     }
   });
 
   test('resolveCategoryIcon resolves every real income icon_key to a real, non-fallback icon', () {
     for (final key in incomeIconKeys) {
-      expect(resolveCategoryIcon(key), isNot(RemixIcon.folderFill), reason: '"$key" should resolve to its own icon, not the generic fallback');
+      expect(
+        resolveCategoryIcon(key),
+        isNot(RemixIcon.folderFill),
+        reason:
+            '"$key" should resolve to its own icon, not the generic fallback',
+      );
     }
   });
 
@@ -50,7 +68,12 @@ void main() {
     final seenIcons = <IconData>{};
     for (final key in expenseIconKeys) {
       final icon = resolveCategoryIcon(key);
-      expect(seenIcons.add(icon), isTrue, reason: '"$key" resolved to an icon already used by another expense key — icons must be distinct');
+      expect(
+        seenIcons.add(icon),
+        isTrue,
+        reason:
+            '"$key" resolved to an icon already used by another expense key — icons must be distinct',
+      );
     }
   });
 
@@ -58,25 +81,30 @@ void main() {
     final seenIcons = <IconData>{};
     for (final key in incomeIconKeys) {
       final icon = resolveCategoryIcon(key);
-      expect(seenIcons.add(icon), isTrue, reason: '"$key" resolved to an icon already used by another income key — icons must be distinct');
+      expect(
+        seenIcons.add(icon),
+        isTrue,
+        reason:
+            '"$key" resolved to an icon already used by another income key — icons must be distinct',
+      );
     }
   });
 
-  test(
-    'resolveCategoryIcon resolves a real Remix Icon name that has never appeared in any category yet — '
-    'the ticket 09 guarantee: a brand-new backend category needs zero frontend changes, not just "today\'s categories work"',
-    () {
-      // "anchor-fill" is a real Remix Icon but isn't wired into any curated
-      // picker list, fixture, or prior test in this file — standing in for
-      // a category the backend might add tomorrow.
-      expect(resolveCategoryIcon('anchor-fill'), isNot(RemixIcon.folderFill));
-      expect(resolveCategoryIcon('anchor-fill'), RemixIcon.anchorFill);
-    },
-  );
+  test('resolveCategoryIcon resolves a real Remix Icon name that has never appeared in any category yet — '
+      'the ticket 09 guarantee: a brand-new backend category needs zero frontend changes, not just "today\'s categories work"', () {
+    // "anchor-fill" is a real Remix Icon but isn't wired into any curated
+    // picker list, fixture, or prior test in this file — standing in for
+    // a category the backend might add tomorrow.
+    expect(resolveCategoryIcon('anchor-fill'), isNot(RemixIcon.folderFill));
+    expect(resolveCategoryIcon('anchor-fill'), RemixIcon.anchorFill);
+  });
 
   test('resolveCategoryIcon resolves specific known Remix keys to their exact icon', () {
     expect(resolveCategoryIcon('restaurant-fill'), RemixIcon.restaurantFill);
-    expect(resolveCategoryIcon('shopping-bag-3-fill'), RemixIcon.shoppingBag3Fill);
+    expect(
+      resolveCategoryIcon('shopping-bag-3-fill'),
+      RemixIcon.shoppingBag3Fill,
+    );
   });
 
   test('resolveCategoryIcon aliases the backend\'s "sparkles-fill" (not a real Remix name) to the real sparkling-fill icon', () {

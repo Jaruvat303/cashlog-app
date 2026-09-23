@@ -17,7 +17,11 @@ import '../../domain/transaction.dart';
 /// stays the escape hatch for abnormal data (spec §12.3) — untouched by
 /// this ticket.
 class CategoryQuickAssignChip extends ConsumerWidget {
-  const CategoryQuickAssignChip({super.key, required this.transaction, required this.category});
+  const CategoryQuickAssignChip({
+    super.key,
+    required this.transaction,
+    required this.category,
+  });
 
   final Transaction transaction;
   final Category? category;
@@ -25,9 +29,15 @@ class CategoryQuickAssignChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isUncategorized = category == null;
-    final color = isUncategorized ? AppColors.warningIcon : colorFromHex(category!.colorHex);
-    final background = isUncategorized ? AppColors.warningIconBg : color.withValues(alpha: 0.12);
-    final icon = isUncategorized ? RemixIcon.addLine : resolveCategoryIcon(category!.iconKey);
+    final color = isUncategorized
+        ? AppColors.warningIcon
+        : colorFromHex(category!.colorHex);
+    final background = isUncategorized
+        ? AppColors.warningIconBg
+        : color.withValues(alpha: 0.12);
+    final icon = isUncategorized
+        ? RemixIcon.addLine
+        : resolveCategoryIcon(category!.iconKey);
 
     return InkWell(
       key: const Key('categoryQuickAssignChip'),
@@ -39,7 +49,9 @@ class CategoryQuickAssignChip extends ConsumerWidget {
         decoration: BoxDecoration(
           color: background,
           borderRadius: BorderRadius.circular(AppRadii.control),
-          border: isUncategorized ? Border.all(color: AppColors.warningBorder, width: 1.5) : null,
+          border: isUncategorized
+              ? Border.all(color: AppColors.warningBorder, width: 1.5)
+              : null,
         ),
         child: Icon(icon, size: isUncategorized ? 21 : 20, color: color),
       ),
@@ -47,10 +59,17 @@ class CategoryQuickAssignChip extends ConsumerWidget {
   }
 
   Future<void> _openSheet(BuildContext context, WidgetRef ref) async {
-    final categoryType = transaction.type == TransactionType.income ? CategoryType.income : CategoryType.expense;
-    final merchant = transaction.type == TransactionType.income ? transaction.senderName : transaction.receiverName;
-    final label = transaction.type == TransactionType.income ? 'รายรับ' : 'รายจ่าย';
-    final subtitle = '$label${merchant.isNotEmpty ? ' · $merchant' : ''} · ${formatAmount(transaction.amount)} — แตะเพื่อบันทึกทันที';
+    final categoryType = transaction.type == TransactionType.income
+        ? CategoryType.income
+        : CategoryType.expense;
+    final merchant = transaction.type == TransactionType.income
+        ? transaction.senderName
+        : transaction.receiverName;
+    final label = transaction.type == TransactionType.income
+        ? 'รายรับ'
+        : 'รายจ่าย';
+    final subtitle =
+        '$label${merchant.isNotEmpty ? ' · $merchant' : ''} · ${formatAmount(transaction.amount)} — แตะเพื่อบันทึกทันที';
 
     final selection = await showCategoryGridPicker(
       context,
@@ -82,12 +101,19 @@ class CategoryQuickAssignChip extends ConsumerWidget {
       // feed's only source of truth for the displayed category) is never
       // touched unless `update` returns `Right`, so a failure leaves the
       // row exactly as it was — just surface the error.
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'อัปเดตหมวดหมู่ไม่สำเร็จ'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message ?? 'อัปเดตหมวดหมู่ไม่สำเร็จ')),
+      ),
       // T14: a category change affects this month's dashboard
       // expense-by-category breakdown, which — unlike the feed — is
       // in-memory Riverpod state, not drift-reactive, so it needs an
       // explicit invalidation the same way T6/T10's mutations already do.
-      (_) => ref.read(cacheInvalidatorProvider).invalidateMonth(transaction.transactionDate.year, transaction.transactionDate.month),
+      (_) => ref
+          .read(cacheInvalidatorProvider)
+          .invalidateMonth(
+            transaction.transactionDate.year,
+            transaction.transactionDate.month,
+          ),
     );
   }
 }

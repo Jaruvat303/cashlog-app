@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import '../../domain/bank_icon.dart';
 
 class BankIconAvatar extends StatelessWidget {
-  const BankIconAvatar({super.key, required this.bankIconCode, this.radius = 20});
+  const BankIconAvatar({
+    super.key,
+    required this.bankIconCode,
+    this.radius = 20,
+  });
 
   final String bankIconCode;
   final double radius;

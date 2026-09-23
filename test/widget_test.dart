@@ -78,7 +78,8 @@ class _FakeAccountsRepository implements AccountsRepository {
   }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
 /// T5 replaced the Categories placeholder with a real page — same reasoning
@@ -109,10 +110,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
 /// T7 replaced the Transactions placeholder with a real page — same
@@ -122,11 +125,22 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 /// mounts).
 class _FakeTransactionsRepository implements TransactionsRepository {
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) => Stream.value(const []);
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => Stream.value(const []);
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async =>
-      const Right(TransactionPage(transactions: [], currentPage: 1, totalPages: 1));
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) async => const Right(
+    TransactionPage(transactions: [], currentPage: 1, totalPages: 1),
+  );
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -154,7 +168,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
 /// T8 replaced the Dashboard placeholder with a real page — same reasoning
@@ -163,8 +178,19 @@ class _FakeTransactionsRepository implements TransactionsRepository {
 /// (the page's build kicks off a summary fetch as soon as it mounts).
 class _FakeDashboardRepository implements DashboardRepository {
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async => Right(
-    DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: year, month: month, income: const [], expense: const []),
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) async => Right(
+    DashboardSummary(
+      totalIncome: 0,
+      totalExpense: 0,
+      totalTransfer: 0,
+      year: year,
+      month: month,
+      income: const [],
+      expense: const [],
+    ),
   );
 }
 
@@ -189,10 +215,12 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }) => throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by the nav-shell smoke test');
+  Future<void> remove(int id) =>
+      throw UnimplementedError('not exercised by the nav-shell smoke test');
 }
 
 /// T21: stands in for `image_picker`'s `ImagePicker` — [pickImage] never
@@ -215,24 +243,34 @@ class _FakeManualSlipImageSource implements ManualSlipImageSource {
 /// own test suite).
 class _FakeSlipUploadRepository implements SlipUploadRepository {
   final List<(Uint8List, String)> manualCalls = [];
-  Either<Failure, SlipUploadOutcome> Function(Uint8List bytes, String filename)? scriptManual;
+  Either<Failure, SlipUploadOutcome> Function(Uint8List bytes, String filename)?
+  scriptManual;
 
   /// T21: when set, [uploadManual] blocks here before returning — lets a
   /// test observe the button's in-flight (disabled/spinner) state.
   Completer<void>? gate;
 
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) async {
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) async {
     if (gate != null) await gate!.future;
     manualCalls.add((bytes, filename));
-    return (scriptManual ?? (_, _) => Right(SlipUploaded(_expense(999, 'from slip', DateTime.utc(2026, 9, 1)))))(bytes, filename);
+    return (scriptManual ??
+        (_, _) => Right(
+          SlipUploaded(_expense(999, 'from slip', DateTime.utc(2026, 9, 1))),
+        ))(bytes, filename);
   }
 
   @override
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) =>
+      throw UnimplementedError('not exercised by this nav-shell test');
 
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(
+    SlipCandidate candidate,
+  ) => throw UnimplementedError('not exercised by this nav-shell test');
 
   /// Ticket 09: Home now reads this for its auto-scan status text — a fixed
   /// `null` (never uploaded) is enough here, this suite isn't about that
@@ -253,20 +291,32 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
   @override
   Future<GalleryAccessLevel> currentAccess() async => GalleryAccessLevel.denied;
   @override
-  Future<GalleryAccessLevel> requestAccess() => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<GalleryAccessLevel> requestAccess() =>
+      throw UnimplementedError('not exercised by this nav-shell test');
   @override
-  Future<void> presentLimitedSelection() => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<void> presentLimitedSelection() =>
+      throw UnimplementedError('not exercised by this nav-shell test');
   @override
-  Future<void> openSettings() => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<void> openSettings() =>
+      throw UnimplementedError('not exercised by this nav-shell test');
   @override
   Future<List<SlipCandidate>> queryConfiguredAlbums() =>
-      throw UnimplementedError('access is always denied in this test, so runScan() should short-circuit before ever reaching this');
+      throw UnimplementedError(
+        'access is always denied in this test, so runScan() should short-circuit before ever reaching this',
+      );
   @override
-  Future<Uint8List?> readBytes(String assetId) => throw UnimplementedError('not exercised by this nav-shell test');
+  Future<Uint8List?> readBytes(String assetId) =>
+      throw UnimplementedError('not exercised by this nav-shell test');
 }
 
-Transaction _expense(int id, String note, DateTime date) =>
-    Transaction(id: id, amount: 100, type: TransactionType.expense, note: note, source: 'manual', transactionDate: date);
+Transaction _expense(int id, String note, DateTime date) => Transaction(
+  id: id,
+  amount: 100,
+  type: TransactionType.expense,
+  note: note,
+  source: 'manual',
+  transactionDate: date,
+);
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
 /// forever" — it just keeps pumping until nothing's scheduled, up to its
@@ -290,21 +340,33 @@ void main() {
   Widget buildApp() => ProviderScope(
     overrides: [
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-      transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
+      transactionsRepositoryProvider.overrideWithValue(
+        _FakeTransactionsRepository(),
+      ),
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
       // T13: TransactionsPage now watches this for its stuck-items badge
       // as soon as it's built (IndexedStack builds every tab up front,
       // not just the one currently selected).
-      pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
-      slipGalleryRepositoryProvider.overrideWithValue(_FakeSlipGalleryRepository()),
+      pendingActionsRepositoryProvider.overrideWithValue(
+        _FakePendingActionsRepository(),
+      ),
+      slipGalleryRepositoryProvider.overrideWithValue(
+        _FakeSlipGalleryRepository(),
+      ),
       manualSlipImageSourceProvider.overrideWithValue(manualImageSource),
-      slipUploadRepositoryProvider.overrideWithValue(manualSlipUploadRepository),
+      slipUploadRepositoryProvider.overrideWithValue(
+        manualSlipUploadRepository,
+      ),
     ],
     child: const MyApp(),
   );
 
-  testWidgets('switches between all 4 bottom nav tabs', (WidgetTester tester) async {
+  testWidgets('switches between all 4 bottom nav tabs', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
 
@@ -336,63 +398,93 @@ void main() {
   });
 
   group('T21 manual slip attach FAB (AppShell)', () {
-    testWidgets('is present on every tab and opens a create-menu chooser on tap', (tester) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+    testWidgets(
+      'is present on every tab and opens a create-menu chooser on tap',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
 
-      expect(find.byKey(const Key('manualSlipAttachButton')), findsOneWidget);
+        expect(find.byKey(const Key('manualSlipAttachButton')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+        await _pumpBounded(tester);
 
-      // Ticket 05 (post-launch redesign: speed-dial pills, not ListTiles):
-      // exactly these three options, no more, no less.
-      expect(find.byKey(const Key('manualSlipAttachCreateManuallyOption')), findsOneWidget);
-      expect(find.byKey(const Key('manualSlipAttachGalleryOption')), findsOneWidget);
-      expect(find.byKey(const Key('manualSlipAttachCameraOption')), findsOneWidget);
-      // Never actually picked a source — the (fake) image source should
-      // stay untouched by opening the chooser alone.
-      expect(manualImageSource.requestedSources, isEmpty);
-    });
+        // Ticket 05 (post-launch redesign: speed-dial pills, not ListTiles):
+        // exactly these three options, no more, no less.
+        expect(
+          find.byKey(const Key('manualSlipAttachCreateManuallyOption')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('manualSlipAttachGalleryOption')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const Key('manualSlipAttachCameraOption')),
+          findsOneWidget,
+        );
+        // Never actually picked a source — the (fake) image source should
+        // stay untouched by opening the chooser alone.
+        expect(manualImageSource.requestedSources, isEmpty);
+      },
+    );
 
-    testWidgets('Ticket 05: picking "create manually" opens the manual transaction entry screen', (tester) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+    testWidgets(
+      'Ticket 05: picking "create manually" opens the manual transaction entry screen',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('manualSlipAttachCreateManuallyOption')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+        await _pumpBounded(tester);
+        await tester.tap(
+          find.byKey(const Key('manualSlipAttachCreateManuallyOption')),
+        );
+        await _pumpBounded(tester);
 
-      // Post-launch redesign: "create manually" now opens the dedicated
-      // AddTransactionPage rather than the (now edit-only) TransactionFormPage.
-      expect(find.byType(AddTransactionPage), findsOneWidget);
-      // Choosing "create manually" must not touch the OCR pipeline at all.
-      expect(manualImageSource.requestedSources, isEmpty);
-      expect(manualSlipUploadRepository.manualCalls, isEmpty);
-    });
+        // Post-launch redesign: "create manually" now opens the dedicated
+        // AddTransactionPage rather than the (now edit-only) TransactionFormPage.
+        expect(find.byType(AddTransactionPage), findsOneWidget);
+        // Choosing "create manually" must not touch the OCR pipeline at all.
+        expect(manualImageSource.requestedSources, isEmpty);
+        expect(manualSlipUploadRepository.manualCalls, isEmpty);
+      },
+    );
 
-    testWidgets('picking "choose from gallery" feeds the picked bytes into the same upload path T10 built', (tester) async {
-      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([1, 2, 3]), path: '/fake/manual_slip.jpg');
+    testWidgets(
+      'picking "choose from gallery" feeds the picked bytes into the same upload path T10 built',
+      (tester) async {
+        manualImageSource.nextFile = XFile.fromData(
+          Uint8List.fromList([1, 2, 3]),
+          path: '/fake/manual_slip.jpg',
+        );
 
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('manualSlipAttachGalleryOption')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+        await _pumpBounded(tester);
+        await tester.tap(
+          find.byKey(const Key('manualSlipAttachGalleryOption')),
+        );
+        await _pumpBounded(tester);
 
-      expect(manualImageSource.requestedSources, [ImageSource.gallery]);
-      expect(manualSlipUploadRepository.manualCalls, hasLength(1));
-      final (bytes, filename) = manualSlipUploadRepository.manualCalls.single;
-      expect(bytes, [1, 2, 3]);
-      expect(filename, 'manual_slip.jpg');
-      expect(find.text('อัปโหลดสลิปแล้ว'), findsOneWidget);
-    });
+        expect(manualImageSource.requestedSources, [ImageSource.gallery]);
+        expect(manualSlipUploadRepository.manualCalls, hasLength(1));
+        final (bytes, filename) = manualSlipUploadRepository.manualCalls.single;
+        expect(bytes, [1, 2, 3]);
+        expect(filename, 'manual_slip.jpg');
+        expect(find.text('อัปโหลดสลิปแล้ว'), findsOneWidget);
+      },
+    );
 
-    testWidgets('picking "take photo" requests the camera source', (tester) async {
-      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([9]), path: '/fake/camera_slip.jpg');
+    testWidgets('picking "take photo" requests the camera source', (
+      tester,
+    ) async {
+      manualImageSource.nextFile = XFile.fromData(
+        Uint8List.fromList([9]),
+        path: '/fake/camera_slip.jpg',
+      );
 
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
@@ -405,32 +497,52 @@ void main() {
       expect(manualImageSource.requestedSources, [ImageSource.camera]);
     });
 
-    testWidgets('the button disables and shows progress while a manual upload is in flight', (tester) async {
-      manualImageSource.nextFile = XFile.fromData(Uint8List.fromList([1]), path: '/fake/manual_slip.jpg');
-      final gate = Completer<void>();
-      manualSlipUploadRepository.gate = gate;
+    testWidgets(
+      'the button disables and shows progress while a manual upload is in flight',
+      (tester) async {
+        manualImageSource.nextFile = XFile.fromData(
+          Uint8List.fromList([1]),
+          path: '/fake/manual_slip.jpg',
+        );
+        final gate = Completer<void>();
+        manualSlipUploadRepository.gate = gate;
 
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('manualSlipAttachGalleryOption')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('manualSlipAttachButton')));
+        await _pumpBounded(tester);
+        await tester.tap(
+          find.byKey(const Key('manualSlipAttachGalleryOption')),
+        );
+        await _pumpBounded(tester);
 
-      expect(
-        find.descendant(of: find.byKey(const Key('manualSlipAttachButton')), matching: find.byType(CircularProgressIndicator)),
-        findsOneWidget,
-      );
-      final button = tester.widget<FloatingActionButton>(find.byKey(const Key('manualSlipAttachButton')));
-      expect(button.onPressed, isNull, reason: 'disabled while a manual upload is already in flight');
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('manualSlipAttachButton')),
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsOneWidget,
+        );
+        final button = tester.widget<FloatingActionButton>(
+          find.byKey(const Key('manualSlipAttachButton')),
+        );
+        expect(
+          button.onPressed,
+          isNull,
+          reason: 'disabled while a manual upload is already in flight',
+        );
 
-      gate.complete();
-      await _pumpBounded(tester);
-      expect(
-        find.descendant(of: find.byKey(const Key('manualSlipAttachButton')), matching: find.byType(CircularProgressIndicator)),
-        findsNothing,
-      );
-    });
+        gate.complete();
+        await _pumpBounded(tester);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('manualSlipAttachButton')),
+            matching: find.byType(CircularProgressIndicator),
+          ),
+          findsNothing,
+        );
+      },
+    );
   });
 }

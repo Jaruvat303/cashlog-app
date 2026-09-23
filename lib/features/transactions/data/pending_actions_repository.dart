@@ -25,7 +25,8 @@ class PendingActionsRepository {
   /// Oldest-stuck-first, so the queue reads top-to-bottom in the order these
   /// attempts were originally made.
   Stream<List<PendingAction>> watchAll() =>
-      (_db.select(_db.pendingManualActions)..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+      (_db.select(_db.pendingManualActions)
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
           .watch()
           .map((rows) => rows.map(pendingActionFromRow).toList());
 
@@ -62,21 +63,31 @@ class PendingActionsRepository {
   /// repeated retries, the same discipline T12 already applies to junk-row
   /// edit/delete (bind to the real record, never to list position).
   Future<void> recordRetryFailure(int id, String? errorCode) async {
-    final row = await (_db.select(_db.pendingManualActions)..where((t) => t.id.equals(id))).getSingle();
-    await (_db.update(_db.pendingManualActions)..where(
-      (t) => t.id.equals(id),
-    )).write(PendingManualActionsCompanion(retryCount: Value(row.retryCount + 1), lastErrorCode: Value(errorCode)));
+    final row = await (_db.select(
+      _db.pendingManualActions,
+    )..where((t) => t.id.equals(id))).getSingle();
+    await (_db.update(
+      _db.pendingManualActions,
+    )..where((t) => t.id.equals(id))).write(
+      PendingManualActionsCompanion(
+        retryCount: Value(row.retryCount + 1),
+        lastErrorCode: Value(errorCode),
+      ),
+    );
   }
 
   /// Used both after a successful retry and for the user-initiated dismiss
   /// action.
   Future<void> remove(int id) async {
-    await (_db.delete(_db.pendingManualActions)..where((t) => t.id.equals(id))).go();
+    await (_db.delete(
+      _db.pendingManualActions,
+    )..where((t) => t.id.equals(id))).go();
   }
 }
 
 @riverpod
-PendingActionsRepository pendingActionsRepository(Ref ref) => PendingActionsRepository(ref.watch(appDatabaseProvider));
+PendingActionsRepository pendingActionsRepository(Ref ref) =>
+    PendingActionsRepository(ref.watch(appDatabaseProvider));
 
 /// Decodes [action]'s payload per its `actionType` and re-calls the matching
 /// `TransactionsRepository` method with the exact args snapshotted at the
@@ -87,10 +98,26 @@ Future<Either<Failure, void>> retryPendingAction(
   PendingAction action,
 ) {
   return switch (action.actionType) {
-    PendingActionType.createTransaction => _retryCreateTransaction(transactionsRepo, pendingRepo, action),
-    PendingActionType.createTransfer => _retryCreateTransfer(transactionsRepo, pendingRepo, action),
-    PendingActionType.updateTransaction => _retryUpdateTransaction(transactionsRepo, pendingRepo, action),
-    PendingActionType.deleteTransaction => _retryDelete(transactionsRepo, pendingRepo, action),
+    PendingActionType.createTransaction => _retryCreateTransaction(
+      transactionsRepo,
+      pendingRepo,
+      action,
+    ),
+    PendingActionType.createTransfer => _retryCreateTransfer(
+      transactionsRepo,
+      pendingRepo,
+      action,
+    ),
+    PendingActionType.updateTransaction => _retryUpdateTransaction(
+      transactionsRepo,
+      pendingRepo,
+      action,
+    ),
+    PendingActionType.deleteTransaction => _retryDelete(
+      transactionsRepo,
+      pendingRepo,
+      action,
+    ),
   };
 }
 
@@ -170,10 +197,17 @@ Future<Either<Failure, void>> _retryDelete(
 /// user's own way to declare a row dead and remove it — adding an automatic
 /// "permanent failure → different state" transition would be a second,
 /// redundant way to reach the same outcome.
-Future<Either<Failure, void>> _finish<T>(PendingActionsRepository pendingRepo, PendingAction action, Either<Failure, T> result) async {
+Future<Either<Failure, void>> _finish<T>(
+  PendingActionsRepository pendingRepo,
+  PendingAction action,
+  Either<Failure, T> result,
+) async {
   final failure = result.fold<Failure?>((l) => l, (_) => null);
   if (failure != null) {
-    await pendingRepo.recordRetryFailure(action.id, errorTagForFailure(failure));
+    await pendingRepo.recordRetryFailure(
+      action.id,
+      errorTagForFailure(failure),
+    );
     return Left(failure);
   }
   await pendingRepo.remove(action.id);

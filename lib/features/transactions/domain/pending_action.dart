@@ -4,7 +4,12 @@ import 'transaction.dart';
 /// — create is split into two values (matching `TransactionsRepository.create`
 /// itself branching by type into two backend endpoints), not one generic
 /// "create" value.
-enum PendingActionType { createTransaction, createTransfer, updateTransaction, deleteTransaction }
+enum PendingActionType {
+  createTransaction,
+  createTransfer,
+  updateTransaction,
+  deleteTransaction,
+}
 
 extension PendingActionTypeWire on PendingActionType {
   String toWire() => switch (this) {
@@ -20,7 +25,8 @@ extension PendingActionTypeWire on PendingActionType {
 /// are 100% client-written and client-read, never off the wire, so a decode
 /// mismatch here would be a real local bug, not something to silently paper
 /// over.
-PendingActionType pendingActionTypeFromWire(String value) => PendingActionType.values.firstWhere((type) => type.toWire() == value);
+PendingActionType pendingActionTypeFromWire(String value) =>
+    PendingActionType.values.firstWhere((type) => type.toWire() == value);
 
 /// One row from `pending_manual_actions` — a T6 create/update/delete that
 /// failed with a transient error (CLAUDE.md/spec §9) and is now waiting for a
@@ -118,16 +124,27 @@ Map<String, dynamic> updateTransactionPayload({
 /// The id being deleted lives in `PendingAction.targetTransactionId`, never
 /// duplicated into the payload — this only carries what's needed for cache
 /// invalidation and row display on retry.
-Map<String, dynamic> deleteTransactionPayload({required DateTime date}) => {'date': date.toUtc().toIso8601String()};
+Map<String, dynamic> deleteTransactionPayload({required DateTime date}) => {
+  'date': date.toUtc().toIso8601String(),
+};
 
 // ── Decode — the inverse of the four builders above, used by retry to turn a
 // stored payload back into `TransactionsRepository.create/update/delete` call
 // args. Never reads live form state — only what was snapshotted at the
 // moment of the original failure.
 
-typedef CreateTransactionArgs = ({TransactionType type, double amount, DateTime date, String? note, int accountId, int? categoryId});
+typedef CreateTransactionArgs = ({
+  TransactionType type,
+  double amount,
+  DateTime date,
+  String? note,
+  int accountId,
+  int? categoryId,
+});
 
-CreateTransactionArgs readCreateTransactionPayload(Map<String, dynamic> payload) => (
+CreateTransactionArgs readCreateTransactionPayload(
+  Map<String, dynamic> payload,
+) => (
   type: transactionTypeFromWire(payload['type'] as String),
   amount: (payload['amount'] as num).toDouble(),
   date: DateTime.parse(payload['date'] as String),
@@ -136,7 +153,14 @@ CreateTransactionArgs readCreateTransactionPayload(Map<String, dynamic> payload)
   categoryId: payload['categoryId'] as int?,
 );
 
-typedef CreateTransferArgs = ({double amount, DateTime date, String? note, int fromAccountId, int toAccountId, int? categoryId});
+typedef CreateTransferArgs = ({
+  double amount,
+  DateTime date,
+  String? note,
+  int fromAccountId,
+  int toAccountId,
+  int? categoryId,
+});
 
 CreateTransferArgs readCreateTransferPayload(Map<String, dynamic> payload) => (
   amount: (payload['amount'] as num).toDouble(),
@@ -159,7 +183,9 @@ typedef UpdateTransactionArgs = ({
   DateTime originalDate,
 });
 
-UpdateTransactionArgs readUpdateTransactionPayload(Map<String, dynamic> payload) => (
+UpdateTransactionArgs readUpdateTransactionPayload(
+  Map<String, dynamic> payload,
+) => (
   type: transactionTypeFromWire(payload['type'] as String),
   amount: (payload['amount'] as num).toDouble(),
   date: DateTime.parse(payload['date'] as String),
@@ -173,4 +199,6 @@ UpdateTransactionArgs readUpdateTransactionPayload(Map<String, dynamic> payload)
 
 typedef DeleteTransactionArgs = ({DateTime date});
 
-DeleteTransactionArgs readDeleteTransactionPayload(Map<String, dynamic> payload) => (date: DateTime.parse(payload['date'] as String));
+DeleteTransactionArgs readDeleteTransactionPayload(
+  Map<String, dynamic> payload,
+) => (date: DateTime.parse(payload['date'] as String));

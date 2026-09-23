@@ -47,7 +47,10 @@ class GradientHeroCard extends StatelessWidget {
       child: Container(
         width: size,
         height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: 0.12)),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white.withValues(alpha: 0.12),
+        ),
       ),
     );
   }

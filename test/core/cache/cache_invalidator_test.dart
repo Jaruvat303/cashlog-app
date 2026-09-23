@@ -20,14 +20,23 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final List<(int, int)> watchMonthCalls = [];
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) {
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) {
     watchMonthCalls.add((year, month));
     return Stream.value(const []);
   }
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -55,17 +64,29 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }) => throw UnimplementedError('not exercised by this test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 class _FakeDashboardRepository implements DashboardRepository {
   final List<(int, int)> fetchSummaryCalls = [];
 
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async {
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) async {
     fetchSummaryCalls.add((year, month));
     return Right(
-      DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: year, month: month, income: const [], expense: const []),
+      DashboardSummary(
+        totalIncome: 0,
+        totalExpense: 0,
+        totalTransfer: 0,
+        year: year,
+        month: month,
+        income: const [],
+        expense: const [],
+      ),
     );
   }
 }
@@ -127,16 +148,28 @@ void main() {
     ]);
     expect(fakeDashboard.fetchSummaryCalls, [(2026, 6), (2026, 7), (2026, 8)]);
 
-    container.read(cacheInvalidatorProvider).invalidateMonths({(2026, 6), (2026, 7)});
+    container.read(cacheInvalidatorProvider).invalidateMonths({
+      (2026, 6),
+      (2026, 7),
+    });
     await Future<void>.delayed(Duration.zero);
     await Future.wait([
       container.read(dashboardSummaryProvider(2026, 6).future),
       container.read(dashboardSummaryProvider(2026, 7).future),
     ]);
 
-    expect(fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 6)).length, 2);
-    expect(fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 7)).length, 2);
+    expect(
+      fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 6)).length,
+      2,
+    );
+    expect(
+      fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 7)).length,
+      2,
+    );
     // Month 8 was watched but never named in invalidateMonths — untouched.
-    expect(fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 8)).length, 1);
+    expect(
+      fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 8)).length,
+      1,
+    );
   });
 }

@@ -54,7 +54,15 @@ import 'package:flutter_test/flutter_test.dart';
 class _FakeAccountsRepository implements AccountsRepository {
   @override
   Stream<List<Account>> watchActiveAccounts() => Stream.value(const [
-    Account(id: 1, name: 'Cash', accountType: AccountType.cash, openingBalance: 0, matchingKeywords: [], bankIcon: 'cash', isActive: true),
+    Account(
+      id: 1,
+      name: 'Cash',
+      accountType: AccountType.cash,
+      openingBalance: 0,
+      matchingKeywords: [],
+      bankIcon: 'cash',
+      isActive: true,
+    ),
   ]);
 
   @override
@@ -85,7 +93,8 @@ class _FakeAccountsRepository implements AccountsRepository {
   }) => throw UnimplementedError('not exercised by this wiring test');
 
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this wiring test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this wiring test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
@@ -113,10 +122,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   }) => throw UnimplementedError('not exercised by this wiring test');
 
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this wiring test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this wiring test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this wiring test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this wiring test');
 }
 
 /// [nextCreateResult]/[nextDeleteResult] force a real `Left` through the
@@ -129,12 +140,20 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void>? nextDeleteResult;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
-      throw UnimplementedError('not exercised by this wiring test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this wiring test');
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this wiring test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this wiring test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -173,7 +192,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }) => throw UnimplementedError('not exercised by this wiring test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) async => nextDeleteResult ?? const Right(null);
+  Future<Either<Failure, void>> delete(int id) async =>
+      nextDeleteResult ?? const Right(null);
 }
 
 /// Same shape as pending_actions_repository_test.dart's `_FakeSuccessAdapter`
@@ -184,11 +204,22 @@ class _FakeSuccessHttpAdapter implements HttpClientAdapter {
   int _nextId;
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
-    final sentBody = options.data is Map ? Map<String, dynamic>.from(options.data as Map) : <String, dynamic>{};
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final sentBody = options.data is Map
+        ? Map<String, dynamic>.from(options.data as Map)
+        : <String, dynamic>{};
     return ResponseBody.fromString(
       jsonEncode({
-        'data': {'id': _nextId++, 'transaction_type': sentBody['transaction_type'], ...sentBody, 'category': null},
+        'data': {
+          'id': _nextId++,
+          'transaction_type': sentBody['transaction_type'],
+          ...sentBody,
+          'category': null,
+        },
       }),
       200,
       headers: {
@@ -235,117 +266,171 @@ void main() {
   });
 
   group('form call sites against a real PendingActionsRepository (AddTransactionPage: one-shot insert only — no live .watch(), so the drift/testWidgets teardown hang this codebase avoids elsewhere does not apply)', () {
-    testWidgets('a real transient create failure lands a real row in pending_manual_actions', (tester) async {
-      fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
+    testWidgets(
+      'a real transient create failure lands a real row in pending_manual_actions',
+      (tester) async {
+        fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-            categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-            transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-            pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-          ],
-          child: const MaterialApp(home: AddTransactionPage()),
-        ),
-      );
-      await _pumpBounded(tester);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              accountsRepositoryProvider.overrideWithValue(
+                _FakeAccountsRepository(),
+              ),
+              categoriesRepositoryProvider.overrideWithValue(
+                _FakeCategoriesRepository(),
+              ),
+              transactionsRepositoryProvider.overrideWithValue(
+                fakeTransactions,
+              ),
+              pendingActionsRepositoryProvider.overrideWithValue(
+                realPendingActions,
+              ),
+            ],
+            child: const MaterialApp(home: AddTransactionPage()),
+          ),
+        );
+        await _pumpBounded(tester);
 
-      await tester.tap(find.text('รายรับ'));
-      await _pumpBounded(tester);
+        await tester.tap(find.text('รายรับ'));
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('accountPill')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('accountOption_1')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('accountPill')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('accountOption_1')));
+        await _pumpBounded(tester);
 
-      // Ticket 07: the custom on-screen numpad is gone — amount entry now
-      // goes through a real TextField with the native numeric keyboard.
-      final amountFinder = find.byKey(const Key('amountField'));
-      await tester.ensureVisible(amountFinder);
-      await tester.enterText(amountFinder, '5000');
-      await tester.pump();
-      await tester.ensureVisible(find.byKey(const Key('submitButton')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
+        // Ticket 07: the custom on-screen numpad is gone — amount entry now
+        // goes through a real TextField with the native numeric keyboard.
+        final amountFinder = find.byKey(const Key('amountField'));
+        await tester.ensureVisible(amountFinder);
+        await tester.enterText(amountFinder, '5000');
+        await tester.pump();
+        await tester.ensureVisible(find.byKey(const Key('submitButton')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
 
-      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-      // A blocked/failed submit never pops.
-      expect(find.byType(AddTransactionPage), findsOneWidget);
+        expect(
+          find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'),
+          findsOneWidget,
+        );
+        // A blocked/failed submit never pops.
+        expect(find.byType(AddTransactionPage), findsOneWidget);
 
-      final rows = await db.select(db.pendingManualActions).get();
-      expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
-      expect(rows.single.actionType, 'create_transaction');
-      expect(rows.single.lastErrorCode, 'DATABASE_TIMEOUT');
-    });
-
+        final rows = await db.select(db.pendingManualActions).get();
+        expect(
+          rows,
+          hasLength(1),
+          reason:
+              'expected exactly one real row inserted via the real repository, found: $rows',
+        );
+        expect(rows.single.actionType, 'create_transaction');
+        expect(rows.single.lastErrorCode, 'DATABASE_TIMEOUT');
+      },
+    );
   });
 
   group('form delete call site (ticket 04 moved delete off TransactionListTile) against a real PendingActionsRepository, then TransactionListTile\'s live ref.watch(pendingActionsProvider) pending-sync indicator (ticket 02) picking up the same real row — needs tester.runAsync() once the tile mounts, same reasoning as the PendingActionsPage groups below', () {
-    testWidgets('a real transient delete failure via TransactionFormPage lands a real row, and the tile shows the indicator for it', (tester) async {
-      fakeTransactions.nextDeleteResult = const Left(TimeoutFailure());
+    testWidgets(
+      'a real transient delete failure via TransactionFormPage lands a real row, and the tile shows the indicator for it',
+      (tester) async {
+        fakeTransactions.nextDeleteResult = const Left(TimeoutFailure());
 
-      await tester.runAsync(() async {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-              categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-              transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-            ],
-            child: MaterialApp(home: TransactionFormPage(initial: _junkTransaction)),
-          ),
-        );
-        await _pumpBounded(tester);
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                accountsRepositoryProvider.overrideWithValue(
+                  _FakeAccountsRepository(),
+                ),
+                categoriesRepositoryProvider.overrideWithValue(
+                  _FakeCategoriesRepository(),
+                ),
+                transactionsRepositoryProvider.overrideWithValue(
+                  fakeTransactions,
+                ),
+                pendingActionsRepositoryProvider.overrideWithValue(
+                  realPendingActions,
+                ),
+              ],
+              child: MaterialApp(
+                home: TransactionFormPage(initial: _junkTransaction),
+              ),
+            ),
+          );
+          await _pumpBounded(tester);
 
-        // Ticket 05's slip-image section makes the edit-mode form taller
-        // than the test viewport, so the delete button (further down the
-        // ListView) needs scrolling into view before it's built/tappable.
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('deleteTransactionButton')),
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
-        await _pumpBounded(tester);
-        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-        await _pumpBounded(tester);
+          // Ticket 05's slip-image section makes the edit-mode form taller
+          // than the test viewport, so the delete button (further down the
+          // ListView) needs scrolling into view before it's built/tappable.
+          await tester.scrollUntilVisible(
+            find.byKey(const Key('deleteTransactionButton')),
+            300,
+            scrollable: find.byType(Scrollable).first,
+          );
+          await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+          await _pumpBounded(tester);
+          await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+          await _pumpBounded(tester);
 
-        expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
+          expect(
+            find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'),
+            findsOneWidget,
+          );
 
-        final rows = await db.select(db.pendingManualActions).get();
-        expect(rows, hasLength(1), reason: 'expected exactly one real row inserted via the real repository, found: $rows');
-        expect(rows.single.actionType, 'delete_transaction');
-        expect(rows.single.targetTransactionId, 7);
+          final rows = await db.select(db.pendingManualActions).get();
+          expect(
+            rows,
+            hasLength(1),
+            reason:
+                'expected exactly one real row inserted via the real repository, found: $rows',
+          );
+          expect(rows.single.actionType, 'delete_transaction');
+          expect(rows.single.targetTransactionId, 7);
 
-        await tester.pumpWidget(const SizedBox.shrink());
-        await _pumpBounded(tester);
+          await tester.pumpWidget(const SizedBox.shrink());
+          await _pumpBounded(tester);
 
-        // Ticket 02's indicator is unaffected by ticket 04's move — this
-        // mounts the tile fresh against the same real db-backed row.
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-              categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-              transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-            ],
-            child: MaterialApp(home: Scaffold(body: TransactionListTile(transaction: _junkTransaction, categoriesById: const {}))),
-          ),
-        );
-        await _pumpBounded(tester);
+          // Ticket 02's indicator is unaffected by ticket 04's move — this
+          // mounts the tile fresh against the same real db-backed row.
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                accountsRepositoryProvider.overrideWithValue(
+                  _FakeAccountsRepository(),
+                ),
+                categoriesRepositoryProvider.overrideWithValue(
+                  _FakeCategoriesRepository(),
+                ),
+                transactionsRepositoryProvider.overrideWithValue(
+                  fakeTransactions,
+                ),
+                pendingActionsRepositoryProvider.overrideWithValue(
+                  realPendingActions,
+                ),
+              ],
+              child: MaterialApp(
+                home: Scaffold(
+                  body: TransactionListTile(
+                    transaction: _junkTransaction,
+                    categoriesById: const {},
+                  ),
+                ),
+              ),
+            ),
+          );
+          await _pumpBounded(tester);
 
-        expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+          expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
 
-        // Force disposal (and the live pendingActionsProvider subscription's
-        // cancellation) to happen here, inside runAsync's real zone — same
-        // reasoning as the PendingActionsPage groups below.
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
-    });
+          // Force disposal (and the live pendingActionsProvider subscription's
+          // cancellation) to happen here, inside runAsync's real zone — same
+          // reasoning as the PendingActionsPage groups below.
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      },
+    );
   });
 
   group('PendingActionsPage against a real PendingActionsRepository (live .watch() — the exact case CLAUDE.md documents as a drift/testWidgets teardown hang, avoided everywhere else in this codebase)', () {
@@ -354,94 +439,122 @@ void main() {
     // (including whatever fires on cancellation at teardown) run against the
     // real event loop instead of being captured, unflushed, by the
     // FakeAsync zone testWidgets normally wraps the test body in.
-    testWidgets('a real queued row renders in the real page and a working retry clears it', (tester) async {
-      await realPendingActions.recordIfTransient(
-        failure: const TimeoutFailure(),
-        actionType: PendingActionType.deleteTransaction,
-        payload: deleteTransactionPayload(date: DateTime.utc(2026, 9, 5)),
-        targetTransactionId: 7,
-      );
-      // The retry itself should now succeed, so this also exercises the
-      // remove-on-success path against the real db.
-      fakeTransactions.nextDeleteResult = const Right(null);
-
-      await tester.runAsync(() async {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
-              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-            ],
-            child: const MaterialApp(home: PendingActionsPage()),
-          ),
+    testWidgets(
+      'a real queued row renders in the real page and a working retry clears it',
+      (tester) async {
+        await realPendingActions.recordIfTransient(
+          failure: const TimeoutFailure(),
+          actionType: PendingActionType.deleteTransaction,
+          payload: deleteTransactionPayload(date: DateTime.utc(2026, 9, 5)),
+          targetTransactionId: 7,
         );
-        await _pumpBounded(tester);
+        // The retry itself should now succeed, so this also exercises the
+        // remove-on-success path against the real db.
+        fakeTransactions.nextDeleteResult = const Right(null);
 
-        expect(find.text('ลบรายการ'), findsOneWidget);
-        final row = (await db.select(db.pendingManualActions).get()).single;
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                transactionsRepositoryProvider.overrideWithValue(
+                  fakeTransactions,
+                ),
+                pendingActionsRepositoryProvider.overrideWithValue(
+                  realPendingActions,
+                ),
+              ],
+              child: const MaterialApp(home: PendingActionsPage()),
+            ),
+          );
+          await _pumpBounded(tester);
 
-        await tester.tap(find.byKey(Key('retryButton_${row.id}')));
-        await _pumpBounded(tester);
+          expect(find.text('ลบรายการ'), findsOneWidget);
+          final row = (await db.select(db.pendingManualActions).get()).single;
 
-        expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
-        expect(await db.select(db.pendingManualActions).get(), isEmpty);
+          await tester.tap(find.byKey(Key('retryButton_${row.id}')));
+          await _pumpBounded(tester);
 
-        // Force disposal (and therefore stream-subscription cancellation)
-        // to happen here, inside runAsync's real zone, rather than leaving
-        // it to the test framework's automatic post-test teardown — which
-        // runs back in the FakeAsync zone this runAsync block is trying to
-        // avoid.
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
-    });
+          expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
+          expect(await db.select(db.pendingManualActions).get(), isEmpty);
+
+          // Force disposal (and therefore stream-subscription cancellation)
+          // to happen here, inside runAsync's real zone, rather than leaving
+          // it to the test framework's automatic post-test teardown — which
+          // runs back in the FakeAsync zone this runAsync block is trying to
+          // avoid.
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      },
+    );
   });
 
   group('PendingActionsPage retry against a real TransactionsRepository (not just a hand-written fake acknowledging success)', () {
-    testWidgets('tapping retry actually calls through ApiClient/TransactionsRepository and upserts a real cached_transactions row', (
-      tester,
-    ) async {
-      final realTransactions = TransactionsRepository(ApiClient(Dio()..httpClientAdapter = _FakeSuccessHttpAdapter(1)), db);
-      await realPendingActions.recordIfTransient(
-        failure: const TimeoutFailure(),
-        actionType: PendingActionType.createTransaction,
-        payload: createTransactionPayload(type: TransactionType.income, amount: 100, date: DateTime.utc(2026, 9, 5), accountId: 3),
-      );
-
-      await tester.runAsync(() async {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              transactionsRepositoryProvider.overrideWithValue(realTransactions),
-              pendingActionsRepositoryProvider.overrideWithValue(realPendingActions),
-            ],
-            child: const MaterialApp(home: PendingActionsPage()),
+    testWidgets(
+      'tapping retry actually calls through ApiClient/TransactionsRepository and upserts a real cached_transactions row',
+      (tester) async {
+        final realTransactions = TransactionsRepository(
+          ApiClient(Dio()..httpClientAdapter = _FakeSuccessHttpAdapter(1)),
+          db,
+        );
+        await realPendingActions.recordIfTransient(
+          failure: const TimeoutFailure(),
+          actionType: PendingActionType.createTransaction,
+          payload: createTransactionPayload(
+            type: TransactionType.income,
+            amount: 100,
+            date: DateTime.utc(2026, 9, 5),
+            accountId: 3,
           ),
         );
-        await _pumpBounded(tester);
 
-        expect(find.text('สร้างรายการ'), findsOneWidget);
-        final row = (await db.select(db.pendingManualActions).get()).single;
+        await tester.runAsync(() async {
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                transactionsRepositoryProvider.overrideWithValue(
+                  realTransactions,
+                ),
+                pendingActionsRepositoryProvider.overrideWithValue(
+                  realPendingActions,
+                ),
+              ],
+              child: const MaterialApp(home: PendingActionsPage()),
+            ),
+          );
+          await _pumpBounded(tester);
 
-        await tester.tap(find.byKey(Key('retryButton_${row.id}')));
-        await _pumpBounded(tester);
-        // Dio 5's BackgroundTransformer decodes JSON via compute() — a real
-        // isolate spawn — so this retry (unlike the fake-repository retry
-        // above) needs real wall-clock time to finish, not just pumped
-        // frames. _pumpBounded's 500ms budget alone left the row
-        // unretried (confirmed by instrumenting this during T13 follow-up
-        // verification); a real delay closes that gap.
-        await Future<void>.delayed(const Duration(seconds: 2));
-        await _pumpBounded(tester);
+          expect(find.text('สร้างรายการ'), findsOneWidget);
+          final row = (await db.select(db.pendingManualActions).get()).single;
 
-        expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
-        expect(await db.select(db.pendingManualActions).get(), isEmpty, reason: 'a real successful retry must remove the queued row');
+          await tester.tap(find.byKey(Key('retryButton_${row.id}')));
+          await _pumpBounded(tester);
+          // Dio 5's BackgroundTransformer decodes JSON via compute() — a real
+          // isolate spawn — so this retry (unlike the fake-repository retry
+          // above) needs real wall-clock time to finish, not just pumped
+          // frames. _pumpBounded's 500ms budget alone left the row
+          // unretried (confirmed by instrumenting this during T13 follow-up
+          // verification); a real delay closes that gap.
+          await Future<void>.delayed(const Duration(seconds: 2));
+          await _pumpBounded(tester);
 
-        final cached = await db.select(db.cachedTransactions).get();
-        expect(cached, hasLength(1), reason: 'proves the retry went through the real TransactionsRepository.create, not a stand-in');
-        expect(cached.single.transactionType, 'income');
+          expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
+          expect(
+            await db.select(db.pendingManualActions).get(),
+            isEmpty,
+            reason: 'a real successful retry must remove the queued row',
+          );
 
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
-    });
+          final cached = await db.select(db.cachedTransactions).get();
+          expect(
+            cached,
+            hasLength(1),
+            reason: 'proves the retry went through the real TransactionsRepository.create, not a stand-in',
+          );
+          expect(cached.single.transactionType, 'income');
+
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      },
+    );
   });
 }

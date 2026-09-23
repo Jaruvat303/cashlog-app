@@ -101,18 +101,41 @@ class TransactionFormFields extends StatelessWidget {
         Container(
           key: const Key('amountCard'),
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+            boxShadow: const [AppShadows.card],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('จำนวนเงิน', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  const Text(
+                    'จำนวนเงิน',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(color: AppColors.pillChipBg, borderRadius: BorderRadius.circular(6)),
-                    child: const Text('THB', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.pillChipBg,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'THB',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -122,7 +145,10 @@ class TransactionFormFields extends StatelessWidget {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: _typeColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(
+                      color: _typeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Icon(_typeIcon, color: _typeColor, size: 20),
                   ),
                   const SizedBox(width: 12),
@@ -131,31 +157,51 @@ class TransactionFormFields extends StatelessWidget {
                       key: const Key('amountField'),
                       controller: amountController,
                       autofocus: autofocusAmount,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [AmountInputFormatter()],
-                      style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor),
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w700,
+                        color: _typeColor,
+                      ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isDense: true,
                         isCollapsed: true,
                         hintText: '0',
-                        hintStyle: TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: _typeColor.withValues(alpha: 0.3)),
+                        hintStyle: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          color: _typeColor.withValues(alpha: 0.3),
+                        ),
                       ),
                       validator: amountValidator,
                     ),
                   ),
                 ],
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1, color: AppColors.divider)),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1, color: AppColors.divider),
+              ),
               if (_isTransfer)
                 Row(
                   children: [
-                    const Icon(RemixIcon.arrowRightLine, size: 14, color: AppColors.textSecondary),
+                    const Icon(
+                      RemixIcon.arrowRightLine,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         '${fromAccountName ?? 'เลือกบัญชีต้นทาง'} → ${toAccountName ?? 'เลือกบัญชีปลายทาง'}',
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -167,13 +213,21 @@ class TransactionFormFields extends StatelessWidget {
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(color: category == null ? AppColors.warningIcon : colorFromHex(category!.colorHex), shape: BoxShape.circle),
+                      decoration: BoxDecoration(
+                        color: category == null
+                            ? AppColors.warningIcon
+                            : colorFromHex(category!.colorHex),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         '${category?.name ?? 'ยังไม่ระบุหมวดหมู่'} • ${accountName ?? 'ยังไม่เลือกบัญชี'}',
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.textSecondary,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -193,7 +247,9 @@ class TransactionFormFields extends StatelessWidget {
                     icon: RemixIcon.folderLine,
                     label: 'หมวดหมู่',
                     value: category?.name ?? 'ยังไม่ระบุ',
-                    iconColor: category == null ? AppColors.warningIcon : colorFromHex(category!.colorHex),
+                    iconColor: category == null
+                        ? AppColors.warningIcon
+                        : colorFromHex(category!.colorHex),
                     onTap: onCategoryTap,
                   ),
                 ),
@@ -260,9 +316,15 @@ class TransactionFormFields extends StatelessWidget {
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: AppColors.accentGradient,
-                      border: Border.fromBorderSide(BorderSide(color: AppColors.background, width: 3)),
+                      border: Border.fromBorderSide(
+                        BorderSide(color: AppColors.background, width: 3),
+                      ),
                     ),
-                    child: const Icon(RemixIcon.arrowUpDownLine, color: Colors.white, size: 16),
+                    child: const Icon(
+                      RemixIcon.arrowUpDownLine,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                 ),
               ),
@@ -270,7 +332,10 @@ class TransactionFormFields extends StatelessWidget {
           ),
           if (transferError != null) ...[
             const SizedBox(height: 6),
-            Text(transferError!, style: const TextStyle(fontSize: 12, color: AppColors.expense)),
+            Text(
+              transferError!,
+              style: const TextStyle(fontSize: 12, color: AppColors.expense),
+            ),
           ],
           const SizedBox(height: 10),
           Builder(
@@ -285,11 +350,19 @@ class TransactionFormFields extends StatelessWidget {
         ],
         const SizedBox(height: 10),
         Container(
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            boxShadow: const [AppShadows.card],
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           child: Row(
             children: [
-              const Icon(RemixIcon.editLine, size: 16, color: AppColors.accentA),
+              const Icon(
+                RemixIcon.editLine,
+                size: 16,
+                color: AppColors.accentA,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -297,11 +370,17 @@ class TransactionFormFields extends StatelessWidget {
                   controller: noteController,
                   minLines: 1,
                   maxLines: 3,
-                  style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText: 'เพิ่มบันทึกย่อ',
-                    hintStyle: TextStyle(color: AppColors.accentA, fontSize: 14),
+                    hintStyle: TextStyle(
+                      color: AppColors.accentA,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
               ),
@@ -323,7 +402,9 @@ String _groupAmountDigits(String raw) {
 
   final firstDot = value.indexOf('.');
   if (firstDot != -1) {
-    value = value.substring(0, firstDot + 1) + value.substring(firstDot + 1).replaceAll('.', '');
+    value =
+        value.substring(0, firstDot + 1) +
+        value.substring(firstDot + 1).replaceAll('.', '');
   }
 
   final dotIndex = value.indexOf('.');
@@ -363,13 +444,19 @@ String _groupAmountDigits(String raw) {
 /// comma separators are pure presentation and never count as a position.
 class AmountInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final formatted = _groupAmountDigits(newValue.text);
 
     final selectionEnd = newValue.selection.end;
     final keptBeforeCaret = selectionEnd < 0
         ? formatted.length
-        : newValue.text.substring(0, selectionEnd).replaceAll(RegExp(r'[^0-9.]'), '').length;
+        : newValue.text
+              .substring(0, selectionEnd)
+              .replaceAll(RegExp(r'[^0-9.]'), '')
+              .length;
 
     var offset = 0;
     var kept = 0;
@@ -378,15 +465,20 @@ class AmountInputFormatter extends TextInputFormatter {
       offset++;
     }
 
-    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: offset));
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: offset),
+    );
   }
 }
 
 /// Pre-formats an existing amount (Edit's initial value) the same way
 /// [AmountInputFormatter] formats live keystrokes — see its doc comment.
-String formatAmountForInput(double amount) => _groupAmountDigits(amount.toStringAsFixed(2));
+String formatAmountForInput(double amount) =>
+    _groupAmountDigits(amount.toStringAsFixed(2));
 
 /// Parses [TransactionFormFields]'s amount field text back into a plain
 /// double, stripping the thousands-grouping commas [AmountInputFormatter]
 /// added.
-double parseAmountInput(String formatted) => double.tryParse(formatted.replaceAll(',', '')) ?? 0;
+double parseAmountInput(String formatted) =>
+    double.tryParse(formatted.replaceAll(',', '')) ?? 0;

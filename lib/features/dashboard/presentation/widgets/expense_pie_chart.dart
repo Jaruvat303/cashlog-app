@@ -21,7 +21,11 @@ import '../../domain/dashboard_summary.dart';
 /// names/amounts stay fully available just below this, in the unchanged
 /// `_CategoryTotalsList` — this widget is purely the visual chart now.
 class ExpensePieChart extends StatelessWidget {
-  const ExpensePieChart({super.key, required this.expense, required this.total});
+  const ExpensePieChart({
+    super.key,
+    required this.expense,
+    required this.total,
+  });
 
   final List<CategoryBreakdown> expense;
   final double total;
@@ -38,12 +42,15 @@ class ExpensePieChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sorted = [...expense]..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    final sorted = [...expense]
+      ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
     if (total <= 0) return const SizedBox.shrink();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : _maxChartSize;
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : _maxChartSize;
         final chartSize = math.min(availableWidth * 0.72, _maxChartSize);
         final centerSpaceRadius = chartSize * 0.34;
         final sectionRadius = chartSize * 0.16;
@@ -65,7 +72,9 @@ class ExpensePieChart extends StatelessWidget {
 
           final radians = midAngle * math.pi / 180;
           final center = Offset(stackSize / 2, stackSize / 2);
-          final labelCenter = center + Offset(math.cos(radians), math.sin(radians)) * labelRadius;
+          final labelCenter =
+              center +
+              Offset(math.cos(radians), math.sin(radians)) * labelRadius;
           const labelBoxSize = Size(36, 16);
           labels.add(
             Positioned(
@@ -77,7 +86,11 @@ class ExpensePieChart extends StatelessWidget {
               child: Text(
                 '$pct%',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
           );
@@ -115,10 +128,20 @@ class ExpensePieChart extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('รวม', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    const Text(
+                      'รวม',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                     Text(
                       formatAmount(total, withSymbol: false),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ],
                 ),

@@ -44,7 +44,8 @@ class _FakeAccountsRepository implements AccountsRepository {
     required String bankIcon,
   }) => throw UnimplementedError('not exercised by this test');
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
@@ -74,9 +75,11 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     required String colorHex,
   }) => throw UnimplementedError('not exercised by this test');
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this test');
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 void main() {

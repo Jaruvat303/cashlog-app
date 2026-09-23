@@ -8,7 +8,8 @@ import '../../domain/pending_action.dart';
 import '../../domain/transaction.dart';
 import '../providers/pending_actions_providers.dart';
 
-String _dateLabel(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+String _dateLabel(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 String _actionLabel(PendingActionType type) => switch (type) {
   PendingActionType.createTransaction => 'สร้างรายการ',
@@ -61,12 +62,15 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
     if (!mounted) return;
     setState(() => _retryingIds.remove(action.id));
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'ยังไม่สำเร็จ — อยู่ในคิวต่อไป'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ยังไม่สำเร็จ — อยู่ในคิวต่อไป'),
+        ),
+      ),
       (_) {
         _invalidateAffectedMonths(action);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ลองใหม่สำเร็จ')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('ลองใหม่สำเร็จ')));
       },
     );
   }
@@ -87,9 +91,17 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
         ref.invalidate(dashboardSummaryProvider(date.year, date.month));
       case PendingActionType.updateTransaction:
         final args = readUpdateTransactionPayload(action.payload);
-        ref.invalidate(dashboardSummaryProvider(args.date.year, args.date.month));
-        if (args.originalDate.year != args.date.year || args.originalDate.month != args.date.month) {
-          ref.invalidate(dashboardSummaryProvider(args.originalDate.year, args.originalDate.month));
+        ref.invalidate(
+          dashboardSummaryProvider(args.date.year, args.date.month),
+        );
+        if (args.originalDate.year != args.date.year ||
+            args.originalDate.month != args.date.month) {
+          ref.invalidate(
+            dashboardSummaryProvider(
+              args.originalDate.year,
+              args.originalDate.month,
+            ),
+          );
         }
       case PendingActionType.deleteTransaction:
         final date = readDeleteTransactionPayload(action.payload).date;
@@ -102,10 +114,18 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('ทิ้งรายการนี้ใช่ไหม'),
-        content: const Text('รายการนี้จะถูกลบออกจากคิวลองใหม่อย่างถาวร ไม่สามารถกู้คืนได้'),
+        content: const Text(
+          'รายการนี้จะถูกลบออกจากคิวลองใหม่อย่างถาวร ไม่สามารถกู้คืนได้',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('ยกเลิก')),
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('ทิ้ง')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('ทิ้ง'),
+          ),
         ],
       ),
     );
@@ -124,7 +144,12 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
         error: (error, _) => Center(child: Text('โหลดไม่สำเร็จ: $error')),
         data: (actions) {
           if (actions.isEmpty) {
-            return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('ไม่มีรายการค้าง')));
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text('ไม่มีรายการค้าง'),
+              ),
+            );
           }
           return ListView.builder(
             itemCount: actions.length,
@@ -147,7 +172,11 @@ class _PendingActionsPageState extends ConsumerState<PendingActionsPage> {
                     if (isRetrying)
                       const Padding(
                         padding: EdgeInsets.all(8),
-                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       )
                     else
                       IconButton(

@@ -21,16 +21,17 @@ class AccountsRepository {
   final AppDatabase _db;
 
   /// Read-time filter (not a sync-time one) — closed accounts stay cached.
-  Stream<List<Account>> watchActiveAccounts() => (_db.select(
-    _db.cachedAccounts,
-  )..where((t) => t.isActive.equals(true))).watch().map((rows) => rows.map(accountFromCached).toList());
+  Stream<List<Account>> watchActiveAccounts() =>
+      (_db.select(_db.cachedAccounts)..where((t) => t.isActive.equals(true)))
+          .watch()
+          .map((rows) => rows.map(accountFromCached).toList());
 
   /// No `GET /accounts/:id` exists (spec §12.1) — account detail is always a
   /// direct local read, never a network call.
   Stream<Account?> watchCached(int id) =>
-      (_db.select(_db.cachedAccounts)..where((t) => t.id.equals(id))).watchSingleOrNull().map(
-        (row) => row == null ? null : accountFromCached(row),
-      );
+      (_db.select(_db.cachedAccounts)..where((t) => t.id.equals(id)))
+          .watchSingleOrNull()
+          .map((row) => row == null ? null : accountFromCached(row));
 
   /// BR-7's current_balance formula, computed entirely in SQL so drift's
   /// `readsFrom` can make this reactive to both tables without hand-rolling
@@ -57,21 +58,27 @@ class AccountsRepository {
       variables: [Variable<int>(accountId)],
       readsFrom: {_db.cachedAccounts, _db.cachedTransactions},
     );
-    return query.watchSingleOrNull().map((row) => row?.read<double>('current_balance') ?? 0);
+    return query.watchSingleOrNull().map(
+      (row) => row?.read<double>('current_balance') ?? 0,
+    );
   }
 
   Future<Either<Failure, void>> refreshFromApi() async {
     final result = await _apiClient.get<List<Account>>(
       '/api/v1/accounts',
-      parse: (data) => ((data as Map)['data'] as List).map((e) => accountFromJson(e as Map<String, dynamic>)).toList(),
+      parse: (data) => ((data as Map)['data'] as List)
+          .map((e) => accountFromJson(e as Map<String, dynamic>))
+          .toList(),
     );
-    return result.fold(
-      (failure) async => Left(failure),
-      (accounts) async {
-        await _db.batch((b) => b.insertAllOnConflictUpdate(_db.cachedAccounts, accounts.map(accountToCompanion)));
-        return const Right(null);
-      },
-    );
+    return result.fold((failure) async => Left(failure), (accounts) async {
+      await _db.batch(
+        (b) => b.insertAllOnConflictUpdate(
+          _db.cachedAccounts,
+          accounts.map(accountToCompanion),
+        ),
+      );
+      return const Right(null);
+    });
   }
 
   Future<Either<Failure, Account>> create({
@@ -90,10 +97,13 @@ class AccountsRepository {
         matchingKeywords: matchingKeywords,
         bankIcon: bankIcon,
       ),
-      parse: (data) => accountFromJson((data as Map)['data'] as Map<String, dynamic>),
+      parse: (data) =>
+          accountFromJson((data as Map)['data'] as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (account) async {
-      await _db.into(_db.cachedAccounts).insertOnConflictUpdate(accountToCompanion(account));
+      await _db
+          .into(_db.cachedAccounts)
+          .insertOnConflictUpdate(accountToCompanion(account));
       return Right(account);
     });
   }
@@ -107,11 +117,19 @@ class AccountsRepository {
   }) async {
     final result = await _apiClient.patch<Account>(
       '/api/v1/accounts/$id',
-      data: updateAccountBody(name: name, accountType: accountType, matchingKeywords: matchingKeywords, bankIcon: bankIcon),
-      parse: (data) => accountFromJson((data as Map)['data'] as Map<String, dynamic>),
+      data: updateAccountBody(
+        name: name,
+        accountType: accountType,
+        matchingKeywords: matchingKeywords,
+        bankIcon: bankIcon,
+      ),
+      parse: (data) =>
+          accountFromJson((data as Map)['data'] as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (account) async {
-      await _db.into(_db.cachedAccounts).insertOnConflictUpdate(accountToCompanion(account));
+      await _db
+          .into(_db.cachedAccounts)
+          .insertOnConflictUpdate(accountToCompanion(account));
       return Right(account);
     });
   }
@@ -121,13 +139,20 @@ class AccountsRepository {
   /// which is what keeps old transactions resolving this account's
   /// name/logo after it's closed.
   Future<Either<Failure, void>> close(int id) async {
-    final result = await _apiClient.delete<void>('/api/v1/accounts/$id', parse: (_) {});
+    final result = await _apiClient.delete<void>(
+      '/api/v1/accounts/$id',
+      parse: (_) {},
+    );
     return result.fold((failure) async => Left(failure), (_) async {
-      await (_db.update(_db.cachedAccounts)..where((t) => t.id.equals(id))).write(const CachedAccountsCompanion(isActive: Value(false)));
+      await (_db.update(_db.cachedAccounts)..where((t) => t.id.equals(id)))
+          .write(const CachedAccountsCompanion(isActive: Value(false)));
       return const Right(null);
     });
   }
 }
 
 @riverpod
-AccountsRepository accountsRepository(Ref ref) => AccountsRepository(ref.watch(apiClientProvider), ref.watch(appDatabaseProvider));
+AccountsRepository accountsRepository(Ref ref) => AccountsRepository(
+  ref.watch(apiClientProvider),
+  ref.watch(appDatabaseProvider),
+);

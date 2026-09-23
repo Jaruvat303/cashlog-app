@@ -36,11 +36,20 @@ class AccountFormPage extends ConsumerStatefulWidget {
 
 class _AccountFormPageState extends ConsumerState<AccountFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late final _nameController = TextEditingController(text: widget.initial?.name ?? '');
-  late final _openingBalanceController = TextEditingController(text: widget.initial?.openingBalance.toStringAsFixed(2) ?? '0');
-  late final _matchingKeywordsController = TextEditingController(text: (widget.initial?.matchingKeywords ?? const []).join(', '));
-  late AccountType _accountType = widget.initial?.accountType ?? AccountType.bank;
-  late String _bankIconCode = widget.initial?.bankIcon.isNotEmpty == true ? widget.initial!.bankIcon : kBankIcons.keys.first;
+  late final _nameController = TextEditingController(
+    text: widget.initial?.name ?? '',
+  );
+  late final _openingBalanceController = TextEditingController(
+    text: widget.initial?.openingBalance.toStringAsFixed(2) ?? '0',
+  );
+  late final _matchingKeywordsController = TextEditingController(
+    text: (widget.initial?.matchingKeywords ?? const []).join(', '),
+  );
+  late AccountType _accountType =
+      widget.initial?.accountType ?? AccountType.bank;
+  late String _bankIconCode = widget.initial?.bankIcon.isNotEmpty == true
+      ? widget.initial!.bankIcon
+      : kBankIcons.keys.first;
   bool _isSubmitting = false;
 
   @override
@@ -81,9 +90,11 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
     setState(() => _isSubmitting = false);
 
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
       (_) => Navigator.of(context).pop(true),
     );
   }
@@ -142,12 +153,18 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     CircularIconButton(
-                      icon: widget.isEditing ? RemixIcon.arrowLeftLine : RemixIcon.closeLine,
+                      icon: widget.isEditing
+                          ? RemixIcon.arrowLeftLine
+                          : RemixIcon.closeLine,
                       onTap: () => Navigator.of(context).pop(),
                     ),
                     Text(
                       widget.isEditing ? 'แก้ไขบัญชี' : 'เพิ่มบัญชี',
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     // No trailing action on this form — closing an existing
                     // account is `AccountDetailPage`'s job, not this one's.
@@ -165,7 +182,10 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                       controller: _nameController,
                       hintText: 'ชื่อบัญชี',
                       maxLength: 100,
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'กรุณากรอกชื่อบัญชี'
+                          : null,
                     ),
                     const SizedBox(height: 10),
                     Builder(
@@ -184,7 +204,9 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                         icon: RemixIcon.moneyDollarCircleLine,
                         controller: _openingBalanceController,
                         hintText: 'ยอดเปิดบัญชี',
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         validator: (value) {
                           final parsed = double.tryParse(value ?? '');
                           if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
@@ -210,7 +232,8 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
                       icon: RemixIcon.searchLine,
                       controller: _matchingKeywordsController,
                       hintText: 'คำค้นหาที่ใช้จับคู่',
-                      helperText: 'คั่นด้วยจุลภาค ใช้จับคู่บัญชีนี้จากข้อความในสลิป',
+                      helperText:
+                          'คั่นด้วยจุลภาค ใช้จับคู่บัญชีนี้จากข้อความในสลิป',
                       minLines: 1,
                       maxLines: 3,
                     ),
@@ -231,4 +254,3 @@ class _AccountFormPageState extends ConsumerState<AccountFormPage> {
     );
   }
 }
-

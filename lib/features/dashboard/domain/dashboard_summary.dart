@@ -61,13 +61,25 @@ const int kOtherCategoryId = -1;
 /// grows a zero-amount "อื่นๆ". Pure/stateless so Home's category-spend bar
 /// and its legend can share one source of truth and a plain unit test can
 /// cover the aggregation without mounting any widget.
-List<CategoryBreakdown> topCategoriesWithOther(List<CategoryBreakdown> breakdown, {int maxSegments = 8}) {
-  final sorted = [...breakdown]..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+List<CategoryBreakdown> topCategoriesWithOther(
+  List<CategoryBreakdown> breakdown, {
+  int maxSegments = 8,
+}) {
+  final sorted = [...breakdown]
+    ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
   final top = sorted.take(maxSegments).toList();
-  final otherAmount = sorted.skip(maxSegments).fold(0.0, (sum, b) => sum + b.totalAmount);
+  final otherAmount = sorted
+      .skip(maxSegments)
+      .fold(0.0, (sum, b) => sum + b.totalAmount);
   if (otherAmount <= 0) return top;
   return [
     ...top,
-    CategoryBreakdown(categoryId: kOtherCategoryId, categoryName: 'อื่นๆ', iconKey: '', colorHex: '', totalAmount: otherAmount),
+    CategoryBreakdown(
+      categoryId: kOtherCategoryId,
+      categoryName: 'อื่นๆ',
+      iconKey: '',
+      colorHex: '',
+      totalAmount: otherAmount,
+    ),
   ];
 }

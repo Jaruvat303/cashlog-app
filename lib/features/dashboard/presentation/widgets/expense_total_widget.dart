@@ -29,9 +29,13 @@ class ExpenseTotalWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final month = ref.watch(selectedMonthProvider);
-    final summaryAsync = ref.watch(dashboardSummaryProvider(month.year, month.month));
+    final summaryAsync = ref.watch(
+      dashboardSummaryProvider(month.year, month.month),
+    );
     final previous = DateTime.utc(month.year, month.month - 1);
-    final previousSummary = ref.watch(dashboardSummaryProvider(previous.year, previous.month)).value;
+    final previousSummary = ref
+        .watch(dashboardSummaryProvider(previous.year, previous.month))
+        .value;
 
     return GradientHeroCard(
       key: const Key('expenseTotalWidget'),
@@ -45,16 +49,33 @@ class ExpenseTotalWidget extends ConsumerWidget {
               Container(
                 width: 26,
                 height: 26,
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                child: const Icon(RemixIcon.calendar2Line, size: 15, color: Colors.white),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  RemixIcon.calendar2Line,
+                  size: 15,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 8),
               const Expanded(
-                child: Text('ค่าใช้จ่ายเดือนนี้', style: TextStyle(fontSize: 13, color: Color(0xD9FFFFFF))),
+                child: Text(
+                  'ค่าใช้จ่ายเดือนนี้',
+                  style: TextStyle(fontSize: 13, color: Color(0xD9FFFFFF)),
+                ),
               ),
               // Static, read-only — month switching only happens from the
               // Summary page's Topbar now (ticket 02).
-              Text(monthYearLabel(month), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text(
+                monthYearLabel(month),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -63,33 +84,69 @@ class ExpenseTotalWidget extends ConsumerWidget {
               height: 40,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
-            error: (error, _) => const Text('โหลดยอดใช้จ่ายไม่สำเร็จ', style: TextStyle(fontSize: 13, color: Colors.white)),
+            error: (error, _) => const Text(
+              'โหลดยอดใช้จ่ายไม่สำเร็จ',
+              style: TextStyle(fontSize: 13, color: Colors.white),
+            ),
             data: (summary) {
-              final delta = previousSummary == null || previousSummary.totalExpense == 0
+              final delta =
+                  previousSummary == null || previousSummary.totalExpense == 0
                   ? null
-                  : ((summary.totalExpense - previousSummary.totalExpense) / previousSummary.totalExpense) * 100;
+                  : ((summary.totalExpense - previousSummary.totalExpense) /
+                            previousSummary.totalExpense) *
+                        100;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Text(
                     key: const Key('expenseTotalAmount'),
                     formatAmount(summary.totalExpense),
-                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                   if (delta != null) ...[
                     const SizedBox(width: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(delta <= 0 ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 12, color: Colors.white),
+                          Icon(
+                            delta <= 0
+                                ? Icons.arrow_downward_rounded
+                                : Icons.arrow_upward_rounded,
+                            size: 12,
+                            color: Colors.white,
+                          ),
                           const SizedBox(width: 2),
-                          Text('${delta.abs().toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                          Text(
+                            '${delta.abs().toStringAsFixed(1)}%',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -106,14 +163,31 @@ class ExpenseTotalWidget extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(12),
                 onTap: () => context.go('/transactions'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(RemixIcon.barChart2Line, size: 13, color: Colors.white),
+                      Icon(
+                        RemixIcon.barChart2Line,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                       SizedBox(width: 5),
-                      Text('ดูสรุป', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                      Text(
+                        'ดูสรุป',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -121,7 +195,9 @@ class ExpenseTotalWidget extends ConsumerWidget {
             ],
           ),
           summaryAsync.maybeWhen(
-            data: (summary) => summary.expense.isEmpty ? const SizedBox.shrink() : _CategorySpendBar(breakdown: summary.expense),
+            data: (summary) => summary.expense.isEmpty
+                ? const SizedBox.shrink()
+                : _CategorySpendBar(breakdown: summary.expense),
             orElse: () => const SizedBox.shrink(),
           ),
         ],
@@ -150,11 +226,16 @@ class _CategorySpendBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final segments = topCategoriesWithOther(breakdown, maxSegments: _maxSegments);
+    final segments = topCategoriesWithOther(
+      breakdown,
+      maxSegments: _maxSegments,
+    );
     final total = segments.fold(0.0, (sum, b) => sum + b.totalAmount);
     if (total <= 0) return const SizedBox.shrink();
 
-    Color colorOf(CategoryBreakdown b) => b.categoryId == kOtherCategoryId ? Colors.white.withValues(alpha: 0.5) : colorFromHex(b.colorHex);
+    Color colorOf(CategoryBreakdown b) => b.categoryId == kOtherCategoryId
+        ? Colors.white.withValues(alpha: 0.5)
+        : colorFromHex(b.colorHex);
 
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -163,7 +244,14 @@ class _CategorySpendBar extends StatelessWidget {
         children: [
           const Divider(height: 1, color: Color(0x2EFFFFFF)),
           const SizedBox(height: 12),
-          const Text('ใช้จ่ายตามหมวดหมู่', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+          const Text(
+            'ใช้จ่ายตามหมวดหมู่',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(5),
@@ -172,10 +260,20 @@ class _CategorySpendBar extends StatelessWidget {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final amounts = [for (final b in segments) b.totalAmount];
-                  final widths = _segmentWidths(amounts, total, constraints.maxWidth);
+                  final widths = _segmentWidths(
+                    amounts,
+                    total,
+                    constraints.maxWidth,
+                  );
                   return Row(
                     key: const Key('categorySpendBarSegments'),
-                    children: [for (var i = 0; i < segments.length; i++) SizedBox(width: widths[i], child: Container(color: colorOf(segments[i])))],
+                    children: [
+                      for (var i = 0; i < segments.length; i++)
+                        SizedBox(
+                          width: widths[i],
+                          child: Container(color: colorOf(segments[i])),
+                        ),
+                    ],
                   );
                 },
               ),
@@ -194,7 +292,14 @@ class _CategorySpendBar extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(top: 3),
-                        child: Container(width: 8, height: 8, decoration: BoxDecoration(color: colorOf(b), shape: BoxShape.circle)),
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: colorOf(b),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 5),
                       Flexible(
@@ -202,7 +307,11 @@ class _CategorySpendBar extends StatelessWidget {
                           b.categoryName,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ],
@@ -221,11 +330,23 @@ class _CategorySpendBar extends StatelessWidget {
   /// taken back out of the remaining (non-clamped) segments, which are then
   /// re-distributed among themselves so the total still exactly fills
   /// [availableWidth].
-  List<double> _segmentWidths(List<double> amounts, double total, double availableWidth) {
-    final isSmall = [for (final amount in amounts) amount / total * availableWidth < _minSegmentWidth];
+  List<double> _segmentWidths(
+    List<double> amounts,
+    double total,
+    double availableWidth,
+  ) {
+    final isSmall = [
+      for (final amount in amounts)
+        amount / total * availableWidth < _minSegmentWidth,
+    ];
     final reserved = isSmall.where((small) => small).length * _minSegmentWidth;
-    final remainingWidth = (availableWidth - reserved).clamp(0, availableWidth).toDouble();
-    final remainingTotal = [for (var i = 0; i < amounts.length; i++) if (!isSmall[i]) amounts[i]].fold(0.0, (sum, a) => sum + a);
+    final remainingWidth = (availableWidth - reserved)
+        .clamp(0, availableWidth)
+        .toDouble();
+    final remainingTotal = [
+      for (var i = 0; i < amounts.length; i++)
+        if (!isSmall[i]) amounts[i],
+    ].fold(0.0, (sum, a) => sum + a);
     return [
       for (var i = 0; i < amounts.length; i++)
         if (isSmall[i])

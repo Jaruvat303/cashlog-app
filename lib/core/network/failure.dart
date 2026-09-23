@@ -50,18 +50,53 @@ sealed class Failure {
     int? statusCode,
   }) {
     return switch (code) {
-      'DATABASE_TIMEOUT' => TimeoutFailure(message: message, statusCode: statusCode),
-      'GEMINI_SERVICE_ERROR' => GeminiUnavailableFailure(message: message, statusCode: statusCode),
-      'INTERNAL_DATABASE_ERROR' || 'INTERNAL_SERVER_ERROR' => InternalDbFailure(message: message, statusCode: statusCode),
-      'REQUEST_CANCELED' => ContextCanceledFailure(message: message, statusCode: statusCode),
-      'RESOURCE_NOT_FOUND' || 'URL_NOT_FOUND' => NotFoundFailure(message: message, statusCode: statusCode),
-      'DUPLICATE_RESOURCE' => DuplicateRequestFailure(message: message, statusCode: statusCode),
-      'INVALID_INPUT_PARAMETERS' || 'BAD_REQUEST_PARAMETERS' => InvalidInputFailure(message: message, statusCode: statusCode),
-      'SLIP_PARSE_FAILED' => SlipParseFailedFailure(message: message, statusCode: statusCode),
-      'ACCOUNT_INACTIVE' => AccountInactiveFailure(message: message, statusCode: statusCode),
-      'TRANSFER_SAME_ACCOUNT' => TransferSameAccountFailure(message: message, statusCode: statusCode),
-      'CATEGORY_NOT_ALLOWED_FOR_TRANSFER' => CategoryNotAllowedForTransferFailure(message: message, statusCode: statusCode),
-      'GEMINI_QUOTA_EXHAUSTED' => GeminiQuotaExhaustedFailure(message: message, statusCode: statusCode),
+      'DATABASE_TIMEOUT' => TimeoutFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'GEMINI_SERVICE_ERROR' => GeminiUnavailableFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'INTERNAL_DATABASE_ERROR' || 'INTERNAL_SERVER_ERROR' => InternalDbFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'REQUEST_CANCELED' => ContextCanceledFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'RESOURCE_NOT_FOUND' || 'URL_NOT_FOUND' => NotFoundFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'DUPLICATE_RESOURCE' => DuplicateRequestFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'INVALID_INPUT_PARAMETERS' || 'BAD_REQUEST_PARAMETERS' =>
+        InvalidInputFailure(message: message, statusCode: statusCode),
+      'SLIP_PARSE_FAILED' => SlipParseFailedFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'ACCOUNT_INACTIVE' => AccountInactiveFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'TRANSFER_SAME_ACCOUNT' => TransferSameAccountFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
+      'CATEGORY_NOT_ALLOWED_FOR_TRANSFER' =>
+        CategoryNotAllowedForTransferFailure(
+          message: message,
+          statusCode: statusCode,
+        ),
+      'GEMINI_QUOTA_EXHAUSTED' => GeminiQuotaExhaustedFailure(
+        message: message,
+        statusCode: statusCode,
+      ),
       _ => UnknownFailure(code: code, message: message, statusCode: statusCode),
     };
   }
@@ -73,17 +108,17 @@ sealed class Failure {
       DioExceptionType.connectionTimeout ||
       DioExceptionType.sendTimeout ||
       DioExceptionType.receiveTimeout ||
-      DioExceptionType.transformTimeout =>
-        TimeoutFailure(message: e.message),
-      DioExceptionType.connectionError => NoConnectionFailure(message: e.message),
+      DioExceptionType.transformTimeout => TimeoutFailure(message: e.message),
+      DioExceptionType.connectionError => NoConnectionFailure(
+        message: e.message,
+      ),
       DioExceptionType.cancel => ContextCanceledFailure(message: e.message),
       DioExceptionType.badResponse => UnknownFailure(
-          code: null,
-          message: e.message,
-          statusCode: e.response?.statusCode,
-        ),
-      DioExceptionType.badCertificate ||
-      DioExceptionType.unknown =>
+        code: null,
+        message: e.message,
+        statusCode: e.response?.statusCode,
+      ),
+      DioExceptionType.badCertificate || DioExceptionType.unknown =>
         UnknownFailure(code: null, message: e.message),
     };
   }

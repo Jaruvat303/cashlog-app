@@ -13,7 +13,10 @@ void main() {
     test('typing into an empty field lands the caret at the end (Add\'s append-only case)', () {
       final result = formatter.formatEditUpdate(
         TextEditingValue.empty,
-        const TextEditingValue(text: '1', selection: TextSelection.collapsed(offset: 1)),
+        const TextEditingValue(
+          text: '1',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
       );
       expect(result.text, '1');
       expect(result.selection, const TextSelection.collapsed(offset: 1));
@@ -21,8 +24,14 @@ void main() {
 
     test('appending more digits keeps grouping and the caret at the end', () {
       final result = formatter.formatEditUpdate(
-        const TextEditingValue(text: '1,234', selection: TextSelection.collapsed(offset: 5)),
-        const TextEditingValue(text: '1,2345', selection: TextSelection.collapsed(offset: 6)),
+        const TextEditingValue(
+          text: '1,234',
+          selection: TextSelection.collapsed(offset: 5),
+        ),
+        const TextEditingValue(
+          text: '1,2345',
+          selection: TextSelection.collapsed(offset: 6),
+        ),
       );
       expect(result.text, '12,345');
       expect(result.selection, const TextSelection.collapsed(offset: 6));
@@ -38,8 +47,14 @@ void main() {
       // presses backspace: the native edit already removed the "1",
       // producing ",234.50" with the caret at offset 0.
       final result = formatter.formatEditUpdate(
-        const TextEditingValue(text: '1,234.50', selection: TextSelection.collapsed(offset: 1)),
-        const TextEditingValue(text: ',234.50', selection: TextSelection.collapsed(offset: 0)),
+        const TextEditingValue(
+          text: '1,234.50',
+          selection: TextSelection.collapsed(offset: 1),
+        ),
+        const TextEditingValue(
+          text: ',234.50',
+          selection: TextSelection.collapsed(offset: 0),
+        ),
       );
       expect(result.text, '234.50');
       // Right before "2" — a follow-up backspace here does nothing (already
@@ -52,8 +67,14 @@ void main() {
       // "1,234.50", caret between "2" and "3" (offset 3), backspace removes
       // the "2": native edit produces "1,34.50" with the caret at offset 2.
       final result = formatter.formatEditUpdate(
-        const TextEditingValue(text: '1,234.50', selection: TextSelection.collapsed(offset: 3)),
-        const TextEditingValue(text: '1,34.50', selection: TextSelection.collapsed(offset: 2)),
+        const TextEditingValue(
+          text: '1,234.50',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+        const TextEditingValue(
+          text: '1,34.50',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
       );
       expect(result.text, '134.50');
       // Right after "1", before "3" — exactly where the removed "2" was.

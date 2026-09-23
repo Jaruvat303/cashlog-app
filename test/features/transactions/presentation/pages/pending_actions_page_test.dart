@@ -31,11 +31,20 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void> deleteResult = const Right(null);
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) => throw UnimplementedError('not exercised by this page test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this page test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -167,7 +176,9 @@ void main() {
     child: const MaterialApp(home: PendingActionsPage()),
   );
 
-  testWidgets('renders a queued row with its action label and retry count', (tester) async {
+  testWidgets('renders a queued row with its action label and retry count', (
+    tester,
+  ) async {
     await seedDeleteAction();
 
     await tester.pumpWidget(buildApp());
@@ -175,7 +186,10 @@ void main() {
 
     expect(find.text('ลบรายการ'), findsOneWidget);
     expect(find.textContaining('ลองใหม่แล้ว: 0'), findsOneWidget);
-    expect(find.textContaining('ข้อผิดพลาดล่าสุด: DATABASE_TIMEOUT'), findsOneWidget);
+    expect(
+      find.textContaining('ข้อผิดพลาดล่าสุด: DATABASE_TIMEOUT'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('shows the empty state once the queue is empty', (tester) async {
@@ -185,41 +199,51 @@ void main() {
     expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
   });
 
-  testWidgets('tapping retry on a row that now succeeds removes it from the queue', (tester) async {
-    final id = await seedDeleteAction();
-    fakeTransactions.deleteResult = const Right(null);
+  testWidgets(
+    'tapping retry on a row that now succeeds removes it from the queue',
+    (tester) async {
+      final id = await seedDeleteAction();
+      fakeTransactions.deleteResult = const Right(null);
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(Key('retryButton_$id')));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(Key('retryButton_$id')));
+      await _pumpBounded(tester);
 
-    expect(fakeTransactions.deleteCalls, [42]);
-    expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
-    expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
-    expect(await pendingActions.watchAll().first, isEmpty);
-  });
+      expect(fakeTransactions.deleteCalls, [42]);
+      expect(find.text('ลองใหม่สำเร็จ'), findsOneWidget);
+      expect(find.text('ไม่มีรายการค้าง'), findsOneWidget);
+      expect(await pendingActions.watchAll().first, isEmpty);
+    },
+  );
 
-  testWidgets('tapping retry on a row that fails again keeps it queued with an updated retry count', (tester) async {
-    final id = await seedDeleteAction();
-    fakeTransactions.deleteResult = const Left(AccountInactiveFailure(message: 'Account is inactive'));
+  testWidgets(
+    'tapping retry on a row that fails again keeps it queued with an updated retry count',
+    (tester) async {
+      final id = await seedDeleteAction();
+      fakeTransactions.deleteResult = const Left(
+        AccountInactiveFailure(message: 'Account is inactive'),
+      );
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(Key('retryButton_$id')));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(Key('retryButton_$id')));
+      await _pumpBounded(tester);
 
-    expect(fakeTransactions.deleteCalls, [42]);
-    expect(find.text('Account is inactive'), findsOneWidget);
-    final rows = await pendingActions.watchAll().first;
-    expect(rows, hasLength(1));
-    expect(rows.single.retryCount, 1);
-    expect(rows.single.lastErrorCode, 'ACCOUNT_INACTIVE');
-  });
+      expect(fakeTransactions.deleteCalls, [42]);
+      expect(find.text('Account is inactive'), findsOneWidget);
+      final rows = await pendingActions.watchAll().first;
+      expect(rows, hasLength(1));
+      expect(rows.single.retryCount, 1);
+      expect(rows.single.lastErrorCode, 'ACCOUNT_INACTIVE');
+    },
+  );
 
-  testWidgets('dismiss removes the row without ever calling the repository', (tester) async {
+  testWidgets('dismiss removes the row without ever calling the repository', (
+    tester,
+  ) async {
     final id = await seedDeleteAction();
 
     await tester.pumpWidget(buildApp());
@@ -231,7 +255,11 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
     await _pumpBounded(tester);
-    expect(await pendingActions.watchAll().first, hasLength(1), reason: 'canceling the dialog must not discard the row');
+    expect(
+      await pendingActions.watchAll().first,
+      hasLength(1),
+      reason: 'canceling the dialog must not discard the row',
+    );
 
     await tester.tap(find.byKey(Key('dismissButton_$id')));
     await _pumpBounded(tester);

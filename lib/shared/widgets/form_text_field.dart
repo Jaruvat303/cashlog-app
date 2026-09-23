@@ -37,12 +37,19 @@ class FormTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        boxShadow: const [AppShadows.card],
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(padding: const EdgeInsets.only(top: 14), child: Icon(icon, size: 16, color: AppColors.accentA)),
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Icon(icon, size: 16, color: AppColors.accentA),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: TextFormField(
@@ -51,12 +58,18 @@ class FormTextField extends StatelessWidget {
               maxLength: maxLength,
               minLines: minLines,
               maxLines: maxLines,
-              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+              ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hintText,
                 helperText: helperText,
-                hintStyle: const TextStyle(color: AppColors.accentA, fontSize: 14),
+                hintStyle: const TextStyle(
+                  color: AppColors.accentA,
+                  fontSize: 14,
+                ),
                 counterText: '',
               ),
               validator: validator,

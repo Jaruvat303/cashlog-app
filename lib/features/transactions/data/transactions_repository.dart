@@ -55,7 +55,12 @@ class TransactionsRepository {
   /// longer matched the tab-scoped Uncategorized figure the breakdown card
   /// shows. Callers pass [type] whenever a category filter of any kind is
   /// active — see `TransactionsPage._categoryFilterType`.
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) {
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) {
     final start = DateTime.utc(year, month);
     final end = DateTime.utc(year, month + 1);
     return (_db.select(_db.cachedTransactions)
@@ -63,14 +68,19 @@ class TransactionsRepository {
             (t) =>
                 t.transactionDate.isBiggerOrEqualValue(start) &
                 t.transactionDate.isSmallerThanValue(end) &
-                (type == null ? const Constant(true) : t.transactionType.equals(type.name)) &
+                (type == null
+                    ? const Constant(true)
+                    : t.transactionType.equals(type.name)) &
                 switch (categoryId) {
                   null => const Constant(true),
                   kUncategorizedCategoryId => t.categoryId.isNull(),
                   _ => t.categoryId.equals(categoryId),
                 },
           )
-          ..orderBy([(t) => OrderingTerm.desc(t.transactionDate), (t) => OrderingTerm.desc(t.id)]))
+          ..orderBy([
+            (t) => OrderingTerm.desc(t.transactionDate),
+            (t) => OrderingTerm.desc(t.id),
+          ]))
         .watch()
         .map((rows) => rows.map(transactionFromCached).toList());
   }
@@ -88,11 +98,21 @@ class TransactionsRepository {
   }) async {
     final result = await _apiClient.get<TransactionPage>(
       '/api/v1/transactions',
-      queryParameters: {'year': year, 'month': month, 'page': page, 'limit': limit},
+      queryParameters: {
+        'year': year,
+        'month': month,
+        'page': page,
+        'limit': limit,
+      },
       parse: (data) => transactionPageFromJson(data as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (page) async {
-      await _db.batch((b) => b.insertAllOnConflictUpdate(_db.cachedTransactions, page.transactions.map(transactionToCompanion)));
+      await _db.batch(
+        (b) => b.insertAllOnConflictUpdate(
+          _db.cachedTransactions,
+          page.transactions.map(transactionToCompanion),
+        ),
+      );
       return Right(page);
     });
   }
@@ -125,15 +145,28 @@ class TransactionsRepository {
               note: note,
               categoryId: categoryId,
             ),
-            parse: (data) => transactionFromJson((data as Map)['data'] as Map<String, dynamic>),
+            parse: (data) => transactionFromJson(
+              (data as Map)['data'] as Map<String, dynamic>,
+            ),
           )
         : await _apiClient.post<Transaction>(
             '/api/v1/transactions',
-            data: createTransactionBody(type: type, amount: amount, date: date, note: note, accountId: accountId!, categoryId: categoryId),
-            parse: (data) => transactionFromJson((data as Map)['data'] as Map<String, dynamic>),
+            data: createTransactionBody(
+              type: type,
+              amount: amount,
+              date: date,
+              note: note,
+              accountId: accountId!,
+              categoryId: categoryId,
+            ),
+            parse: (data) => transactionFromJson(
+              (data as Map)['data'] as Map<String, dynamic>,
+            ),
           );
     return result.fold((failure) async => Left(failure), (transaction) async {
-      await _db.into(_db.cachedTransactions).insertOnConflictUpdate(transactionToCompanion(transaction));
+      await _db
+          .into(_db.cachedTransactions)
+          .insertOnConflictUpdate(transactionToCompanion(transaction));
       return Right(transaction);
     });
   }
@@ -161,10 +194,13 @@ class TransactionsRepository {
         toAccountId: toAccountId,
         categoryId: categoryId,
       ),
-      parse: (data) => transactionFromJson((data as Map)['data'] as Map<String, dynamic>),
+      parse: (data) =>
+          transactionFromJson((data as Map)['data'] as Map<String, dynamic>),
     );
     return result.fold((failure) async => Left(failure), (transaction) async {
-      await _db.into(_db.cachedTransactions).insertOnConflictUpdate(transactionToCompanion(transaction));
+      await _db
+          .into(_db.cachedTransactions)
+          .insertOnConflictUpdate(transactionToCompanion(transaction));
       return Right(transaction);
     });
   }
@@ -176,9 +212,14 @@ class TransactionsRepository {
   /// outright — drift's reactive `watch()` behind [watchMonth] drops it from
   /// the feed immediately.
   Future<Either<Failure, void>> delete(int id) async {
-    final result = await _apiClient.delete<void>('/api/v1/transactions/$id', parse: (_) {});
+    final result = await _apiClient.delete<void>(
+      '/api/v1/transactions/$id',
+      parse: (_) {},
+    );
     return result.fold((failure) async => Left(failure), (_) async {
-      await (_db.delete(_db.cachedTransactions)..where((t) => t.id.equals(id))).go();
+      await (_db.delete(
+        _db.cachedTransactions,
+      )..where((t) => t.id.equals(id))).go();
       return const Right(null);
     });
   }
@@ -186,4 +227,7 @@ class TransactionsRepository {
 
 @riverpod
 TransactionsRepository transactionsRepository(Ref ref) =>
-    TransactionsRepository(ref.watch(apiClientProvider), ref.watch(appDatabaseProvider));
+    TransactionsRepository(
+      ref.watch(apiClientProvider),
+      ref.watch(appDatabaseProvider),
+    );

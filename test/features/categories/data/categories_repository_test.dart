@@ -18,7 +18,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _FakeSuccessAdapter implements HttpClientAdapter {
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     return ResponseBody.fromString('', 200);
   }
 
@@ -34,15 +38,31 @@ class _FakeCategoriesByTypeAdapter implements HttpClientAdapter {
   final List<RequestOptions> requests = [];
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     requests.add(options);
     final type = options.queryParameters['type'];
     final data = switch (type) {
       'income' => [
-        {'id': 1, 'name': 'Salary', 'type': 'income', 'icon_key': 'salary', 'color_hex': '#22C55E'},
+        {
+          'id': 1,
+          'name': 'Salary',
+          'type': 'income',
+          'icon_key': 'salary',
+          'color_hex': '#22C55E',
+        },
       ],
       'expense' => [
-        {'id': 2, 'name': 'Food', 'type': 'expense', 'icon_key': 'food', 'color_hex': '#EF4444'},
+        {
+          'id': 2,
+          'name': 'Food',
+          'type': 'expense',
+          'icon_key': 'food',
+          'color_hex': '#EF4444',
+        },
       ],
       _ => throw StateError('unexpected/missing type query param: $type'),
     };
@@ -75,7 +95,15 @@ void main() {
 
   Future<void> seedCategory(int id) => db
       .into(db.cachedCategories)
-      .insert(CachedCategoriesCompanion.insert(id: Value(id), name: 'Food', type: 'expense', iconKey: 'food', colorHex: '#EF4444'));
+      .insert(
+        CachedCategoriesCompanion.insert(
+          id: Value(id),
+          name: 'Food',
+          type: 'expense',
+          iconKey: 'food',
+          colorHex: '#EF4444',
+        ),
+      );
 
   Future<void> seedTransaction(int id, {int? categoryId}) => db
       .into(db.cachedTransactions)
@@ -90,15 +118,18 @@ void main() {
         ),
       );
 
-  test('countLinkedTransactions counts only rows pointing at that category', () async {
-    await seedCategory(1);
-    await seedTransaction(1, categoryId: 1);
-    await seedTransaction(2, categoryId: 1);
-    await seedTransaction(3, categoryId: null);
+  test(
+    'countLinkedTransactions counts only rows pointing at that category',
+    () async {
+      await seedCategory(1);
+      await seedTransaction(1, categoryId: 1);
+      await seedTransaction(2, categoryId: 1);
+      await seedTransaction(3, categoryId: null);
 
-    expect(await repository.countLinkedTransactions(1), 2);
-    expect(await repository.countLinkedTransactions(999), 0);
-  });
+      expect(await repository.countLinkedTransactions(1), 2);
+      expect(await repository.countLinkedTransactions(999), 0);
+    },
+  );
 
   test('delete removes the category and reassigns linked transactions to uncategorized', () async {
     await seedCategory(1);
@@ -107,7 +138,12 @@ void main() {
     await seedTransaction(3, categoryId: null);
 
     final result = await repository.delete(1);
-    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    expect(
+      result.isRight(),
+      isTrue,
+      reason:
+          'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+    );
 
     final remainingCategories = await db.select(db.cachedCategories).get();
     expect(remainingCategories, isEmpty);
@@ -124,9 +160,17 @@ void main() {
 
     final result = await syncingRepository.refreshFromApi();
 
-    expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
+    expect(
+      result.isRight(),
+      isTrue,
+      reason:
+          'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+    );
     expect(adapter.requests.map((r) => r.path).toSet(), {'/api/v1/categories'});
-    expect(adapter.requests.map((r) => r.queryParameters['type']).toSet(), {'income', 'expense'});
+    expect(adapter.requests.map((r) => r.queryParameters['type']).toSet(), {
+      'income',
+      'expense',
+    });
 
     final cached = await db.select(db.cachedCategories).get();
     expect(cached.map((c) => c.type).toSet(), {'income', 'expense'});

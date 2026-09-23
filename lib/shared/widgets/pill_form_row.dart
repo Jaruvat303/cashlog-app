@@ -54,17 +54,32 @@ class PillFormRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                     Text(
                       value,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              trailing ?? const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
+              trailing ??
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
             ],
           ),
         ),

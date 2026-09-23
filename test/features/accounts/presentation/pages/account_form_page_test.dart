@@ -20,14 +20,14 @@ typedef _CreateArgs = ({
   AccountType accountType,
   double openingBalance,
   List<String> matchingKeywords,
-  String bankIcon
+  String bankIcon,
 });
 typedef _UpdateArgs = ({
   int id,
   String name,
   AccountType accountType,
   List<String> matchingKeywords,
-  String bankIcon
+  String bankIcon,
 });
 
 class _FakeAccountsRepository implements AccountsRepository {
@@ -67,18 +67,19 @@ class _FakeAccountsRepository implements AccountsRepository {
       accountType: accountType,
       openingBalance: openingBalance,
       matchingKeywords: matchingKeywords,
-      bankIcon: bankIcon
+      bankIcon: bankIcon,
     );
     return nextResult ??
         Right(
           Account(
-              id: 1,
-              name: name,
-              accountType: accountType,
-              openingBalance: openingBalance,
-              matchingKeywords: matchingKeywords,
-              bankIcon: bankIcon,
-              isActive: true),
+            id: 1,
+            name: name,
+            accountType: accountType,
+            openingBalance: openingBalance,
+            matchingKeywords: matchingKeywords,
+            bankIcon: bankIcon,
+            isActive: true,
+          ),
         );
   }
 
@@ -96,17 +97,20 @@ class _FakeAccountsRepository implements AccountsRepository {
       name: name,
       accountType: accountType,
       matchingKeywords: matchingKeywords,
-      bankIcon: bankIcon
+      bankIcon: bankIcon,
     );
     return nextResult ??
-        Right(Account(
+        Right(
+          Account(
             id: id,
             name: name,
             accountType: accountType,
             openingBalance: 0,
             matchingKeywords: matchingKeywords,
             bankIcon: bankIcon,
-            isActive: true));
+            isActive: true,
+          ),
+        );
   }
 
   @override
@@ -135,19 +139,22 @@ void main() {
   // submit's `Navigator.pop()` would be a no-op and the page would still be
   // "found" afterwards even though the real app pops it just fine.
   Widget buildApp({Account? initial}) => ProviderScope(
-        overrides: [accountsRepositoryProvider.overrideWithValue(fakeAccounts)],
-        child: MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => ElevatedButton(
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => AccountFormPage(initial: initial))),
-                child: const Text('open'),
+    overrides: [accountsRepositoryProvider.overrideWithValue(fakeAccounts)],
+    child: MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AccountFormPage(initial: initial),
               ),
             ),
+            child: const Text('open'),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   group('create mode', () {
     testWidgets('an empty name is rejected — no create call', (tester) async {
@@ -163,23 +170,28 @@ void main() {
       expect(fakeAccounts.createCallCount, 0);
     });
 
-    testWidgets('a negative opening balance is rejected — no create call',
-        (tester) async {
+    testWidgets('a negative opening balance is rejected — no create call', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
+        find.descendant(
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'My Wallet',
+      );
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('openingBalanceField')),
-              matching: find.byType(TextFormField)),
-          '-5');
+        find.descendant(
+          of: find.byKey(const Key('openingBalanceField')),
+          matching: find.byType(TextFormField),
+        ),
+        '-5',
+      );
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
@@ -187,23 +199,28 @@ void main() {
       expect(fakeAccounts.createCallCount, 0);
     });
 
-    testWidgets('a non-numeric opening balance is rejected — no create call',
-        (tester) async {
+    testWidgets('a non-numeric opening balance is rejected — no create call', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
+        find.descendant(
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'My Wallet',
+      );
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('openingBalanceField')),
-              matching: find.byType(TextFormField)),
-          'abc');
+        find.descendant(
+          of: find.byKey(const Key('openingBalanceField')),
+          matching: find.byType(TextFormField),
+        ),
+        'abc',
+      );
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
@@ -212,105 +229,128 @@ void main() {
     });
 
     testWidgets(
-        'submits the name/opening balance with the default account type and bank icon, then pops',
-        (tester) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
+      'submits the name/opening balance with the default account type and bank icon, then pops',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
 
-      await tester.enterText(
+        await tester.enterText(
           find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
-      await tester.enterText(
+            of: find.byKey(const Key('nameField')),
+            matching: find.byType(TextFormField),
+          ),
+          'My Wallet',
+        );
+        await tester.enterText(
           find.descendant(
-              of: find.byKey(const Key('openingBalanceField')),
-              matching: find.byType(TextFormField)),
-          '1500');
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
-      await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+            of: find.byKey(const Key('openingBalanceField')),
+            matching: find.byType(TextFormField),
+          ),
+          '1500',
+        );
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 50),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 5),
+        );
 
-      expect(fakeAccounts.createCallCount, 1);
-      expect(fakeAccounts.lastCreateArgs?.name, 'My Wallet');
-      expect(fakeAccounts.lastCreateArgs?.openingBalance, 1500);
-      expect(fakeAccounts.lastCreateArgs?.accountType, AccountType.bank);
-      expect(fakeAccounts.lastCreateArgs?.bankIcon, kBankIcons.keys.first);
-      expect(find.byType(AccountFormPage), findsNothing);
-    });
+        expect(fakeAccounts.createCallCount, 1);
+        expect(fakeAccounts.lastCreateArgs?.name, 'My Wallet');
+        expect(fakeAccounts.lastCreateArgs?.openingBalance, 1500);
+        expect(fakeAccounts.lastCreateArgs?.accountType, AccountType.bank);
+        expect(fakeAccounts.lastCreateArgs?.bankIcon, kBankIcons.keys.first);
+        expect(find.byType(AccountFormPage), findsNothing);
+      },
+    );
 
     testWidgets(
-        'picking a different account type and bank icon sends those in the create call',
-        (tester) async {
+      'picking a different account type and bank icon sends those in the create call',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await _pumpBounded(tester);
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
+
+        await tester.enterText(
+          find.descendant(
+            of: find.byKey(const Key('nameField')),
+            matching: find.byType(TextFormField),
+          ),
+          'My Wallet',
+        );
+
+        await tester.tap(find.byKey(const Key('accountTypePill')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('accountTypeOption_cash')));
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('bankIconPill')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('bankIconOption_dime')));
+        await _pumpBounded(tester);
+
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
+
+        expect(fakeAccounts.lastCreateArgs?.accountType, AccountType.cash);
+        expect(fakeAccounts.lastCreateArgs?.bankIcon, 'dime');
+      },
+    );
+
+    testWidgets('matching keywords are split on commas/newlines and trimmed', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
-      await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
-
-      await tester.tap(find.byKey(const Key('accountTypePill')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('accountTypeOption_cash')));
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('bankIconPill')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('bankIconOption_dime')));
-      await _pumpBounded(tester);
-
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
-
-      expect(fakeAccounts.lastCreateArgs?.accountType, AccountType.cash);
-      expect(fakeAccounts.lastCreateArgs?.bankIcon, 'dime');
-    });
-
-    testWidgets('matching keywords are split on commas/newlines and trimmed',
-        (tester) async {
-      await tester.pumpWidget(buildApp());
-      await _pumpBounded(tester);
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
-
-      await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
       await tester.enterText(
         find.descendant(
-            of: find.byKey(const Key('matchingKeywordsField')),
-            matching: find.byType(TextFormField)),
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'My Wallet',
+      );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const Key('matchingKeywordsField')),
+          matching: find.byType(TextFormField),
+        ),
         'SCB EASY, ไทยพาณิชย์ ,\nDime!',
       );
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
-      expect(fakeAccounts.lastCreateArgs?.matchingKeywords,
-          ['SCB EASY', 'ไทยพาณิชย์', 'Dime!']);
+      expect(fakeAccounts.lastCreateArgs?.matchingKeywords, [
+        'SCB EASY',
+        'ไทยพาณิชย์',
+        'Dime!',
+      ]);
     });
 
-    testWidgets('a failed create shows the error and stays on the page',
-        (tester) async {
-      fakeAccounts.nextResult =
-          const Left(UnknownFailure(message: 'Could not create account'));
+    testWidgets('a failed create shows the error and stays on the page', (
+      tester,
+    ) async {
+      fakeAccounts.nextResult = const Left(
+        UnknownFailure(message: 'Could not create account'),
+      );
       await tester.pumpWidget(buildApp());
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'My Wallet');
+        find.descendant(
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'My Wallet',
+      );
       await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
 
@@ -331,46 +371,55 @@ void main() {
     );
 
     testWidgets(
-        'prefills the existing account\'s fields and hides the opening balance field entirely',
-        (tester) async {
-      await tester.pumpWidget(buildApp(initial: existing));
-      await _pumpBounded(tester);
-      await tester.tap(find.text('open'));
-      await _pumpBounded(tester);
+      'prefills the existing account\'s fields and hides the opening balance field entirely',
+      (tester) async {
+        await tester.pumpWidget(buildApp(initial: existing));
+        await _pumpBounded(tester);
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
 
-      expect(find.text('SCB Savings'), findsOneWidget);
-      expect(
+        expect(find.text('SCB Savings'), findsOneWidget);
+        expect(
           find.descendant(
-              of: find.byKey(const Key('accountTypePill')),
-              matching: find.text('ธนาคาร')),
-          findsOneWidget);
-      expect(
+            of: find.byKey(const Key('accountTypePill')),
+            matching: find.text('ธนาคาร'),
+          ),
+          findsOneWidget,
+        );
+        expect(
           find.descendant(
-              of: find.byKey(const Key('bankIconPill')),
-              matching: find.text('SCB EASY')),
-          findsOneWidget);
-      expect(find.byKey(const Key('openingBalanceField')), findsNothing);
+            of: find.byKey(const Key('bankIconPill')),
+            matching: find.text('SCB EASY'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('openingBalanceField')), findsNothing);
 
-      final keywordsField = tester.widget<TextFormField>(
-        find.descendant(
+        final keywordsField = tester.widget<TextFormField>(
+          find.descendant(
             of: find.byKey(const Key('matchingKeywordsField')),
-            matching: find.byType(TextFormField)),
-      );
-      expect(keywordsField.controller?.text, 'SCB EASY');
-    });
+            matching: find.byType(TextFormField),
+          ),
+        );
+        expect(keywordsField.controller?.text, 'SCB EASY');
+      },
+    );
 
-    testWidgets('submits the updated fields via update(), never create()',
-        (tester) async {
+    testWidgets('submits the updated fields via update(), never create()', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp(initial: existing));
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
       await tester.enterText(
-          find.descendant(
-              of: find.byKey(const Key('nameField')),
-              matching: find.byType(TextFormField)),
-          'SCB Savings 2');
+        find.descendant(
+          of: find.byKey(const Key('nameField')),
+          matching: find.byType(TextFormField),
+        ),
+        'SCB Savings 2',
+      );
       await tester.tap(find.byKey(const Key('accountTypePill')));
       await _pumpBounded(tester);
       await tester.tap(find.byKey(const Key('accountTypeOption_ewallet')));
@@ -390,10 +439,12 @@ void main() {
       expect(fakeAccounts.lastUpdateArgs?.bankIcon, 'scb');
     });
 
-    testWidgets('a failed update shows the error and stays on the page',
-        (tester) async {
-      fakeAccounts.nextResult =
-          const Left(UnknownFailure(message: 'Could not update account'));
+    testWidgets('a failed update shows the error and stays on the page', (
+      tester,
+    ) async {
+      fakeAccounts.nextResult = const Left(
+        UnknownFailure(message: 'Could not update account'),
+      );
       await tester.pumpWidget(buildApp(initial: existing));
       await _pumpBounded(tester);
       await tester.tap(find.text('open'));

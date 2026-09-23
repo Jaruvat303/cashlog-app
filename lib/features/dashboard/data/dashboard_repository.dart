@@ -26,13 +26,17 @@ class DashboardRepository {
 
   final ApiClient _apiClient;
 
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) =>
-      _apiClient.get<DashboardSummary>(
-        '/api/v1/transactions/summary',
-        queryParameters: {'year': year, 'month': month},
-        parse: (data) => dashboardSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
-      );
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) => _apiClient.get<DashboardSummary>(
+    '/api/v1/transactions/summary',
+    queryParameters: {'year': year, 'month': month},
+    parse: (data) =>
+        dashboardSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
+  );
 }
 
 @riverpod
-DashboardRepository dashboardRepository(Ref ref) => DashboardRepository(ref.watch(apiClientProvider));
+DashboardRepository dashboardRepository(Ref ref) =>
+    DashboardRepository(ref.watch(apiClientProvider));

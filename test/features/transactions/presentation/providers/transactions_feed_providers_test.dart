@@ -21,7 +21,12 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Completer<void>? gate;
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) async {
     requestedPages.add(page);
     if (gate != null) await gate!.future;
     final result = pages[page];
@@ -32,7 +37,12 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) => throw UnimplementedError('not exercised by this test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -60,7 +70,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }) => throw UnimplementedError('not exercised by this test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 void main() {
@@ -69,15 +80,25 @@ void main() {
 
   setUp(() {
     fakeRepository = _FakeTransactionsRepository();
-    container = ProviderContainer(overrides: [transactionsRepositoryProvider.overrideWithValue(fakeRepository)]);
+    container = ProviderContainer(
+      overrides: [
+        transactionsRepositoryProvider.overrideWithValue(fakeRepository),
+      ],
+    );
   });
 
   tearDown(() => container.dispose());
 
   test('loadFirstPage populates meta from the fetched page', () async {
-    fakeRepository.pages[1] = const TransactionPage(transactions: [], currentPage: 1, totalPages: 3);
+    fakeRepository.pages[1] = const TransactionPage(
+      transactions: [],
+      currentPage: 1,
+      totalPages: 3,
+    );
 
-    final notifier = container.read(transactionsFeedSyncProvider(2026, 9).notifier);
+    final notifier = container.read(
+      transactionsFeedSyncProvider(2026, 9).notifier,
+    );
     final result = await notifier.loadFirstPage();
 
     expect(result.isRight(), isTrue);
@@ -89,9 +110,19 @@ void main() {
   });
 
   test('loadNextPage advances currentPage and flips hasMore false on the last page', () async {
-    fakeRepository.pages[1] = const TransactionPage(transactions: [], currentPage: 1, totalPages: 2);
-    fakeRepository.pages[2] = const TransactionPage(transactions: [], currentPage: 2, totalPages: 2);
-    final notifier = container.read(transactionsFeedSyncProvider(2026, 9).notifier);
+    fakeRepository.pages[1] = const TransactionPage(
+      transactions: [],
+      currentPage: 1,
+      totalPages: 2,
+    );
+    fakeRepository.pages[2] = const TransactionPage(
+      transactions: [],
+      currentPage: 2,
+      totalPages: 2,
+    );
+    final notifier = container.read(
+      transactionsFeedSyncProvider(2026, 9).notifier,
+    );
     await notifier.loadFirstPage();
 
     final result = await notifier.loadNextPage();
@@ -103,21 +134,40 @@ void main() {
     expect(fakeRepository.requestedPages, [1, 2]);
   });
 
-  test('loadNextPage is a no-op once hasMore is false — no extra fetchPage call', () async {
-    fakeRepository.pages[1] = const TransactionPage(transactions: [], currentPage: 1, totalPages: 1);
-    final notifier = container.read(transactionsFeedSyncProvider(2026, 9).notifier);
-    await notifier.loadFirstPage();
+  test(
+    'loadNextPage is a no-op once hasMore is false — no extra fetchPage call',
+    () async {
+      fakeRepository.pages[1] = const TransactionPage(
+        transactions: [],
+        currentPage: 1,
+        totalPages: 1,
+      );
+      final notifier = container.read(
+        transactionsFeedSyncProvider(2026, 9).notifier,
+      );
+      await notifier.loadFirstPage();
 
-    final result = await notifier.loadNextPage();
+      final result = await notifier.loadNextPage();
 
-    expect(result.isRight(), isTrue);
-    expect(fakeRepository.requestedPages, [1]); // page 2 never requested
-  });
+      expect(result.isRight(), isTrue);
+      expect(fakeRepository.requestedPages, [1]); // page 2 never requested
+    },
+  );
 
   test('a concurrent loadNextPage call while one is already in flight is guarded — only one fetchPage for the next page', () async {
-    fakeRepository.pages[1] = const TransactionPage(transactions: [], currentPage: 1, totalPages: 3);
-    fakeRepository.pages[2] = const TransactionPage(transactions: [], currentPage: 2, totalPages: 3);
-    final notifier = container.read(transactionsFeedSyncProvider(2026, 9).notifier);
+    fakeRepository.pages[1] = const TransactionPage(
+      transactions: [],
+      currentPage: 1,
+      totalPages: 3,
+    );
+    fakeRepository.pages[2] = const TransactionPage(
+      transactions: [],
+      currentPage: 2,
+      totalPages: 3,
+    );
+    final notifier = container.read(
+      transactionsFeedSyncProvider(2026, 9).notifier,
+    );
     await notifier.loadFirstPage();
 
     fakeRepository.gate = Completer<void>();
@@ -128,22 +178,34 @@ void main() {
     fakeRepository.gate!.complete();
     await Future.wait([firstCall, secondCall]);
 
-    expect(fakeRepository.requestedPages, [1, 2]); // page 2 requested exactly once
+    expect(fakeRepository.requestedPages, [
+      1,
+      2,
+    ]); // page 2 requested exactly once
     final meta = container.read(transactionsFeedSyncProvider(2026, 9));
     expect(meta?.currentPage, 2);
   });
 
-  test('a failed loadNextPage resets isLoadingMore but keeps the last known page', () async {
-    fakeRepository.pages[1] = const TransactionPage(transactions: [], currentPage: 1, totalPages: 3);
-    // page 2 deliberately left unconfigured -> fetchPage returns Left
-    final notifier = container.read(transactionsFeedSyncProvider(2026, 9).notifier);
-    await notifier.loadFirstPage();
+  test(
+    'a failed loadNextPage resets isLoadingMore but keeps the last known page',
+    () async {
+      fakeRepository.pages[1] = const TransactionPage(
+        transactions: [],
+        currentPage: 1,
+        totalPages: 3,
+      );
+      // page 2 deliberately left unconfigured -> fetchPage returns Left
+      final notifier = container.read(
+        transactionsFeedSyncProvider(2026, 9).notifier,
+      );
+      await notifier.loadFirstPage();
 
-    final result = await notifier.loadNextPage();
+      final result = await notifier.loadNextPage();
 
-    expect(result.isLeft(), isTrue);
-    final meta = container.read(transactionsFeedSyncProvider(2026, 9));
-    expect(meta?.currentPage, 1);
-    expect(meta?.isLoadingMore, isFalse);
-  });
+      expect(result.isLeft(), isTrue);
+      final meta = container.read(transactionsFeedSyncProvider(2026, 9));
+      expect(meta?.currentPage, 1);
+      expect(meta?.isLoadingMore, isFalse);
+    },
+  );
 }

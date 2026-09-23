@@ -33,16 +33,18 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     // cache). Silent: nobody asked for this one, so a failure (e.g. offline
     // on app open) shouldn't interrupt with a SnackBar — the cached list is
     // already on screen either way.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh(showErrorSnackBar: false));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _refresh(showErrorSnackBar: false),
+    );
   }
 
   Future<void> _refresh({bool showErrorSnackBar = true}) async {
     final result = await ref.read(categoriesRefreshProvider.notifier).refresh();
     if (!mounted || !showErrorSnackBar) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'รีเฟรชหมวดหมู่ไม่สำเร็จ'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message ?? 'รีเฟรชหมวดหมู่ไม่สำเร็จ')),
+      ),
       (_) {},
     );
   }
@@ -51,7 +53,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   /// local cache first and warn with that count before the delete is ever
   /// confirmed — no backend endpoint exists (or is needed) for this count.
   Future<void> _confirmDelete(Category category) async {
-    final count = await ref.read(categoriesRepositoryProvider).countLinkedTransactions(category.id);
+    final count = await ref
+        .read(categoriesRepositoryProvider)
+        .countLinkedTransactions(category.id);
     if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
@@ -64,18 +68,32 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               : 'มี $count รายการที่ใช้หมวดหมู่นี้อยู่ — รายการเหล่านั้นจะกลายเป็น "ยังไม่ระบุหมวดหมู่" ยืนยันลบไหม',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('ยกเลิก')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('ลบ')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('ลบ'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
 
-    final result = await ref.read(categoriesRepositoryProvider).delete(category.id);
+    final result = await ref
+        .read(categoriesRepositoryProvider)
+        .delete(category.id);
     if (!mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
-      (_) => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ลบหมวดหมู่แล้ว'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
+      (_) =>
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('ลบหมวดหมู่แล้ว'))),
     );
   }
 
@@ -92,12 +110,24 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('หมวดหมู่', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  const Text(
+                    'หมวดหมู่',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   CircularIconButton(
                     icon: RemixIcon.addLine,
                     gradient: AppColors.accentGradient,
                     iconColor: Colors.white,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: _selectedType))),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            CategoryFormPage(initialType: _selectedType),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -115,14 +145,25 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               child: RefreshIndicator(
                 onRefresh: _refresh,
                 child: categoriesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) =>
+                      Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
                   data: (categories) {
-                    final matching = categories.where((c) => c.type == _selectedType).toList();
+                    final matching = categories
+                        .where((c) => c.type == _selectedType)
+                        .toList();
                     if (matching.isEmpty) {
                       return ListView(
                         children: const [
-                          Padding(padding: EdgeInsets.all(32), child: Center(child: Text('ยังไม่มีหมวดหมู่ — แตะ "+" เพื่อเริ่ม'))),
+                          Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(
+                              child: Text(
+                                'ยังไม่มีหมวดหมู่ — แตะ "+" เพื่อเริ่ม',
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     }
@@ -150,9 +191,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                       itemBuilder: (context, index) {
                         final category = matching[index];
                         return InkWell(
-                          onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CategoryFormPage(initial: category))),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  CategoryFormPage(initial: category),
+                            ),
+                          ),
                           onLongPress: () => _confirmDelete(category),
-                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                          borderRadius: BorderRadius.circular(
+                            AppRadii.cardLarge,
+                          ),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -160,10 +208,17 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                                 width: 52,
                                 height: 52,
                                 decoration: BoxDecoration(
-                                  color: colorFromHex(category.colorHex).withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                                  color: colorFromHex(category.colorHex)
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.cardLarge,
+                                  ),
                                 ),
-                                child: Icon(resolveCategoryIcon(category.iconKey), color: colorFromHex(category.colorHex), size: 22),
+                                child: Icon(
+                                  resolveCategoryIcon(category.iconKey),
+                                  color: colorFromHex(category.colorHex),
+                                  size: 22,
+                                ),
                               ),
                               const SizedBox(height: 5),
                               Text(
@@ -171,7 +226,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, height: 1.15, color: AppColors.chipUnselectedText),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.15,
+                                  color: AppColors.chipUnselectedText,
+                                ),
                               ),
                             ],
                           ),

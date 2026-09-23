@@ -7,7 +7,11 @@ import '../../domain/slip_candidate.dart';
 part 'slip_gallery_debug_providers.g.dart';
 
 class SlipGalleryDebugState {
-  const SlipGalleryDebugState({required this.accessLevel, required this.candidates, required this.hasLoaded});
+  const SlipGalleryDebugState({
+    required this.accessLevel,
+    required this.candidates,
+    required this.hasLoaded,
+  });
 
   final GalleryAccessLevel accessLevel;
   final List<SlipCandidate> candidates;
@@ -19,12 +23,15 @@ class SlipGalleryDebugState {
   /// in-flight spinner).
   final bool hasLoaded;
 
-  SlipGalleryDebugState copyWith({GalleryAccessLevel? accessLevel, List<SlipCandidate>? candidates, bool? hasLoaded}) =>
-      SlipGalleryDebugState(
-        accessLevel: accessLevel ?? this.accessLevel,
-        candidates: candidates ?? this.candidates,
-        hasLoaded: hasLoaded ?? this.hasLoaded,
-      );
+  SlipGalleryDebugState copyWith({
+    GalleryAccessLevel? accessLevel,
+    List<SlipCandidate>? candidates,
+    bool? hasLoaded,
+  }) => SlipGalleryDebugState(
+    accessLevel: accessLevel ?? this.accessLevel,
+    candidates: candidates ?? this.candidates,
+    hasLoaded: hasLoaded ?? this.hasLoaded,
+  );
 }
 
 /// Debug-only controller (T9 excludes upload/compression/drift persistence
@@ -35,8 +42,11 @@ class SlipGalleryDebugState {
 @riverpod
 class SlipGalleryDebugController extends _$SlipGalleryDebugController {
   @override
-  SlipGalleryDebugState build() =>
-      const SlipGalleryDebugState(accessLevel: GalleryAccessLevel.denied, candidates: [], hasLoaded: false);
+  SlipGalleryDebugState build() => const SlipGalleryDebugState(
+    accessLevel: GalleryAccessLevel.denied,
+    candidates: [],
+    hasLoaded: false,
+  );
 
   /// Re-reads the current permission state (no system prompt) and, if
   /// there's any access at all, re-queries the configured albums. Called on
@@ -61,15 +71,23 @@ class SlipGalleryDebugController extends _$SlipGalleryDebugController {
     await refresh();
   }
 
-  Future<void> openSettings() => ref.read(slipGalleryRepositoryProvider).openSettings();
+  Future<void> openSettings() =>
+      ref.read(slipGalleryRepositoryProvider).openSettings();
 
-  Future<void> _loadFor(SlipGalleryRepository repo, GalleryAccessLevel access) async {
+  Future<void> _loadFor(
+    SlipGalleryRepository repo,
+    GalleryAccessLevel access,
+  ) async {
     if (access == GalleryAccessLevel.denied) {
       // Querying photo_manager with zero access either throws or returns
       // nothing meaningful — skip straight to an empty, denied state rather
       // than attempting it.
       if (ref.mounted) {
-        state = state.copyWith(accessLevel: access, candidates: const [], hasLoaded: true);
+        state = state.copyWith(
+          accessLevel: access,
+          candidates: const [],
+          hasLoaded: true,
+        );
       }
       return;
     }
@@ -79,7 +97,11 @@ class SlipGalleryDebugController extends _$SlipGalleryDebugController {
     // gone throws, so bail per riverpod's own guidance (same reasoning as
     // TransactionsFeedSync).
     if (ref.mounted) {
-      state = state.copyWith(accessLevel: access, candidates: candidates, hasLoaded: true);
+      state = state.copyWith(
+        accessLevel: access,
+        candidates: candidates,
+        hasLoaded: true,
+      );
     }
   }
 }

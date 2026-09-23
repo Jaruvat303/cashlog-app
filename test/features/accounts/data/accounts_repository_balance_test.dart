@@ -28,7 +28,11 @@ void main() {
     await db.close();
   });
 
-  Future<void> seedAccount(int id, {required double openingBalance, bool isActive = true}) => db
+  Future<void> seedAccount(
+    int id, {
+    required double openingBalance,
+    bool isActive = true,
+  }) => db
       .into(db.cachedAccounts)
       .insert(
         CachedAccountsCompanion.insert(
@@ -70,8 +74,18 @@ void main() {
     await seedTransaction(type: 'income', amount: 500, accountId: 1);
     await seedTransaction(type: 'expense', amount: 200, accountId: 1);
     // transfer out of this account, and a transfer into this account.
-    await seedTransaction(type: 'transfer', amount: 100, fromAccountId: 1, toAccountId: 2);
-    await seedTransaction(type: 'transfer', amount: 50, fromAccountId: 2, toAccountId: 1);
+    await seedTransaction(
+      type: 'transfer',
+      amount: 100,
+      fromAccountId: 1,
+      toAccountId: 2,
+    );
+    await seedTransaction(
+      type: 'transfer',
+      amount: 50,
+      fromAccountId: 2,
+      toAccountId: 1,
+    );
     // Noise: rows that belong to a different account entirely, and must not
     // affect account 1's balance.
     await seedAccount(2, openingBalance: 9999);
@@ -84,13 +98,16 @@ void main() {
     expect(balance, 1250.0);
   });
 
-  test('an account with no transactions returns exactly its opening_balance', () async {
-    await seedAccount(3, openingBalance: 750.5);
+  test(
+    'an account with no transactions returns exactly its opening_balance',
+    () async {
+      await seedAccount(3, openingBalance: 750.5);
 
-    final balance = await repository.watchCurrentBalance(3).first;
+      final balance = await repository.watchCurrentBalance(3).first;
 
-    expect(balance, 750.5);
-  });
+      expect(balance, 750.5);
+    },
+  );
 
   test('a closed (soft-deleted) account still computes its balance from cache, no network call', () async {
     await seedAccount(4, openingBalance: 300, isActive: false);
@@ -101,18 +118,21 @@ void main() {
     expect(balance, 400.0);
   });
 
-  test('reacts to a newly inserted transaction (drift readsFrom both tables)', () async {
-    await seedAccount(5, openingBalance: 0);
+  test(
+    'reacts to a newly inserted transaction (drift readsFrom both tables)',
+    () async {
+      await seedAccount(5, openingBalance: 0);
 
-    final stream = repository.watchCurrentBalance(5);
-    final emissions = <double>[];
-    final sub = stream.listen(emissions.add);
-    addTearDown(sub.cancel);
+      final stream = repository.watchCurrentBalance(5);
+      final emissions = <double>[];
+      final sub = stream.listen(emissions.add);
+      addTearDown(sub.cancel);
 
-    await pumpEventQueue();
-    await seedTransaction(type: 'income', amount: 42, accountId: 5);
-    await pumpEventQueue();
+      await pumpEventQueue();
+      await seedTransaction(type: 'income', amount: 42, accountId: 5);
+      await pumpEventQueue();
 
-    expect(emissions, [0.0, 42.0]);
-  });
+      expect(emissions, [0.0, 42.0]);
+    },
+  );
 }

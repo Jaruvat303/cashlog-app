@@ -17,12 +17,10 @@ class PingRepository {
   /// Hits GET /api/v1/accounts (exercises the X-API-Key interceptor, unlike
   /// /health which needs no auth) and returns the raw decoded JSON.
   Future<Either<Failure, dynamic>> pingAccounts() {
-    return _apiClient.get<dynamic>(
-      '/api/v1/accounts',
-      parse: (data) => data,
-    );
+    return _apiClient.get<dynamic>('/api/v1/accounts', parse: (data) => data);
   }
 }
 
 @riverpod
-PingRepository pingRepository(Ref ref) => PingRepository(ref.watch(apiClientProvider));
+PingRepository pingRepository(Ref ref) =>
+    PingRepository(ref.watch(apiClientProvider));

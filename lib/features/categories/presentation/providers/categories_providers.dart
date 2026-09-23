@@ -8,7 +8,8 @@ import '../../domain/category.dart';
 part 'categories_providers.g.dart';
 
 @riverpod
-Stream<List<Category>> allCategories(Ref ref) => ref.watch(categoriesRepositoryProvider).watchAll();
+Stream<List<Category>> allCategories(Ref ref) =>
+    ref.watch(categoriesRepositoryProvider).watchAll();
 
 /// Drives the pull-to-refresh / initial-load API sync. The list itself is
 /// always sourced from [allCategoriesProvider]'s drift watch, so a
@@ -21,12 +22,17 @@ class CategoriesRefresh extends _$CategoriesRefresh {
 
   Future<Either<Failure, void>> refresh() async {
     state = const AsyncLoading();
-    final result = await ref.read(categoriesRepositoryProvider).refreshFromApi();
+    final result = await ref
+        .read(categoriesRepositoryProvider)
+        .refreshFromApi();
     // Nothing keeps this autoDispose provider alive across the await (e.g.
     // a tab switch while the request is in flight) — writing `state` after
     // it's gone throws, so bail out instead per riverpod's own guidance.
     if (ref.mounted) {
-      state = result.fold((failure) => AsyncError<void>(failure, StackTrace.current), (_) => const AsyncData(null));
+      state = result.fold(
+        (failure) => AsyncError<void>(failure, StackTrace.current),
+        (_) => const AsyncData(null),
+      );
     }
     return result;
   }

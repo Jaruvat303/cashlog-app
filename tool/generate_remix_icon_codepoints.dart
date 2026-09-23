@@ -29,11 +29,15 @@ import 'dart:convert';
 import 'dart:io';
 
 Future<void> main() async {
-  final packageConfig = jsonDecode(await File('.dart_tool/package_config.json').readAsString()) as Map<String, dynamic>;
+  final packageConfig = jsonDecode(
+    await File('.dart_tool/package_config.json').readAsString(),
+  ) as Map<String, dynamic>;
   final packages = packageConfig['packages'] as List<dynamic>;
   final remixPackage = packages.cast<Map<String, dynamic>>().firstWhere(
     (p) => p['name'] == 'remix_icons_flutter',
-    orElse: () => throw StateError('remix_icons_flutter not found in .dart_tool/package_config.json — run `flutter pub get` first'),
+    orElse: () => throw StateError(
+      'remix_icons_flutter not found in .dart_tool/package_config.json — run `flutter pub get` first',
+    ),
   );
   // `rootUri` has no trailing slash, so resolving a relative reference
   // against it as-is drops its last path segment per RFC 3986 (treating it
@@ -42,7 +46,9 @@ Future<void> main() async {
   var rootUriString = remixPackage['rootUri'] as String;
   if (!rootUriString.endsWith('/')) rootUriString = '$rootUriString/';
   final packageRoot = Uri.parse(rootUriString);
-  final sourceFile = File.fromUri(packageRoot.resolve('lib/remixicon_ids.dart'));
+  final sourceFile = File.fromUri(
+    packageRoot.resolve('lib/remixicon_ids.dart'),
+  );
   final source = await sourceFile.readAsLines();
 
   // A name doc comment ("/// wallet-3-fill") is always followed, a line or
@@ -70,28 +76,48 @@ Future<void> main() async {
   }
 
   if (codepoints.length < 2900) {
-    throw StateError('Only parsed ${codepoints.length} icon names — expected ~3000+. The package source format may have '
-        'changed; check the regexes above against a fresh copy of remixicon_ids.dart before trusting this output.');
+    throw StateError(
+      'Only parsed ${codepoints.length} icon names — expected ~3000+. The package source format may have '
+      'changed; check the regexes above against a fresh copy of remixicon_ids.dart before trusting this output.',
+    );
   }
 
   final buffer = StringBuffer()
     ..writeln('// GENERATED FILE — do not hand-edit.')
-    ..writeln('// Produced by tool/generate_remix_icon_codepoints.dart from package:remix_icons_flutter')
-    ..writeln('// (see that script\'s doc comment for why this exists and when to re-run it).')
+    ..writeln(
+      '// Produced by tool/generate_remix_icon_codepoints.dart from package:remix_icons_flutter',
+    )
+    ..writeln(
+      '// (see that script\'s doc comment for why this exists and when to re-run it).',
+    )
     ..writeln()
-    ..writeln('/// Every Remix Icon name (kebab-case, exactly as the backend\'s `icon_key` values')
-    ..writeln('/// are expected to look) mapped to its font codepoint — the complete set, not a')
-    ..writeln('/// hand-picked subset. `resolveCategoryIcon` builds an `IconData` from this at')
-    ..writeln('/// runtime instead of requiring a matching `RemixIcon.xxxFill` constant reference')
-    ..writeln('/// per category, so a new backend category never needs a frontend code change as')
+    ..writeln(
+      '/// Every Remix Icon name (kebab-case, exactly as the backend\'s `icon_key` values',
+    )
+    ..writeln(
+      '/// are expected to look) mapped to its font codepoint — the complete set, not a',
+    )
+    ..writeln(
+      '/// hand-picked subset. `resolveCategoryIcon` builds an `IconData` from this at',
+    )
+    ..writeln(
+      '/// runtime instead of requiring a matching `RemixIcon.xxxFill` constant reference',
+    )
+    ..writeln(
+      '/// per category, so a new backend category never needs a frontend code change as',
+    )
     ..writeln('/// long as its `icon_key` is a real Remix Icon name.')
     ..writeln('const Map<String, int> kRemixIconCodepoints = {');
   for (final name in codepoints.keys.toList()..sort()) {
-    buffer.writeln("  '$name': 0x${codepoints[name]!.toRadixString(16).toUpperCase().padLeft(4, '0')},");
+    buffer.writeln(
+      "  '$name': 0x${codepoints[name]!.toRadixString(16).toUpperCase().padLeft(4, '0')},",
+    );
   }
   buffer.writeln('};');
 
   final outputFile = File('lib/shared/widgets/remix_icon_codepoints.dart');
   await outputFile.writeAsString(buffer.toString());
-  stdout.writeln('Wrote ${codepoints.length} icon codepoints to ${outputFile.path}');
+  stdout.writeln(
+    'Wrote ${codepoints.length} icon codepoints to ${outputFile.path}',
+  );
 }

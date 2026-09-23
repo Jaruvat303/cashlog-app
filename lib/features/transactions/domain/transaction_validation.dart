@@ -14,9 +14,17 @@ String? validateTransferAccounts(int? fromAccountId, int? toAccountId) {
 /// or an edit that keeps the same month only touches that one month; an
 /// edit that moves `transaction_date` across a month boundary must
 /// invalidate both the old and the new month.
-Set<(int year, int month)> monthsAffectedByEdit(DateTime? originalDate, DateTime newDate) {
-  if (originalDate != null && (originalDate.year != newDate.year || originalDate.month != newDate.month)) {
-    return {(originalDate.year, originalDate.month), (newDate.year, newDate.month)};
+Set<(int year, int month)> monthsAffectedByEdit(
+  DateTime? originalDate,
+  DateTime newDate,
+) {
+  if (originalDate != null &&
+      (originalDate.year != newDate.year ||
+          originalDate.month != newDate.month)) {
+    return {
+      (originalDate.year, originalDate.month),
+      (newDate.year, newDate.month),
+    };
   }
   return {(newDate.year, newDate.month)};
 }

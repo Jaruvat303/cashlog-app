@@ -41,13 +41,14 @@ Map<String, dynamic> updateCategoryBody({
   'color_hex': colorHex,
 };
 
-CachedCategoriesCompanion categoryToCompanion(Category category) => CachedCategoriesCompanion.insert(
-  id: Value(category.id),
-  name: category.name,
-  type: category.type.name,
-  iconKey: category.iconKey,
-  colorHex: category.colorHex,
-);
+CachedCategoriesCompanion categoryToCompanion(Category category) =>
+    CachedCategoriesCompanion.insert(
+      id: Value(category.id),
+      name: category.name,
+      type: category.type.name,
+      iconKey: category.iconKey,
+      colorHex: category.colorHex,
+    );
 
 Category categoryFromCached(CachedCategory row) => Category(
   id: row.id,

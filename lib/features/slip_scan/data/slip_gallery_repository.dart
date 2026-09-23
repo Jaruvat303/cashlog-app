@@ -21,7 +21,10 @@ class SlipGalleryRepository {
   Future<GalleryAccessLevel> requestAccess() async {
     final state = await PhotoManager.requestPermissionExtend(
       requestOption: const PermissionRequestOption(
-        androidPermission: AndroidPermission(type: RequestType.image, mediaLocation: false),
+        androidPermission: AndroidPermission(
+          type: RequestType.image,
+          mediaLocation: false,
+        ),
       ),
     );
     return galleryAccessLevelFromPermissionState(state);
@@ -32,7 +35,10 @@ class SlipGalleryRepository {
   Future<GalleryAccessLevel> currentAccess() async {
     final state = await PhotoManager.getPermissionState(
       requestOption: const PermissionRequestOption(
-        androidPermission: AndroidPermission(type: RequestType.image, mediaLocation: false),
+        androidPermission: AndroidPermission(
+          type: RequestType.image,
+          mediaLocation: false,
+        ),
       ),
     );
     return galleryAccessLevelFromPermissionState(state);
@@ -41,7 +47,8 @@ class SlipGalleryRepository {
   /// Android 14's limited-access picker — lets the user add more selected
   /// photos without leaving the app (vs [openSettings], which is the only
   /// recourse for a flat `denied` state).
-  Future<void> presentLimitedSelection() => PhotoManager.presentLimited(type: RequestType.image);
+  Future<void> presentLimitedSelection() =>
+      PhotoManager.presentLimited(type: RequestType.image);
 
   Future<void> openSettings() => PhotoManager.openSetting();
 
@@ -51,14 +58,22 @@ class SlipGalleryRepository {
   /// album just needs the config list updated, not this method.
   Future<List<SlipCandidate>> queryConfiguredAlbums() async {
     final albums = await PhotoManager.getAssetPathList(type: RequestType.image);
-    final matching = albums.where((album) => kSlipSourceAlbums.contains(album.name));
+    final matching = albums.where(
+      (album) => kSlipSourceAlbums.contains(album.name),
+    );
 
     final candidates = <SlipCandidate>[];
     for (final album in matching) {
       final count = await album.assetCountAsync;
       final assets = await album.getAssetListRange(start: 0, end: count);
       candidates.addAll(
-        assets.map((asset) => SlipCandidate(id: asset.id, filename: asset.title ?? asset.id, sourceAlbum: album.name)),
+        assets.map(
+          (asset) => SlipCandidate(
+            id: asset.id,
+            filename: asset.title ?? asset.id,
+            sourceAlbum: album.name,
+          ),
+        ),
       );
     }
     return candidates;

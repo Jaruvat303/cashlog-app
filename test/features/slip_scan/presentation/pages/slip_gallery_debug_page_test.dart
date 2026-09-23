@@ -55,64 +55,112 @@ void main() {
   });
 
   Widget buildApp() => ProviderScope(
-    overrides: [slipGalleryRepositoryProvider.overrideWithValue(fakeRepository)],
+    overrides: [
+      slipGalleryRepositoryProvider.overrideWithValue(fakeRepository),
+    ],
     child: const MaterialApp(home: SlipGalleryDebugPage()),
   );
 
-  testWidgets('full access groups filenames by configured album and shows the total count', (tester) async {
-    fakeRepository.access = GalleryAccessLevel.full;
-    fakeRepository.candidates = const [
-      SlipCandidate(id: '1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY'),
-      SlipCandidate(id: '2', filename: 'scb_002.jpg', sourceAlbum: 'SCB EASY'),
-      SlipCandidate(id: '3', filename: 'dime_001.jpg', sourceAlbum: 'Dime!'),
-    ];
+  testWidgets(
+    'full access groups filenames by configured album and shows the total count',
+    (tester) async {
+      fakeRepository.access = GalleryAccessLevel.full;
+      fakeRepository.candidates = const [
+        SlipCandidate(
+          id: '1',
+          filename: 'scb_001.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '2',
+          filename: 'scb_002.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(id: '3', filename: 'dime_001.jpg', sourceAlbum: 'Dime!'),
+      ];
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    expect(find.text('Full access'), findsOneWidget);
-    expect(find.text('SCB EASY (2)'), findsOneWidget);
-    expect(find.text('Dime! (1)'), findsOneWidget);
-    expect(find.text('scb_001.jpg'), findsOneWidget);
-    expect(find.text('scb_002.jpg'), findsOneWidget);
-    expect(find.text('dime_001.jpg'), findsOneWidget);
-    expect(find.text('3 file(s) across 2 configured album(s)'), findsOneWidget);
-  });
+      expect(find.text('Full access'), findsOneWidget);
+      expect(find.text('SCB EASY (2)'), findsOneWidget);
+      expect(find.text('Dime! (1)'), findsOneWidget);
+      expect(find.text('scb_001.jpg'), findsOneWidget);
+      expect(find.text('scb_002.jpg'), findsOneWidget);
+      expect(find.text('dime_001.jpg'), findsOneWidget);
+      expect(
+        find.text('3 file(s) across 2 configured album(s)'),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('an album with no matches still shows its own zero-count section', (tester) async {
-    fakeRepository.access = GalleryAccessLevel.full;
-    fakeRepository.candidates = const [SlipCandidate(id: '1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+  testWidgets(
+    'an album with no matches still shows its own zero-count section',
+    (tester) async {
+      fakeRepository.access = GalleryAccessLevel.full;
+      fakeRepository.candidates = const [
+        SlipCandidate(
+          id: '1',
+          filename: 'scb_001.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+      ];
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    expect(find.text('SCB EASY (1)'), findsOneWidget);
-    expect(find.text('Dime! (0)'), findsOneWidget);
-    expect(find.text('No files found in this album'), findsOneWidget);
-  });
+      expect(find.text('SCB EASY (1)'), findsOneWidget);
+      expect(find.text('Dime! (0)'), findsOneWidget);
+      expect(find.text('No files found in this album'), findsOneWidget);
+    },
+  );
 
-  testWidgets('denied access shows the denied banner with a grant-access action, no query attempted', (tester) async {
-    fakeRepository.access = GalleryAccessLevel.denied;
+  testWidgets(
+    'denied access shows the denied banner with a grant-access action, no query attempted',
+    (tester) async {
+      fakeRepository.access = GalleryAccessLevel.denied;
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    expect(find.text('No access'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Grant access'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Open settings'), findsOneWidget);
-  });
+      expect(find.text('No access'), findsOneWidget);
+      expect(
+        find.widgetWithText(OutlinedButton, 'Grant access'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Open settings'),
+        findsOneWidget,
+      );
+    },
+  );
 
-  testWidgets('limited access offers "Select more photos" and triggers the picker', (tester) async {
-    fakeRepository.access = GalleryAccessLevel.limited;
-    fakeRepository.candidates = const [SlipCandidate(id: '1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
+  testWidgets(
+    'limited access offers "Select more photos" and triggers the picker',
+    (tester) async {
+      fakeRepository.access = GalleryAccessLevel.limited;
+      fakeRepository.candidates = const [
+        SlipCandidate(
+          id: '1',
+          filename: 'scb_001.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+      ];
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
 
-    expect(find.text('Limited access — some photos may be missing'), findsOneWidget);
-    await tester.tap(find.widgetWithText(OutlinedButton, 'Select more photos'));
-    await _pumpBounded(tester);
+      expect(
+        find.text('Limited access — some photos may be missing'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.widgetWithText(OutlinedButton, 'Select more photos'),
+      );
+      await _pumpBounded(tester);
 
-    expect(fakeRepository.presentLimitedCalls, 1);
-  });
+      expect(fakeRepository.presentLimitedCalls, 1);
+    },
+  );
 }

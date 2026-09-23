@@ -25,7 +25,9 @@ enum GalleryAccessLevel {
 /// own extension getters (see its `PermissionStateExt`) — used here rather
 /// than a manual switch so this stays correct if the plugin adds another
 /// "has some access" state later.
-GalleryAccessLevel galleryAccessLevelFromPermissionState(PermissionState state) {
+GalleryAccessLevel galleryAccessLevelFromPermissionState(
+  PermissionState state,
+) {
   if (state.isAuth) return GalleryAccessLevel.full;
   if (state.isLimited) return GalleryAccessLevel.limited;
   return GalleryAccessLevel.denied;

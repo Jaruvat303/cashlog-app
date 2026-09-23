@@ -22,7 +22,8 @@ import 'remix_icon_codepoints.dart';
 /// resolved from three features — categories (the picker itself), the
 /// transaction feed row, and the dashboard's expense-by-category chart —
 /// and CLAUDE.md only allows cross-feature reuse through `core/`/`shared/`.
-const List<(String key, String label, IconData icon)> kExpenseCategoryIconChoices = [
+const List<(String key, String label, IconData icon)>
+kExpenseCategoryIconChoices = [
   ('question-fill', 'ยังไม่ระบุหมวดหมู่', RemixIcon.questionFill),
   ('restaurant-fill', 'อาหาร', RemixIcon.restaurantFill),
   ('cup-fill', 'ของว่าง/คาเฟ่', RemixIcon.cupFill),
@@ -57,7 +58,8 @@ const List<(String key, String label, IconData icon)> kExpenseCategoryIconChoice
 
 /// Curated picker data for income categories — same purpose and caveats as
 /// [kExpenseCategoryIconChoices] above.
-const List<(String key, String label, IconData icon)> kIncomeCategoryIconChoices = [
+const List<(String key, String label, IconData icon)>
+kIncomeCategoryIconChoices = [
   ('wallet-3-fill', 'เงินเดือน', RemixIcon.wallet3Fill),
   ('gift-fill', 'ของขวัญ', RemixIcon.giftFill),
   ('tools-fill', 'รับจ้าง/ฟรีแลนซ์', RemixIcon.toolsFill),
@@ -76,8 +78,11 @@ const List<(String key, String label, IconData icon)> kIncomeCategoryIconChoices
 /// Type-scoped choices for the create/edit category icon picker — income
 /// categories only offer income icons, expense categories only offer
 /// expense icons, never a single mixed list.
-List<(String key, String label, IconData icon)> categoryIconChoicesFor(CategoryType type) =>
-    type == CategoryType.income ? kIncomeCategoryIconChoices : kExpenseCategoryIconChoices;
+List<(String key, String label, IconData icon)> categoryIconChoicesFor(
+  CategoryType type,
+) => type == CategoryType.income
+    ? kIncomeCategoryIconChoices
+    : kExpenseCategoryIconChoices;
 
 const List<String> kCategoryColorChoices = [
   '#5EEAD4',
@@ -134,7 +139,11 @@ IconData resolveCategoryIcon(String iconKey) {
   // can't statically enumerate which glyphs are used. The project's release
   // build passes `--no-tree-shake-icons` accordingly (see
   // .github/workflows/ci.yml), shipping the full Remix Icon font instead.
-  return IconData(codepoint, fontFamily: _fallbackIcon.fontFamily, fontPackage: _fallbackIcon.fontPackage);
+  return IconData(
+    codepoint,
+    fontFamily: _fallbackIcon.fontFamily,
+    fontPackage: _fallbackIcon.fontPackage,
+  );
 }
 
 /// A `color_hex` that isn't a parseable `#RRGGBB`/`#AARRGGBB` string falls

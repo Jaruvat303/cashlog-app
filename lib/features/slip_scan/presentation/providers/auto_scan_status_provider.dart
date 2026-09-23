@@ -8,4 +8,5 @@ part 'auto_scan_status_provider.g.dart';
 /// `SlipUploadRepository.watchLastSuccessfulAutoScanUpload` — the Home page
 /// widget only needs a provider to `ref.watch`, not repository details.
 @riverpod
-Stream<DateTime?> lastAutoScanUpload(Ref ref) => ref.watch(slipUploadRepositoryProvider).watchLastSuccessfulAutoScanUpload();
+Stream<DateTime?> lastAutoScanUpload(Ref ref) =>
+    ref.watch(slipUploadRepositoryProvider).watchLastSuccessfulAutoScanUpload();

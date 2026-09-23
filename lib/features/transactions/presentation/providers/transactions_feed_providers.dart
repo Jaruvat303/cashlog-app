@@ -27,8 +27,15 @@ part 'transactions_feed_providers.g.dart';
 /// transfer for the month too, so its total silently stopped matching the
 /// Uncategorized figure the breakdown card shows for that tab.
 @riverpod
-Stream<List<Transaction>> monthTransactions(Ref ref, int year, int month, {int? categoryId, TransactionType? type}) =>
-    ref.watch(transactionsRepositoryProvider).watchMonth(year: year, month: month, categoryId: categoryId, type: type);
+Stream<List<Transaction>> monthTransactions(
+  Ref ref,
+  int year,
+  int month, {
+  int? categoryId,
+  TransactionType? type,
+}) => ref
+    .watch(transactionsRepositoryProvider)
+    .watchMonth(year: year, month: month, categoryId: categoryId, type: type);
 
 /// Pagination progress for one (year, month) — separate from the list
 /// itself so switching pages never re-renders/re-fetches the whole list,
@@ -46,7 +53,11 @@ class TransactionsFeedMeta {
 
   bool get hasMore => currentPage < totalPages;
 
-  TransactionsFeedMeta copyWith({int? currentPage, int? totalPages, bool? isLoadingMore}) => TransactionsFeedMeta(
+  TransactionsFeedMeta copyWith({
+    int? currentPage,
+    int? totalPages,
+    bool? isLoadingMore,
+  }) => TransactionsFeedMeta(
     currentPage: currentPage ?? this.currentPage,
     totalPages: totalPages ?? this.totalPages,
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -66,12 +77,20 @@ class TransactionsFeedSync extends _$TransactionsFeedSync {
 
   Future<Either<Failure, void>> loadFirstPage() async {
     state = null;
-    final result = await ref.read(transactionsRepositoryProvider).fetchPage(year: year, month: month, page: 1);
+    final result = await ref
+        .read(transactionsRepositoryProvider)
+        .fetchPage(year: year, month: month, page: 1);
     // autoDispose: nothing keeps this alive across the await (e.g. a month
     // switch mid-request) — writing state after it's gone throws, so bail
     // per riverpod's own guidance (same reasoning as AccountsRefresh).
     if (ref.mounted) {
-      state = result.fold((failure) => null, (page) => TransactionsFeedMeta(currentPage: page.currentPage, totalPages: page.totalPages));
+      state = result.fold(
+        (failure) => null,
+        (page) => TransactionsFeedMeta(
+          currentPage: page.currentPage,
+          totalPages: page.totalPages,
+        ),
+      );
     }
     return result.fold((failure) => Left(failure), (_) => const Right(null));
   }
@@ -83,11 +102,16 @@ class TransactionsFeedSync extends _$TransactionsFeedSync {
     }
 
     state = meta.copyWith(isLoadingMore: true);
-    final result = await ref.read(transactionsRepositoryProvider).fetchPage(year: year, month: month, page: meta.currentPage + 1);
+    final result = await ref
+        .read(transactionsRepositoryProvider)
+        .fetchPage(year: year, month: month, page: meta.currentPage + 1);
     if (ref.mounted) {
       state = result.fold(
         (failure) => meta.copyWith(isLoadingMore: false),
-        (page) => TransactionsFeedMeta(currentPage: page.currentPage, totalPages: page.totalPages),
+        (page) => TransactionsFeedMeta(
+          currentPage: page.currentPage,
+          totalPages: page.totalPages,
+        ),
       );
     }
     return result.fold((failure) => Left(failure), (_) => const Right(null));

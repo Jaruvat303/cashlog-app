@@ -48,10 +48,12 @@ int buddhistYear(int gregorianYear) => gregorianYear + 543;
 /// render the exact same label for the exact same shared [SelectedMonth] —
 /// full Thai month name + Buddhist-era year, matching the mockup
 /// ("สิงหาคม 2569").
-String monthYearLabel(DateTime month) => '${_kMonthNames[month.month - 1]} ${buddhistYear(month.year)}';
+String monthYearLabel(DateTime month) =>
+    '${_kMonthNames[month.month - 1]} ${buddhistYear(month.year)}';
 
 /// Short form used for the Transactions header chip ("ส.ค. 2569").
-String monthYearShortLabel(DateTime month) => '${_kMonthAbbreviationsTh[month.month - 1]} ${buddhistYear(month.year)}';
+String monthYearShortLabel(DateTime month) =>
+    '${_kMonthAbbreviationsTh[month.month - 1]} ${buddhistYear(month.year)}';
 
 /// Short Thai month abbreviation for a 1-indexed [month] — backs the
 /// Summary Topbar's month+year picker grid (post-launch UI polish ticket

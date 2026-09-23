@@ -26,7 +26,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _CompressCall {
-  const _CompressCall(this.inputLength, this.quality, this.minWidth, this.minHeight);
+  const _CompressCall(
+    this.inputLength,
+    this.quality,
+    this.minWidth,
+    this.minHeight,
+  );
   final int inputLength;
   final int quality;
   final int minWidth;
@@ -42,7 +47,10 @@ class _FakeCompressPlatform extends FlutterImageCompressPlatform {
   /// without needing a script. Tests that need to force the repository's
   /// "still oversized after the first pass" fallback path override this to
   /// return an oversized first-pass result.
-  int Function(int callIndex, int inputLength) outputLength = (i, inputLength) => inputLength ~/ 2;
+  int Function(int callIndex, int inputLength) outputLength = (
+    i,
+    inputLength,
+  ) => inputLength ~/ 2;
 
   @override
   Future<Uint8List> compressWithList(
@@ -71,7 +79,8 @@ class _FakeCompressPlatform extends FlutterImageCompressPlatform {
   FlutterImageCompressValidator get validator => throw UnimplementedError();
 
   @override
-  Future<Uint8List?> compressWithFile(String path, {
+  Future<Uint8List?> compressWithFile(
+    String path, {
     int minWidth = 1920,
     int minHeight = 1080,
     int inSampleSize = 1,
@@ -128,7 +137,8 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
   @override
   Future<void> openSettings() => throw UnimplementedError();
   @override
-  Future<List<SlipCandidate>> queryConfiguredAlbums() => throw UnimplementedError();
+  Future<List<SlipCandidate>> queryConfiguredAlbums() =>
+      throw UnimplementedError();
 }
 
 /// Stands in for `POST /api/v1/transactions/upload-slip`'s three real
@@ -144,56 +154,76 @@ class _ScriptedUploadAdapter implements HttpClientAdapter {
   RequestOptions? lastRequest;
 
   @override
-  Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
     lastRequest = options;
     final outcome = script!();
     return switch (outcome) {
       'uploaded' => ResponseBody.fromString(
-          jsonEncode({
-            'success': true,
-            'data': {
-              'id': 501,
-              'amount': 250,
-              'transaction_type': 'expense',
-              'account_id': 1,
-              'transaction_date': '2026-09-05T00:00:00.000Z',
-              'category': null,
-            },
-            'message': 'Transaction processed successfully',
-          }),
-          201,
-          headers: {
-            Headers.contentTypeHeader: [Headers.jsonContentType],
+        jsonEncode({
+          'success': true,
+          'data': {
+            'id': 501,
+            'amount': 250,
+            'transaction_type': 'expense',
+            'account_id': 1,
+            'transaction_date': '2026-09-05T00:00:00.000Z',
+            'category': null,
           },
-        ),
+          'message': 'Transaction processed successfully',
+        }),
+        201,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
       'duplicate_200' => ResponseBody.fromString(
-          jsonEncode({'success': true, 'message': 'Transaction processed successfully (skipped or duplicate caught early)'}),
-          200,
-          headers: {
-            Headers.contentTypeHeader: [Headers.jsonContentType],
-          },
-        ),
+        jsonEncode({
+          'success': true,
+          'message': 'Transaction processed successfully (skipped or duplicate caught early)',
+        }),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
       'duplicate_409' => ResponseBody.fromString(
-          jsonEncode({'success': false, 'error_code': 'DUPLICATE_RESOURCE', 'message': 'This data already exists in our system.'}),
-          409,
-          headers: {
-            Headers.contentTypeHeader: [Headers.jsonContentType],
-          },
-        ),
+        jsonEncode({
+          'success': false,
+          'error_code': 'DUPLICATE_RESOURCE',
+          'message': 'This data already exists in our system.',
+        }),
+        409,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
       'slip_parse_failed' => ResponseBody.fromString(
-          jsonEncode({'success': false, 'error_code': 'SLIP_PARSE_FAILED', 'message': 'Failed to extract clear transaction details from the slip.'}),
-          422,
-          headers: {
-            Headers.contentTypeHeader: [Headers.jsonContentType],
-          },
-        ),
+        jsonEncode({
+          'success': false,
+          'error_code': 'SLIP_PARSE_FAILED',
+          'message':
+              'Failed to extract clear transaction details from the slip.',
+        }),
+        422,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
       'quota_exhausted' => ResponseBody.fromString(
-          jsonEncode({'success': false, 'error_code': 'GEMINI_QUOTA_EXHAUSTED', 'message': 'Gemini quota exhausted.'}),
-          429,
-          headers: {
-            Headers.contentTypeHeader: [Headers.jsonContentType],
-          },
-        ),
+        jsonEncode({
+          'success': false,
+          'error_code': 'GEMINI_QUOTA_EXHAUSTED',
+          'message': 'Gemini quota exhausted.',
+        }),
+        429,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      ),
       _ => throw StateError('unscripted outcome: $outcome'),
     };
   }
@@ -209,7 +239,9 @@ void main() {
     compressPlatform = _FakeCompressPlatform();
     FlutterImageCompressPlatform.instance = compressPlatform;
   });
-  tearDownAll(() => FlutterImageCompressPlatform.instance = originalCompressPlatform);
+  tearDownAll(
+    () => FlutterImageCompressPlatform.instance = originalCompressPlatform,
+  );
 
   late AppDatabase db;
   late _ScriptedUploadAdapter adapter;
@@ -217,20 +249,28 @@ void main() {
   late SlipUploadRepository repository;
 
   const rawByteCount = 100;
-  const candidate = SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY');
+  const candidate = SlipCandidate(
+    id: 'asset-1',
+    filename: 'scb_001.jpg',
+    sourceAlbum: 'SCB EASY',
+  );
 
   setUp(() {
     db = AppDatabase.withExecutor(NativeDatabase.memory());
     adapter = _ScriptedUploadAdapter();
     compressPlatform.calls.clear();
     compressPlatform.outputLength = (i, inputLength) => inputLength ~/ 2;
-    galleryRepository = _FakeSlipGalleryRepository()..bytesById = {'asset-1': Uint8List.fromList(List.filled(rawByteCount, 1))};
+    galleryRepository = _FakeSlipGalleryRepository()
+      ..bytesById = {
+        'asset-1': Uint8List.fromList(List.filled(rawByteCount, 1)),
+      };
     // dioProvider (not a bare Dio()) so the real error/error_code-mapping
     // interceptor (dio_client.dart) is in the request path — a bare Dio()
     // never converts a non-2xx body's error_code into a typed Failure at
     // all, which would make every Left below an untyped UnknownFailure
     // regardless of what Failure.fromErrorCode actually does.
-    final dio = ProviderContainer().read(dioProvider)..httpClientAdapter = adapter;
+    final dio = ProviderContainer().read(dioProvider)
+      ..httpClientAdapter = adapter;
     repository = SlipUploadRepository(ApiClient(dio), db, galleryRepository);
   });
 
@@ -238,34 +278,96 @@ void main() {
 
   group('diffNewFiles', () {
     test('excludes uploaded/duplicate/failed/junk rows, keeps quotaExceeded and unseen ones eligible', () async {
-      await db.into(db.scannedSlips).insert(
-        ScannedSlipsCompanion.insert(localImageName: 'already_uploaded.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.uploaded, scannedAt: DateTime.now()),
-      );
-      await db.into(db.scannedSlips).insert(
-        ScannedSlipsCompanion.insert(localImageName: 'already_duplicate.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.duplicate, scannedAt: DateTime.now()),
-      );
-      await db.into(db.scannedSlips).insert(
-        ScannedSlipsCompanion.insert(localImageName: 'previously_failed.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.failed, scannedAt: DateTime.now()),
-      );
-      await db.into(db.scannedSlips).insert(
-        ScannedSlipsCompanion.insert(localImageName: 'previously_junk.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.junk, scannedAt: DateTime.now()),
-      );
-      await db.into(db.scannedSlips).insert(
-        ScannedSlipsCompanion.insert(localImageName: 'previously_quota_exceeded.jpg', sourceFolder: 'SCB EASY', status: SlipStatus.quotaExceeded, scannedAt: DateTime.now()),
-      );
+      await db
+          .into(db.scannedSlips)
+          .insert(
+            ScannedSlipsCompanion.insert(
+              localImageName: 'already_uploaded.jpg',
+              sourceFolder: 'SCB EASY',
+              status: SlipStatus.uploaded,
+              scannedAt: DateTime.now(),
+            ),
+          );
+      await db
+          .into(db.scannedSlips)
+          .insert(
+            ScannedSlipsCompanion.insert(
+              localImageName: 'already_duplicate.jpg',
+              sourceFolder: 'SCB EASY',
+              status: SlipStatus.duplicate,
+              scannedAt: DateTime.now(),
+            ),
+          );
+      await db
+          .into(db.scannedSlips)
+          .insert(
+            ScannedSlipsCompanion.insert(
+              localImageName: 'previously_failed.jpg',
+              sourceFolder: 'SCB EASY',
+              status: SlipStatus.failed,
+              scannedAt: DateTime.now(),
+            ),
+          );
+      await db
+          .into(db.scannedSlips)
+          .insert(
+            ScannedSlipsCompanion.insert(
+              localImageName: 'previously_junk.jpg',
+              sourceFolder: 'SCB EASY',
+              status: SlipStatus.junk,
+              scannedAt: DateTime.now(),
+            ),
+          );
+      await db
+          .into(db.scannedSlips)
+          .insert(
+            ScannedSlipsCompanion.insert(
+              localImageName: 'previously_quota_exceeded.jpg',
+              sourceFolder: 'SCB EASY',
+              status: SlipStatus.quotaExceeded,
+              scannedAt: DateTime.now(),
+            ),
+          );
 
       const candidates = [
-        SlipCandidate(id: '1', filename: 'already_uploaded.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '2', filename: 'already_duplicate.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '3', filename: 'previously_failed.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '4', filename: 'previously_junk.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '5', filename: 'previously_quota_exceeded.jpg', sourceAlbum: 'SCB EASY'),
-        SlipCandidate(id: '6', filename: 'brand_new.jpg', sourceAlbum: 'SCB EASY'),
+        SlipCandidate(
+          id: '1',
+          filename: 'already_uploaded.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '2',
+          filename: 'already_duplicate.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '3',
+          filename: 'previously_failed.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '4',
+          filename: 'previously_junk.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '5',
+          filename: 'previously_quota_exceeded.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
+        SlipCandidate(
+          id: '6',
+          filename: 'brand_new.jpg',
+          sourceAlbum: 'SCB EASY',
+        ),
       ];
 
       final result = await repository.diffNewFiles(candidates);
 
-      expect(result.map((c) => c.filename).toSet(), {'previously_quota_exceeded.jpg', 'brand_new.jpg'});
+      expect(result.map((c) => c.filename).toSet(), {
+        'previously_quota_exceeded.jpg',
+        'brand_new.jpg',
+      });
     });
   });
 
@@ -275,8 +377,16 @@ void main() {
 
       final result = await repository.uploadOne(candidate);
 
-      expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
-      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipUploaded>()));
+      expect(
+        result.isRight(),
+        isTrue,
+        reason:
+            'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+      );
+      result.fold(
+        (f) => null,
+        (outcome) => expect(outcome, isA<SlipUploaded>()),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.status, SlipStatus.uploaded);
@@ -294,7 +404,10 @@ void main() {
       final result = await repository.uploadOne(candidate);
 
       expect(result.isRight(), isTrue);
-      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipDuplicate>()));
+      result.fold(
+        (f) => null,
+        (outcome) => expect(outcome, isA<SlipDuplicate>()),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.status, SlipStatus.duplicate);
@@ -309,8 +422,16 @@ void main() {
 
       final result = await repository.uploadOne(candidate);
 
-      expect(result.isRight(), isTrue, reason: 'expected duplicate to be a Right, got: ${result.fold((f) => f, (_) => null)}');
-      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipDuplicate>()));
+      expect(
+        result.isRight(),
+        isTrue,
+        reason:
+            'expected duplicate to be a Right, got: ${result.fold((f) => f, (_) => null)}',
+      );
+      result.fold(
+        (f) => null,
+        (outcome) => expect(outcome, isA<SlipDuplicate>()),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.status, SlipStatus.duplicate);
@@ -322,7 +443,10 @@ void main() {
       final result = await repository.uploadOne(candidate);
 
       expect(result.isLeft(), isTrue);
-      result.fold((f) => expect(f, isA<SlipParseFailedFailure>()), (_) => fail('expected a Left'));
+      result.fold(
+        (f) => expect(f, isA<SlipParseFailedFailure>()),
+        (_) => fail('expected a Left'),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.status, SlipStatus.failed);
@@ -345,7 +469,10 @@ void main() {
       final result = await repository.uploadOne(candidate);
 
       expect(result.isLeft(), isTrue);
-      result.fold((f) => expect(f, isA<GeminiQuotaExhaustedFailure>()), (_) => fail('expected a Left'));
+      result.fold(
+        (f) => expect(f, isA<GeminiQuotaExhaustedFailure>()),
+        (_) => fail('expected a Left'),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.status, SlipStatus.quotaExceeded);
@@ -380,7 +507,11 @@ void main() {
       expect(row.retryCount, 1);
 
       eligible = await repository.diffNewFiles(const [candidate]);
-      expect(eligible, isEmpty, reason: 'now uploaded, no longer eligible for re-scan');
+      expect(
+        eligible,
+        isEmpty,
+        reason: 'now uploaded, no longer eligible for re-scan',
+      );
     });
 
     test('source file missing from the gallery fails without ever hitting the network or compressing', () async {
@@ -389,7 +520,11 @@ void main() {
       final result = await repository.uploadOne(candidate);
 
       expect(result.isLeft(), isTrue);
-      expect(adapter.lastRequest, isNull, reason: 'no network call should happen when the source bytes are unavailable');
+      expect(
+        adapter.lastRequest,
+        isNull,
+        reason: 'no network call should happen when the source bytes are unavailable',
+      );
       expect(compressPlatform.calls, isEmpty);
 
       final row = await db.select(db.scannedSlips).getSingle();
@@ -404,10 +539,21 @@ void main() {
     test('201 with data: records a scanned_slips row with sourceFolder "manual", upserts cached_transactions', () async {
       adapter.script = () => 'uploaded';
 
-      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+      final result = await repository.uploadManual(
+        bytes: manualBytes,
+        filename: manualFilename,
+      );
 
-      expect(result.isRight(), isTrue, reason: 'expected success, got failure: ${result.fold((f) => f, (_) => null)}');
-      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipUploaded>()));
+      expect(
+        result.isRight(),
+        isTrue,
+        reason:
+            'expected success, got failure: ${result.fold((f) => f, (_) => null)}',
+      );
+      result.fold(
+        (f) => null,
+        (outcome) => expect(outcome, isA<SlipUploaded>()),
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.localImageName, manualFilename);
@@ -422,7 +568,10 @@ void main() {
     test('never touches SlipGalleryRepository — the given bytes are what get compressed and sent', () async {
       adapter.script = () => 'uploaded';
 
-      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+      await repository.uploadManual(
+        bytes: manualBytes,
+        filename: manualFilename,
+      );
 
       expect(compressPlatform.calls, hasLength(1));
       expect(compressPlatform.calls.single.inputLength, rawByteCount);
@@ -431,7 +580,10 @@ void main() {
     test('a real error (SLIP_PARSE_FAILED) surfaces as Left and records failed with sourceFolder "manual"', () async {
       adapter.script = () => 'slip_parse_failed';
 
-      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+      final result = await repository.uploadManual(
+        bytes: manualBytes,
+        filename: manualFilename,
+      );
 
       expect(result.isLeft(), isTrue);
       final row = await db.select(db.scannedSlips).getSingle();
@@ -440,22 +592,37 @@ void main() {
       expect(row.lastErrorCode, 'SLIP_PARSE_FAILED');
     });
 
-    test('a duplicate 200 response is recorded as duplicate, not uploaded', () async {
-      adapter.script = () => 'duplicate_200';
+    test(
+      'a duplicate 200 response is recorded as duplicate, not uploaded',
+      () async {
+        adapter.script = () => 'duplicate_200';
 
-      final result = await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+        final result = await repository.uploadManual(
+          bytes: manualBytes,
+          filename: manualFilename,
+        );
 
-      expect(result.isRight(), isTrue);
-      result.fold((f) => null, (outcome) => expect(outcome, isA<SlipDuplicate>()));
-      final row = await db.select(db.scannedSlips).getSingle();
-      expect(row.sourceFolder, 'manual');
-      expect(row.status, SlipStatus.duplicate);
-    });
+        expect(result.isRight(), isTrue);
+        result.fold(
+          (f) => null,
+          (outcome) => expect(outcome, isA<SlipDuplicate>()),
+        );
+        final row = await db.select(db.scannedSlips).getSingle();
+        expect(row.sourceFolder, 'manual');
+        expect(row.status, SlipStatus.duplicate);
+      },
+    );
 
     test('retrying the same manually-picked filename increments retryCount, same as an auto-scanned retry', () async {
       adapter.script = () => 'slip_parse_failed';
-      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
-      await repository.uploadManual(bytes: manualBytes, filename: manualFilename);
+      await repository.uploadManual(
+        bytes: manualBytes,
+        filename: manualFilename,
+      );
+      await repository.uploadManual(
+        bytes: manualBytes,
+        filename: manualFilename,
+      );
 
       final row = await db.select(db.scannedSlips).getSingle();
       expect(row.retryCount, 1);
@@ -463,48 +630,79 @@ void main() {
   });
 
   group('watchLastSuccessfulAutoScanUpload (ticket 09)', () {
-    const otherCandidate = SlipCandidate(id: 'asset-2', filename: 'scb_002.jpg', sourceAlbum: 'SCB EASY');
+    const otherCandidate = SlipCandidate(
+      id: 'asset-2',
+      filename: 'scb_002.jpg',
+      sourceAlbum: 'SCB EASY',
+    );
 
     test('emits null when nothing has ever uploaded successfully', () async {
       final value = await repository.watchLastSuccessfulAutoScanUpload().first;
       expect(value, isNull);
     });
 
-    test('emits the timestamp once an auto-scan upload (uploadOne) succeeds', () async {
-      adapter.script = () => 'uploaded';
+    test(
+      'emits the timestamp once an auto-scan upload (uploadOne) succeeds',
+      () async {
+        adapter.script = () => 'uploaded';
 
-      await repository.uploadOne(candidate);
+        await repository.uploadOne(candidate);
 
-      final row = await db.select(db.scannedSlips).getSingle();
-      final value = await repository.watchLastSuccessfulAutoScanUpload().first;
-      expect(value, row.scannedAt);
-    });
+        final row = await db.select(db.scannedSlips).getSingle();
+        final value = await repository
+            .watchLastSuccessfulAutoScanUpload()
+            .first;
+        expect(value, row.scannedAt);
+      },
+    );
 
-    test('a duplicate or failed outcome does not move the timestamp forward', () async {
-      adapter.script = () => 'uploaded';
-      await repository.uploadOne(candidate);
-      final firstValue = await repository.watchLastSuccessfulAutoScanUpload().first;
+    test(
+      'a duplicate or failed outcome does not move the timestamp forward',
+      () async {
+        adapter.script = () => 'uploaded';
+        await repository.uploadOne(candidate);
+        final firstValue = await repository
+            .watchLastSuccessfulAutoScanUpload()
+            .first;
 
-      adapter.script = () => 'duplicate_200';
-      await repository.uploadOne(otherCandidate);
-      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
+        adapter.script = () => 'duplicate_200';
+        await repository.uploadOne(otherCandidate);
+        expect(
+          await repository.watchLastSuccessfulAutoScanUpload().first,
+          firstValue,
+        );
 
-      adapter.script = () => 'slip_parse_failed';
-      await repository.uploadOne(const SlipCandidate(id: 'asset-3', filename: 'scb_003.jpg', sourceAlbum: 'SCB EASY'));
-      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
-    });
+        adapter.script = () => 'slip_parse_failed';
+        await repository.uploadOne(
+          const SlipCandidate(
+            id: 'asset-3',
+            filename: 'scb_003.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        );
+        expect(
+          await repository.watchLastSuccessfulAutoScanUpload().first,
+          firstValue,
+        );
+      },
+    );
 
     test('a repeated no-new-files scan cycle (diffNewFiles only, no uploadOne call) leaves the timestamp unchanged', () async {
       adapter.script = () => 'uploaded';
       await repository.uploadOne(candidate);
-      final firstValue = await repository.watchLastSuccessfulAutoScanUpload().first;
+      final firstValue = await repository
+          .watchLastSuccessfulAutoScanUpload()
+          .first;
 
       // Simulates SlipScanPipeline.runScan finding nothing new: diffNewFiles
       // runs, uploadOne is never called, so nothing should move.
       await repository.diffNewFiles(const [candidate]);
       await repository.diffNewFiles(const [candidate]);
 
-      expect(await repository.watchLastSuccessfulAutoScanUpload().first, firstValue);
+      expect(
+        await repository.watchLastSuccessfulAutoScanUpload().first,
+        firstValue,
+      );
     });
 
     test('a successful manual attach (uploadManual, T21) is excluded — the signal is auto-scan only', () async {
@@ -513,7 +711,10 @@ void main() {
       final value = await repository.watchLastSuccessfulAutoScanUpload().first;
       expect(value, isNull, reason: 'nothing auto-scanned yet');
 
-      await repository.uploadManual(bytes: Uint8List.fromList(List.filled(rawByteCount, 3)), filename: 'manual_only.jpg');
+      await repository.uploadManual(
+        bytes: Uint8List.fromList(List.filled(rawByteCount, 3)),
+        filename: 'manual_only.jpg',
+      );
 
       expect(
         await repository.watchLastSuccessfulAutoScanUpload().first,
@@ -524,49 +725,79 @@ void main() {
 
     test('an auto-scan success after a prior manual-only upload is still picked up correctly', () async {
       adapter.script = () => 'uploaded';
-      await repository.uploadManual(bytes: Uint8List.fromList(List.filled(rawByteCount, 3)), filename: 'manual_only.jpg');
-      expect(await repository.watchLastSuccessfulAutoScanUpload().first, isNull);
+      await repository.uploadManual(
+        bytes: Uint8List.fromList(List.filled(rawByteCount, 3)),
+        filename: 'manual_only.jpg',
+      );
+      expect(
+        await repository.watchLastSuccessfulAutoScanUpload().first,
+        isNull,
+      );
 
       await repository.uploadOne(candidate);
 
-      final row = await (db.select(db.scannedSlips)..where((s) => s.localImageName.equals(candidate.filename))).getSingle();
-      expect(await repository.watchLastSuccessfulAutoScanUpload().first, row.scannedAt);
+      final row = await (db.select(
+        db.scannedSlips,
+      )..where((s) => s.localImageName.equals(candidate.filename))).getSingle();
+      expect(
+        await repository.watchLastSuccessfulAutoScanUpload().first,
+        row.scannedAt,
+      );
     });
   });
 
   group('compression', () {
-    test('every upload attempt compresses the raw gallery bytes before sending', () async {
-      adapter.script = () => 'uploaded';
+    test(
+      'every upload attempt compresses the raw gallery bytes before sending',
+      () async {
+        adapter.script = () => 'uploaded';
 
-      await repository.uploadOne(candidate);
+        await repository.uploadOne(candidate);
 
-      expect(compressPlatform.calls, hasLength(1), reason: 'compression should run exactly once per upload attempt, not per retry-within-a-call');
-      final call = compressPlatform.calls.single;
-      expect(call.inputLength, rawByteCount, reason: 'should compress the raw gallery bytes, not some already-transformed copy');
-      expect(call.quality, 80);
-      expect(call.minWidth, 1600);
-      expect(call.minHeight, 1600);
-    });
+        expect(
+          compressPlatform.calls,
+          hasLength(1),
+          reason: 'compression should run exactly once per upload attempt, not per retry-within-a-call',
+        );
+        final call = compressPlatform.calls.single;
+        expect(
+          call.inputLength,
+          rawByteCount,
+          reason: 'should compress the raw gallery bytes, not some already-transformed copy',
+        );
+        expect(call.quality, 80);
+        expect(call.minWidth, 1600);
+        expect(call.minHeight, 1600);
+      },
+    );
 
-    test('normal-sized output never triggers the second, lower-quality pass', () async {
-      adapter.script = () => 'uploaded';
+    test(
+      'normal-sized output never triggers the second, lower-quality pass',
+      () async {
+        adapter.script = () => 'uploaded';
 
-      await repository.uploadOne(candidate);
-      // The fake halves a 100-byte source by default — nowhere near the
-      // ~3.5MB retry threshold, so exactly one pass should run.
-      expect(compressPlatform.calls, hasLength(1));
-    });
+        await repository.uploadOne(candidate);
+        // The fake halves a 100-byte source by default — nowhere near the
+        // ~3.5MB retry threshold, so exactly one pass should run.
+        expect(compressPlatform.calls, hasLength(1));
+      },
+    );
 
     test('a first pass that is still oversized (>3.5MB) triggers a second, lower-quality pass', () async {
       adapter.script = () => 'uploaded';
       const oversized = 4 * 1024 * 1024;
-      compressPlatform.outputLength = (i, inputLength) => i == 0 ? oversized : 500;
+      compressPlatform.outputLength = (i, inputLength) =>
+          i == 0 ? oversized : 500;
 
       await repository.uploadOne(candidate);
 
       expect(compressPlatform.calls, hasLength(2));
       final secondPass = compressPlatform.calls[1];
-      expect(secondPass.inputLength, rawByteCount, reason: 'the second pass re-compresses the original raw bytes, not the oversized first-pass output');
+      expect(
+        secondPass.inputLength,
+        rawByteCount,
+        reason: 'the second pass re-compresses the original raw bytes, not the oversized first-pass output',
+      );
       expect(secondPass.quality, 50);
       expect(secondPass.minWidth, 1280);
       expect(secondPass.minHeight, 1280);

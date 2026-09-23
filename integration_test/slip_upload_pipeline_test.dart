@@ -44,8 +44,14 @@ void main() {
 
     final candidates = await gallery.queryConfiguredAlbums();
     // ignore: avoid_print
-    print('T10-LAYER2: found ${candidates.length} candidate(s): ${candidates.map((c) => '${c.sourceAlbum}/${c.filename}').join(', ')}');
-    expect(candidates, isNotEmpty, reason: 'no candidates found — did the adb push + MEDIA_SCANNER_SCAN_FILE broadcast actually land?');
+    print(
+      'T10-LAYER2: found ${candidates.length} candidate(s): ${candidates.map((c) => '${c.sourceAlbum}/${c.filename}').join(', ')}',
+    );
+    expect(
+      candidates,
+      isNotEmpty,
+      reason: 'no candidates found — did the adb push + MEDIA_SCANNER_SCAN_FILE broadcast actually land?',
+    );
   });
 
   test(
@@ -60,16 +66,23 @@ void main() {
 
       final progress = container.read(slipScanPipelineProvider);
       // ignore: avoid_print
-      print('T10-LAYER2: pass total=${progress.total} completed=${progress.completed} elapsed=${elapsed.inSeconds}s');
+      print(
+        'T10-LAYER2: pass total=${progress.total} completed=${progress.completed} elapsed=${elapsed.inSeconds}s',
+      );
       for (final r in progress.results) {
         // ignore: avoid_print
-        print('T10-LAYER2:   ${r.filename} -> ${r.status}${r.failureMessage != null ? ' (${r.failureMessage})' : ''}');
+        print(
+          'T10-LAYER2:   ${r.filename} -> ${r.status}${r.failureMessage != null ? ' (${r.failureMessage})' : ''}',
+        );
       }
 
       if (progress.total > 1) {
         // Sequential-pacing floor: (n-1) * 7s, even before any per-request
         // network/Gemini time is added on top.
-        expect(elapsed.inSeconds, greaterThanOrEqualTo((progress.total - 1) * 7));
+        expect(
+          elapsed.inSeconds,
+          greaterThanOrEqualTo((progress.total - 1) * 7),
+        );
       }
 
       final db = container.read(appDatabaseProvider);
@@ -89,8 +102,15 @@ void main() {
       // body's shape (no error_code field) so it always lands as an
       // UnknownFailure — detect it by the rate limiter's own literal
       // response text instead.
-      final rateLimited = progress.results.where((r) => (r.failureMessage ?? '').contains('Too many requests'));
-      expect(rateLimited, isEmpty, reason: 'a 429 slipped through for: ${rateLimited.map((r) => r.filename).join(', ')}');
+      final rateLimited = progress.results.where(
+        (r) => (r.failureMessage ?? '').contains('Too many requests'),
+      );
+      expect(
+        rateLimited,
+        isEmpty,
+        reason:
+            'a 429 slipped through for: ${rateLimited.map((r) => r.filename).join(', ')}',
+      );
     },
     // 12 files * 7s sequential delay alone is 77s, plus per-request/Gemini
     // latency on top — well past flutter_test's default 30s test timeout.
@@ -104,15 +124,24 @@ void main() {
 
     final stillNew = await uploadRepo.diffNewFiles(candidates);
     // ignore: avoid_print
-    print('T10-LAYER2: diff after pass 1 -> ${stillNew.length} still-new file(s): ${stillNew.map((c) => c.filename).join(', ')}');
+    print(
+      'T10-LAYER2: diff after pass 1 -> ${stillNew.length} still-new file(s): ${stillNew.map((c) => c.filename).join(', ')}',
+    );
 
     final db = container.read(appDatabaseProvider);
-    final resolvedRows = await (db.select(
-      db.scannedSlips,
-    )..where((s) => s.status.isInValues(const [SlipStatus.uploaded, SlipStatus.duplicate]))).get();
+    final resolvedRows =
+        await (db.select(db.scannedSlips)..where(
+              (s) => s.status.isInValues(const [
+                SlipStatus.uploaded,
+                SlipStatus.duplicate,
+              ]),
+            ))
+            .get();
     final resolvedNames = resolvedRows.map((r) => r.localImageName).toSet();
     // ignore: avoid_print
-    print('T10-LAYER2: ${resolvedNames.length} file(s) resolved (uploaded/duplicate) from pass 1: ${resolvedNames.join(', ')}');
+    print(
+      'T10-LAYER2: ${resolvedNames.length} file(s) resolved (uploaded/duplicate) from pass 1: ${resolvedNames.join(', ')}',
+    );
 
     // The actual "re-scanning doesn't re-upload" guarantee: every filename
     // that resolved to uploaded/duplicate must be absent from this diff.
@@ -126,7 +155,9 @@ void main() {
     // non-slip dummy image lands as 'uploaded' (junk, amount 0) or 'failed'
     // (parse error) is a real backend behavior this test observes rather
     // than dictates.
-    final failedRows = await (db.select(db.scannedSlips)..where((s) => s.status.equalsValue(SlipStatus.failed))).get();
+    final failedRows = await (db.select(
+      db.scannedSlips,
+    )..where((s) => s.status.equalsValue(SlipStatus.failed))).get();
     // ignore: avoid_print
     print(
       'T10-LAYER2: ${failedRows.length} file(s) landed as failed after pass 1 (expected to be retried on pass 2 by design, not skipped): ${failedRows.map((r) => r.localImageName).join(', ')}',

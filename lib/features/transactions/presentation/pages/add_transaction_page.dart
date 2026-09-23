@@ -56,7 +56,9 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   Future<void> _submit() async {
     final amount = parseAmountInput(_amountController.text);
     if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('กรอกจำนวนเงินให้ถูกต้อง')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('กรอกจำนวนเงินให้ถูกต้อง')));
       return;
     }
     final isTransfer = _type == TransactionType.transfer;
@@ -71,7 +73,8 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
         return;
       }
     } else if (_accountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('จำเป็นต้องเลือกบัญชี')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('จำเป็นต้องเลือกบัญชี')));
       return;
     }
 
@@ -96,28 +99,65 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    await result.fold((failure) => _handleFailure(failure, amount: amount, note: note, isTransfer: isTransfer), (_) async {
-      ref.read(cacheInvalidatorProvider).invalidateMonth(_date.year, _date.month);
-      Navigator.of(context).pop(true);
-    });
+    await result.fold(
+      (failure) => _handleFailure(
+        failure,
+        amount: amount,
+        note: note,
+        isTransfer: isTransfer,
+      ),
+      (_) async {
+        ref
+            .read(cacheInvalidatorProvider)
+            .invalidateMonth(_date.year, _date.month);
+        Navigator.of(context).pop(true);
+      },
+    );
   }
 
-  Future<void> _handleFailure(Failure failure, {required double amount, required String note, required bool isTransfer}) async {
+  Future<void> _handleFailure(
+    Failure failure, {
+    required double amount,
+    required String note,
+    required bool isTransfer,
+  }) async {
     final payload = isTransfer
-        ? createTransferPayload(amount: amount, date: _date, note: note, fromAccountId: _fromAccountId!, toAccountId: _toAccountId!, categoryId: _categoryId)
-        : createTransactionPayload(type: _type, amount: amount, date: _date, note: note, accountId: _accountId!, categoryId: _categoryId);
+        ? createTransferPayload(
+            amount: amount,
+            date: _date,
+            note: note,
+            fromAccountId: _fromAccountId!,
+            toAccountId: _toAccountId!,
+            categoryId: _categoryId,
+          )
+        : createTransactionPayload(
+            type: _type,
+            amount: amount,
+            date: _date,
+            note: note,
+            accountId: _accountId!,
+            categoryId: _categoryId,
+          );
 
     final queued = await ref
         .read(pendingActionsRepositoryProvider)
         .recordIfTransient(
           failure: failure,
-          actionType: isTransfer ? PendingActionType.createTransfer : PendingActionType.createTransaction,
+          actionType: isTransfer
+              ? PendingActionType.createTransfer
+              : PendingActionType.createTransaction,
           payload: payload,
         );
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(queued ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว' : (failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          queued
+              ? 'ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'
+              : (failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
+    );
   }
 
   void _onTypeChanged(TransactionType type) {
@@ -135,8 +175,15 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   }
 
   Future<void> _pickCategory() async {
-    final categoryType = _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
-    final selection = await showCategoryGridPicker(context, categoryType: categoryType, currentCategoryId: _categoryId, subtitle: 'เลือกหมวดหมู่สำหรับรายการนี้');
+    final categoryType = _type == TransactionType.income
+        ? CategoryType.income
+        : CategoryType.expense;
+    final selection = await showCategoryGridPicker(
+      context,
+      categoryType: categoryType,
+      currentCategoryId: _categoryId,
+      subtitle: 'เลือกหมวดหมู่สำหรับรายการนี้',
+    );
     if (selection == null) return;
     setState(() => _categoryId = selection.categoryId);
   }
@@ -147,13 +194,25 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
       panelBuilder: (context, close) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DropdownPanelOption(label: 'วันนี้', onTap: () => close(DateTime.now())),
-          DropdownPanelOption(label: 'เมื่อวาน', onTap: () => close(DateTime.now().subtract(const Duration(days: 1)))),
+          DropdownPanelOption(
+            label: 'วันนี้',
+            onTap: () => close(DateTime.now()),
+          ),
+          DropdownPanelOption(
+            label: 'เมื่อวาน',
+            onTap: () =>
+                close(DateTime.now().subtract(const Duration(days: 1))),
+          ),
           DropdownPanelOption(
             label: 'เลือกวันที่',
             onTap: () async {
               close();
-              final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: DateTime(2100));
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2000),
+                lastDate: DateTime(2100),
+              );
               if (picked != null && mounted) setState(() => _date = picked);
             },
           ),
@@ -163,12 +222,23 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     if (result != null) setState(() => _date = result);
   }
 
-  Future<void> _pickAccount(BuildContext anchorContext, List<Account> accounts, void Function(int id) onPicked) async {
+  Future<void> _pickAccount(
+    BuildContext anchorContext,
+    List<Account> accounts,
+    void Function(int id) onPicked,
+  ) async {
     final result = await showAnchoredDropdown<int>(
       anchorContext: anchorContext,
       panelBuilder: (context, close) => Column(
         mainAxisSize: MainAxisSize.min,
-        children: [for (final a in accounts) DropdownPanelOption(key: Key('accountOption_${a.id}'), label: a.name, onTap: () => close(a.id))],
+        children: [
+          for (final a in accounts)
+            DropdownPanelOption(
+              key: Key('accountOption_${a.id}'),
+              label: a.name,
+              onTap: () => close(a.id),
+            ),
+        ],
       ),
     );
     if (result != null) onPicked(result);
@@ -180,7 +250,11 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     final categories = ref.watch(allCategoriesProvider).value ?? const [];
     final category = _findById(categories, _categoryId, (c) => c.id);
     final accountName = _findById(accounts, _accountId, (a) => a.id)?.name;
-    final fromAccountName = _findById(accounts, _fromAccountId, (a) => a.id)?.name;
+    final fromAccountName = _findById(
+      accounts,
+      _fromAccountId,
+      (a) => a.id,
+    )?.name;
     final toAccountName = _findById(accounts, _toAccountId, (a) => a.id)?.name;
     final isTransfer = _type == TransactionType.transfer;
 
@@ -193,8 +267,18 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  CircularIconButton(icon: RemixIcon.closeLine, onTap: () => Navigator.of(context).pop()),
-                  const Text('เพิ่มรายการ', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  CircularIconButton(
+                    icon: RemixIcon.closeLine,
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                  const Text(
+                    'เพิ่มรายการ',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(width: 38, height: 38),
                 ],
               ),
@@ -207,7 +291,9 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                   children: [
                     SegmentedTabs<TransactionType>(
                       values: TransactionType.values,
-                      labels: TransactionType.values.map((t) => t.label).toList(),
+                      labels: TransactionType.values
+                          .map((t) => t.label)
+                          .toList(),
                       selected: _type,
                       onChanged: _onTypeChanged,
                     ),
@@ -223,15 +309,27 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                       dateLabel: _dateLabel(_date),
                       onCategoryTap: _pickCategory,
                       onDateTap: (anchorContext) => _pickDate(anchorContext),
-                      onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
-                      onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                        _fromAccountId = id;
-                        _transferError = null;
-                      })),
-                      onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                        _toAccountId = id;
-                        _transferError = null;
-                      })),
+                      onAccountTap: (anchorContext) => _pickAccount(
+                        anchorContext,
+                        accounts,
+                        (id) => setState(() => _accountId = id),
+                      ),
+                      onFromAccountTap: (anchorContext) => _pickAccount(
+                        anchorContext,
+                        accounts,
+                        (id) => setState(() {
+                          _fromAccountId = id;
+                          _transferError = null;
+                        }),
+                      ),
+                      onToAccountTap: (anchorContext) => _pickAccount(
+                        anchorContext,
+                        accounts,
+                        (id) => setState(() {
+                          _toAccountId = id;
+                          _transferError = null;
+                        }),
+                      ),
                       transferError: _transferError,
                       noteController: _noteController,
                     ),
@@ -254,11 +352,15 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
 
   String _dateLabel(DateTime date) {
     final today = DateTime.now();
-    if (date.year == today.year && date.month == today.month && date.day == today.day) {
+    if (date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day) {
       return 'วันนี้';
     }
     final yesterday = today.subtract(const Duration(days: 1));
-    if (date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day) {
+    if (date.year == yesterday.year &&
+        date.month == yesterday.month &&
+        date.day == yesterday.day) {
       return 'เมื่อวาน';
     }
     return '${date.day}/${date.month}/${date.year}';
@@ -272,4 +374,3 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     return null;
   }
 }
-

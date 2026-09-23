@@ -29,7 +29,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
-  _FakeAccountsRepository({this.activeAccountsStream, this.cachedById = const {}});
+  _FakeAccountsRepository({
+    this.activeAccountsStream,
+    this.cachedById = const {},
+  });
 
   /// Most tests just need the fixed two-account list below; a test that
   /// wants to drive `activeAccountsProvider` into `loading`/`error` passes
@@ -45,8 +48,24 @@ class _FakeAccountsRepository implements AccountsRepository {
   Stream<List<Account>> watchActiveAccounts() =>
       activeAccountsStream ??
       Stream.value(const [
-        Account(id: 1, name: 'Cash', accountType: AccountType.cash, openingBalance: 0, matchingKeywords: [], bankIcon: 'cash', isActive: true),
-        Account(id: 2, name: 'SCB', accountType: AccountType.bank, openingBalance: 0, matchingKeywords: [], bankIcon: 'scb', isActive: true),
+        Account(
+          id: 1,
+          name: 'Cash',
+          accountType: AccountType.cash,
+          openingBalance: 0,
+          matchingKeywords: [],
+          bankIcon: 'cash',
+          isActive: true,
+        ),
+        Account(
+          id: 2,
+          name: 'SCB',
+          accountType: AccountType.bank,
+          openingBalance: 0,
+          matchingKeywords: [],
+          bankIcon: 'scb',
+          isActive: true,
+        ),
       ]);
 
   @override
@@ -77,14 +96,27 @@ class _FakeAccountsRepository implements AccountsRepository {
   }) => throw UnimplementedError('not exercised by this form test');
 
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this form test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this form test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
   @override
   Stream<List<Category>> watchAll() => Stream.value(const [
-    Category(id: 10, name: 'Food', type: CategoryType.expense, iconKey: 'food', colorHex: '#EF4444'),
-    Category(id: 20, name: 'Salary', type: CategoryType.income, iconKey: 'salary', colorHex: '#22C55E'),
+    Category(
+      id: 10,
+      name: 'Food',
+      type: CategoryType.expense,
+      iconKey: 'food',
+      colorHex: '#EF4444',
+    ),
+    Category(
+      id: 20,
+      name: 'Salary',
+      type: CategoryType.income,
+      iconKey: 'salary',
+      colorHex: '#22C55E',
+    ),
   ]);
 
   @override
@@ -108,10 +140,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   }) => throw UnimplementedError('not exercised by this form test');
 
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this form test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this form test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this form test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this form test');
 }
 
 /// A minimal valid 1x1 transparent PNG — `Image.memory` in the slip preview
@@ -119,10 +153,70 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 /// arbitrary byte list (as used by the upload-path fakes elsewhere in this
 /// codebase, which never render the bytes) isn't enough here.
 final _fakeSlipImageBytes = Uint8List.fromList(const [
-  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, //
-  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-  0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-  0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x48,
+  0x44,
+  0x52, //
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x00,
+  0x01,
+  0x08,
+  0x06,
+  0x00,
+  0x00,
+  0x00,
+  0x1F,
+  0x15,
+  0xC4,
+  0x89,
+  0x00,
+  0x00,
+  0x00,
+  0x0D,
+  0x49,
+  0x44,
+  0x41,
+  0x54,
+  0x78,
+  0x9C,
+  0x63,
+  0x00,
+  0x01,
+  0x00,
+  0x00,
+  0x05,
+  0x00,
+  0x01,
+  0x0D,
+  0x0A,
+  0x2D,
+  0xB4,
+  0x00,
+  0x00,
+  0x00,
+  0x00,
+  0x49,
+  0x45,
+  0x4E,
+  0x44,
+  0xAE,
   0x42, 0x60, 0x82,
 ]);
 
@@ -163,12 +257,20 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, Transaction>? nextCreateResult;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
-      throw UnimplementedError('not exercised by this form test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this form test');
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this form test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this form test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -251,10 +353,12 @@ class _RecordingCacheInvalidator implements CacheInvalidator {
   final List<Set<(int, int)>> invalidatedMonthSets = [];
 
   @override
-  void invalidateMonth(int year, int month) => invalidatedMonthSets.add({(year, month)});
+  void invalidateMonth(int year, int month) =>
+      invalidatedMonthSets.add({(year, month)});
 
   @override
-  void invalidateMonths(Set<(int, int)> months) => invalidatedMonthSets.add(months);
+  void invalidateMonths(Set<(int, int)> months) =>
+      invalidatedMonthSets.add(months);
 }
 
 /// In-memory stand-in, not a real drift-backed repository — a real one
@@ -301,10 +405,12 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this form test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by this form test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by this form test');
+  Future<void> remove(int id) =>
+      throw UnimplementedError('not exercised by this form test');
 }
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
@@ -329,7 +435,11 @@ Future<void> _pumpBounded(WidgetTester tester) async {
 /// used to already reach.
 Future<void> _scrollToKey(WidgetTester tester, Key key) async {
   final finder = find.byKey(key);
-  await tester.scrollUntilVisible(finder, 300, scrollable: find.byType(Scrollable).first);
+  await tester.scrollUntilVisible(
+    finder,
+    300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.ensureVisible(finder);
   // `ensureVisible` moves the scroll position via `jumpTo`, which doesn't
   // relayout until the next frame — without this pump, a `tap()` right
@@ -365,10 +475,17 @@ void main() {
     PaintingBinding.instance.imageCache.clearLiveImages();
   });
 
-  Widget buildEditApp(Transaction initial, {AccountsRepository? accountsRepository}) => ProviderScope(
+  Widget buildEditApp(
+    Transaction initial, {
+    AccountsRepository? accountsRepository,
+  }) => ProviderScope(
     overrides: [
-      accountsRepositoryProvider.overrideWithValue(accountsRepository ?? _FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+      accountsRepositoryProvider.overrideWithValue(
+        accountsRepository ?? _FakeAccountsRepository(),
+      ),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
@@ -378,31 +495,38 @@ void main() {
   );
 
   group('T14 cache invalidation', () {
-    testWidgets('editing a transaction without changing its date invalidates only that one month', (tester) async {
-      final original = Transaction(
-        id: 42,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'manual',
-        transactionDate: DateTime(2026, 9, 15),
-      );
-      await tester.pumpWidget(buildEditApp(original));
-      await _pumpBounded(tester);
+    testWidgets(
+      'editing a transaction without changing its date invalidates only that one month',
+      (tester) async {
+        final original = Transaction(
+          id: 42,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'manual',
+          transactionDate: DateTime(2026, 9, 15),
+        );
+        await tester.pumpWidget(buildEditApp(original));
+        await _pumpBounded(tester);
 
-      await tester.tap(find.byKey(const Key('accountPill')));
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('accountOption_1')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('accountPill')));
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('accountOption_1')));
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('submitButton'));
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
+        await _scrollToKey(tester, const Key('submitButton'));
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 50),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 5),
+        );
 
-      expect(fakeTransactions.updateCallCount, 1);
-      expect(cacheInvalidator.invalidatedMonthSets, [
-        {(2026, 9)},
-      ]);
-    });
+        expect(fakeTransactions.updateCallCount, 1);
+        expect(cacheInvalidator.invalidatedMonthSets, [
+          {(2026, 9)},
+        ]);
+      },
+    );
   });
 
   /// Bug fix (found in code review of ticket 13's refactor): the amount/
@@ -412,30 +536,37 @@ void main() {
   /// could skip the amount validator entirely whenever the accounts stream
   /// wasn't in `data` state.
   group('amount validation survives accounts-stream state (bug fix)', () {
-    testWidgets('the amount field stays mounted and its validator still blocks submit when the accounts stream errors', (tester) async {
-      final existing = Transaction(
-        id: 9,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'manual',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
-      final erroringAccounts = _FakeAccountsRepository(activeAccountsStream: Stream<List<Account>>.error('boom'));
-      await tester.pumpWidget(buildEditApp(existing, accountsRepository: erroringAccounts));
-      await _pumpBounded(tester);
+    testWidgets(
+      'the amount field stays mounted and its validator still blocks submit when the accounts stream errors',
+      (tester) async {
+        final existing = Transaction(
+          id: 9,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'manual',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
+        final erroringAccounts = _FakeAccountsRepository(
+          activeAccountsStream: Stream<List<Account>>.error('boom'),
+        );
+        await tester.pumpWidget(
+          buildEditApp(existing, accountsRepository: erroringAccounts),
+        );
+        await _pumpBounded(tester);
 
-      // The field must be present at all (this is what "unmounted, so the
-      // validator never runs" actually looked like).
-      expect(find.byKey(const Key('amountField')), findsOneWidget);
+        // The field must be present at all (this is what "unmounted, so the
+        // validator never runs" actually looked like).
+        expect(find.byKey(const Key('amountField')), findsOneWidget);
 
-      await tester.enterText(find.byKey(const Key('amountField')), '');
-      await _pumpBounded(tester);
-      await tester.tap(find.byKey(const Key('submitButton')));
-      await _pumpBounded(tester);
+        await tester.enterText(find.byKey(const Key('amountField')), '');
+        await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('submitButton')));
+        await _pumpBounded(tester);
 
-      expect(find.text('กรอกตัวเลขให้ถูกต้อง'), findsOneWidget);
-      expect(fakeTransactions.updateCallCount, 0);
-    });
+        expect(find.text('กรอกตัวเลขให้ถูกต้อง'), findsOneWidget);
+        expect(fakeTransactions.updateCallCount, 0);
+      },
+    );
   });
 
   /// Bug fix (found in code review of ticket 13's refactor): the amount
@@ -447,32 +578,39 @@ void main() {
   /// name; this now falls back to `cachedAccountProvider` (the full cache,
   /// same lookup `TransactionListTile` already relies on) for that case.
   group('closed-account name resolution (bug fix)', () {
-    testWidgets('editing a transaction on a since-closed account still shows its real account name, not "ยังไม่เลือกบัญชี"', (tester) async {
-      final existing = Transaction(
-        id: 11,
-        amount: 250,
-        type: TransactionType.expense,
-        accountId: 99,
-        source: 'manual',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
-      const closedAccount = Account(
-        id: 99,
-        name: 'Old Wallet',
-        accountType: AccountType.cash,
-        openingBalance: 0,
-        matchingKeywords: [],
-        bankIcon: 'cash',
-        isActive: false,
-      );
-      final accountsWithClosed = _FakeAccountsRepository(cachedById: const {99: closedAccount});
-      await tester.pumpWidget(buildEditApp(existing, accountsRepository: accountsWithClosed));
-      await _pumpBounded(tester);
+    testWidgets(
+      'editing a transaction on a since-closed account still shows its real account name, not "ยังไม่เลือกบัญชี"',
+      (tester) async {
+        final existing = Transaction(
+          id: 11,
+          amount: 250,
+          type: TransactionType.expense,
+          accountId: 99,
+          source: 'manual',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
+        const closedAccount = Account(
+          id: 99,
+          name: 'Old Wallet',
+          accountType: AccountType.cash,
+          openingBalance: 0,
+          matchingKeywords: [],
+          bankIcon: 'cash',
+          isActive: false,
+        );
+        final accountsWithClosed = _FakeAccountsRepository(
+          cachedById: const {99: closedAccount},
+        );
+        await tester.pumpWidget(
+          buildEditApp(existing, accountsRepository: accountsWithClosed),
+        );
+        await _pumpBounded(tester);
 
-      expect(find.text('Old Wallet'), findsOneWidget);
-      expect(find.text('ยังไม่เลือกบัญชี'), findsNothing);
-      expect(find.text('เลือกบัญชี'), findsNothing);
-    });
+        expect(find.text('Old Wallet'), findsOneWidget);
+        expect(find.text('ยังไม่เลือกบัญชี'), findsNothing);
+        expect(find.text('เลือกบัญชี'), findsNothing);
+      },
+    );
   });
 
   /// Ticket 04: delete moved off `TransactionListTile`'s junk-only icon
@@ -488,7 +626,9 @@ void main() {
       transactionDate: DateTime.utc(2026, 9, 5),
     );
 
-    testWidgets('delete button appears when editing an existing transaction', (tester) async {
+    testWidgets('delete button appears when editing an existing transaction', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
       await _scrollToKey(tester, const Key('deleteTransactionButton'));
@@ -496,74 +636,95 @@ void main() {
       expect(find.byKey(const Key('deleteTransactionButton')), findsOneWidget);
     });
 
-    testWidgets('tapping delete shows the confirm dialog; canceling does not delete', (tester) async {
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
+    testWidgets(
+      'tapping delete shows the confirm dialog; canceling does not delete',
+      (tester) async {
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('deleteTransactionButton'));
-      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
-      await _pumpBounded(tester);
-      expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
-      expect(find.text('การลบไม่สามารถกู้คืนได้'), findsOneWidget);
+        await _scrollToKey(tester, const Key('deleteTransactionButton'));
+        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+        await _pumpBounded(tester);
+        expect(find.text('ลบรายการนี้ใช่ไหม'), findsOneWidget);
+        expect(find.text('การลบไม่สามารถกู้คืนได้'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
-      await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ยกเลิก'));
+        await _pumpBounded(tester);
 
-      expect(fakeTransactions.deleteCalls, isEmpty);
-    });
+        expect(fakeTransactions.deleteCalls, isEmpty);
+      },
+    );
 
-    testWidgets('confirming delete calls the repository and invalidates the deleted transaction\'s month', (tester) async {
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
+    testWidgets(
+      'confirming delete calls the repository and invalidates the deleted transaction\'s month',
+      (tester) async {
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('deleteTransactionButton'));
-      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-      await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('deleteTransactionButton'));
+        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+        await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+        await _pumpBounded(tester);
 
-      expect(fakeTransactions.deleteCalls, [existing.id]);
-      expect(cacheInvalidator.invalidatedMonthSets, [
-        {(existing.transactionDate.year, existing.transactionDate.month)},
-      ]);
-    });
+        expect(fakeTransactions.deleteCalls, [existing.id]);
+        expect(cacheInvalidator.invalidatedMonthSets, [
+          {(existing.transactionDate.year, existing.transactionDate.month)},
+        ]);
+      },
+    );
 
-    testWidgets('a failed delete shows an error and never invalidates the cache', (tester) async {
-      fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
+    testWidgets(
+      'a failed delete shows an error and never invalidates the cache',
+      (tester) async {
+        fakeTransactions.deleteResult = const Left(
+          UnknownFailure(message: 'Could not delete transaction'),
+        );
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('deleteTransactionButton'));
-      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-      await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('deleteTransactionButton'));
+        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+        await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+        await _pumpBounded(tester);
 
-      expect(fakeTransactions.deleteCalls, [existing.id]);
-      expect(find.text('Could not delete transaction'), findsOneWidget);
-      expect(cacheInvalidator.invalidatedMonthSets, isEmpty);
-    });
+        expect(fakeTransactions.deleteCalls, [existing.id]);
+        expect(find.text('Could not delete transaction'), findsOneWidget);
+        expect(cacheInvalidator.invalidatedMonthSets, isEmpty);
+      },
+    );
 
-    testWidgets('a transient delete failure gets queued and shows the retry-queue snackbar', (tester) async {
-      fakeTransactions.deleteResult = const Left(TimeoutFailure());
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
+    testWidgets(
+      'a transient delete failure gets queued and shows the retry-queue snackbar',
+      (tester) async {
+        fakeTransactions.deleteResult = const Left(TimeoutFailure());
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('deleteTransactionButton'));
-      await tester.tap(find.byKey(const Key('deleteTransactionButton')));
-      await _pumpBounded(tester);
-      await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
-      await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('deleteTransactionButton'));
+        await tester.tap(find.byKey(const Key('deleteTransactionButton')));
+        await _pumpBounded(tester);
+        await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+        await _pumpBounded(tester);
 
-      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-      final queued = await pendingActions.watchAll().first;
-      expect(queued, hasLength(1));
-      expect(queued.single.actionType, PendingActionType.deleteTransaction);
-      expect(queued.single.targetTransactionId, existing.id);
-    });
+        expect(
+          find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'),
+          findsOneWidget,
+        );
+        final queued = await pendingActions.watchAll().first;
+        expect(queued, hasLength(1));
+        expect(queued.single.actionType, PendingActionType.deleteTransaction);
+        expect(queued.single.targetTransactionId, existing.id);
+      },
+    );
 
-    testWidgets('a permanent delete failure is not queued — snackbar only', (tester) async {
-      fakeTransactions.deleteResult = const Left(UnknownFailure(message: 'Could not delete transaction'));
+    testWidgets('a permanent delete failure is not queued — snackbar only', (
+      tester,
+    ) async {
+      fakeTransactions.deleteResult = const Left(
+        UnknownFailure(message: 'Could not delete transaction'),
+      );
       await tester.pumpWidget(buildEditApp(existing));
       await _pumpBounded(tester);
 
@@ -579,88 +740,118 @@ void main() {
   });
 
   group('slip image preview (ticket 05)', () {
-    testWidgets('no localImageName shows the placeholder immediately with no gallery query attempted', (tester) async {
-      final noSlip = Transaction(
-        id: 1,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'manual',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'no localImageName shows the placeholder immediately with no gallery query attempted',
+      (tester) async {
+        final noSlip = Transaction(
+          id: 1,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'manual',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(noSlip));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildEditApp(noSlip));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipInfoCard'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
-      expect(fakeSlipGallery.queryCalls, 0);
-    });
+        expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+        expect(fakeSlipGallery.queryCalls, 0);
+      },
+    );
 
-    testWidgets('a matching filename in a configured album renders the slip image', (tester) async {
-      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
-      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
-      final withSlip = Transaction(
-        id: 2,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'auto_scan',
-        localImageName: 'scb_001.jpg',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'a matching filename in a configured album renders the slip image',
+      (tester) async {
+        fakeSlipGallery.candidates = const [
+          SlipCandidate(
+            id: 'asset-1',
+            filename: 'scb_001.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        ];
+        fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+        final withSlip = Transaction(
+          id: 2,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'auto_scan',
+          localImageName: 'scb_001.jpg',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(withSlip));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildEditApp(withSlip));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipInfoCard'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('slipImagePlaceholder')), findsNothing);
-      expect(find.byType(Image), findsOneWidget);
-      expect(fakeSlipGallery.queryCalls, 1);
-    });
+        expect(find.byKey(const Key('slipImagePlaceholder')), findsNothing);
+        expect(find.byType(Image), findsOneWidget);
+        expect(fakeSlipGallery.queryCalls, 1);
+      },
+    );
 
-    testWidgets('a filename with no matching gallery candidate falls back to the placeholder, not an error', (tester) async {
-      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_999.jpg', sourceAlbum: 'SCB EASY')];
-      final withStaleSlip = Transaction(
-        id: 3,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'auto_scan',
-        localImageName: 'scb_001.jpg',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'a filename with no matching gallery candidate falls back to the placeholder, not an error',
+      (tester) async {
+        fakeSlipGallery.candidates = const [
+          SlipCandidate(
+            id: 'asset-1',
+            filename: 'scb_999.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        ];
+        final withStaleSlip = Transaction(
+          id: 3,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'auto_scan',
+          localImageName: 'scb_001.jpg',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(withStaleSlip));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildEditApp(withStaleSlip));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipInfoCard'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
-      expect(find.byType(Image), findsNothing);
-    });
+        expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+      },
+    );
 
-    testWidgets('a matching filename whose asset was deleted (readBytes returns null) falls back to the placeholder', (tester) async {
-      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
-      // bytesById intentionally left without an entry for 'asset-1' — the
-      // fake's readBytes returns null for unknown ids, mirroring the real
-      // repository's null-on-deleted-asset contract.
-      final withDeletedAsset = Transaction(
-        id: 4,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'auto_scan',
-        localImageName: 'scb_001.jpg',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'a matching filename whose asset was deleted (readBytes returns null) falls back to the placeholder',
+      (tester) async {
+        fakeSlipGallery.candidates = const [
+          SlipCandidate(
+            id: 'asset-1',
+            filename: 'scb_001.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        ];
+        // bytesById intentionally left without an entry for 'asset-1' — the
+        // fake's readBytes returns null for unknown ids, mirroring the real
+        // repository's null-on-deleted-asset contract.
+        final withDeletedAsset = Transaction(
+          id: 4,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'auto_scan',
+          localImageName: 'scb_001.jpg',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(withDeletedAsset));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(buildEditApp(withDeletedAsset));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipInfoCard'));
+        await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
-      expect(find.byType(Image), findsNothing);
-    });
+        expect(find.byKey(const Key('slipImagePlaceholder')), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+      },
+    );
   });
 
   group('Topbar trailing action (ticket 04)', () {
@@ -672,116 +863,165 @@ void main() {
       transactionDate: DateTime.utc(2026, 9, 5),
     );
 
-    testWidgets('edit mode shows a delete (trash) icon, not the old overflow ("...") button', (tester) async {
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
+    testWidgets(
+      'edit mode shows a delete (trash) icon, not the old overflow ("...") button',
+      (tester) async {
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
 
-      // Visible immediately, with no scrolling — it lives in the fixed
-      // header, not the scrollable form body.
-      expect(find.byIcon(RemixIcon.deleteBinLine), findsOneWidget);
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
-      expect(find.byKey(const Key('deleteTransactionButton')), findsOneWidget);
-    });
+        // Visible immediately, with no scrolling — it lives in the fixed
+        // header, not the scrollable form body.
+        expect(find.byIcon(RemixIcon.deleteBinLine), findsOneWidget);
+        expect(find.byIcon(Icons.more_horiz), findsNothing);
+        expect(
+          find.byKey(const Key('deleteTransactionButton')),
+          findsOneWidget,
+        );
+      },
+    );
   });
 
   group('"ข้อมูลจากสลิป" position (ticket 04)', () {
-    testWidgets('the slip info card is the last item in the form, below the submit button', (tester) async {
-      final existing = Transaction(
-        id: 8,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'manual',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'the slip info card is the last item in the form, below the submit button',
+      (tester) async {
+        final existing = Transaction(
+          id: 8,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'manual',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(existing));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipInfoCard'));
+        await tester.pumpWidget(buildEditApp(existing));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipInfoCard'));
 
-      final submitTop = tester.getTopLeft(find.byKey(const Key('submitButton'))).dy;
-      final slipCardTop = tester.getTopLeft(find.byKey(const Key('slipInfoCard'))).dy;
-      expect(submitTop, lessThan(slipCardTop));
-    });
+        final submitTop = tester
+            .getTopLeft(find.byKey(const Key('submitButton')))
+            .dy;
+        final slipCardTop = tester
+            .getTopLeft(find.byKey(const Key('slipInfoCard')))
+            .dy;
+        expect(submitTop, lessThan(slipCardTop));
+      },
+    );
   });
 
   group('full-screen slip viewer (ticket 04)', () {
-    testWidgets('tapping the thumbnail opens a full-screen pinch-zoom viewer with a close button', (tester) async {
-      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
-      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
-      final withSlip = Transaction(
-        id: 9,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'auto_scan',
-        localImageName: 'scb_001.jpg',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'tapping the thumbnail opens a full-screen pinch-zoom viewer with a close button',
+      (tester) async {
+        fakeSlipGallery.candidates = const [
+          SlipCandidate(
+            id: 'asset-1',
+            filename: 'scb_001.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        ];
+        fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+        final withSlip = Transaction(
+          id: 9,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'auto_scan',
+          localImageName: 'scb_001.jpg',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(withSlip));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
+        await tester.pumpWidget(buildEditApp(withSlip));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
 
-      await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
+        await _pumpBounded(tester);
 
-      expect(find.byType(InteractiveViewer), findsOneWidget);
-      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsOneWidget);
-    });
+        expect(find.byType(InteractiveViewer), findsOneWidget);
+        expect(
+          find.byKey(const Key('closeFullScreenSlipViewer')),
+          findsOneWidget,
+        );
+      },
+    );
 
-    testWidgets('closing the viewer returns to the form with previously-entered data intact', (tester) async {
-      fakeSlipGallery.candidates = const [SlipCandidate(id: 'asset-1', filename: 'scb_001.jpg', sourceAlbum: 'SCB EASY')];
-      fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
-      final withSlip = Transaction(
-        id: 10,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'auto_scan',
-        localImageName: 'scb_001.jpg',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'closing the viewer returns to the form with previously-entered data intact',
+      (tester) async {
+        fakeSlipGallery.candidates = const [
+          SlipCandidate(
+            id: 'asset-1',
+            filename: 'scb_001.jpg',
+            sourceAlbum: 'SCB EASY',
+          ),
+        ];
+        fakeSlipGallery.bytesById['asset-1'] = _fakeSlipImageBytes;
+        final withSlip = Transaction(
+          id: 10,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'auto_scan',
+          localImageName: 'scb_001.jpg',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(withSlip));
-      await _pumpBounded(tester);
+        await tester.pumpWidget(buildEditApp(withSlip));
+        await _pumpBounded(tester);
 
-      // Type into the note field before opening the viewer — this is the
-      // "data I've filled in" the close button must not lose (spec: closing
-      // returns to the form with unsaved input intact).
-      await tester.enterText(find.byKey(const Key('noteField')), 'note before opening viewer');
-      await _pumpBounded(tester);
+        // Type into the note field before opening the viewer — this is the
+        // "data I've filled in" the close button must not lose (spec: closing
+        // returns to the form with unsaved input intact).
+        await tester.enterText(
+          find.byKey(const Key('noteField')),
+          'note before opening viewer',
+        );
+        await _pumpBounded(tester);
 
-      await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
-      await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
-      await _pumpBounded(tester);
-      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsOneWidget);
+        await _scrollToKey(tester, const Key('slipThumbnailTapTarget'));
+        await tester.tap(find.byKey(const Key('slipThumbnailTapTarget')));
+        await _pumpBounded(tester);
+        expect(
+          find.byKey(const Key('closeFullScreenSlipViewer')),
+          findsOneWidget,
+        );
 
-      await tester.tap(find.byKey(const Key('closeFullScreenSlipViewer')));
-      await _pumpBounded(tester);
+        await tester.tap(find.byKey(const Key('closeFullScreenSlipViewer')));
+        await _pumpBounded(tester);
 
-      // The overlay is gone and the same TransactionFormPage instance (with
-      // its typed note still intact) is what's left — not a fresh page.
-      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsNothing);
-      expect(find.byType(TransactionFormPage), findsOneWidget);
-      expect(find.text('note before opening viewer'), findsOneWidget);
-    });
+        // The overlay is gone and the same TransactionFormPage instance (with
+        // its typed note still intact) is what's left — not a fresh page.
+        expect(
+          find.byKey(const Key('closeFullScreenSlipViewer')),
+          findsNothing,
+        );
+        expect(find.byType(TransactionFormPage), findsOneWidget);
+        expect(find.text('note before opening viewer'), findsOneWidget);
+      },
+    );
 
-    testWidgets('the placeholder (no resolved image) is not tappable — nothing to view yet', (tester) async {
-      final noSlip = Transaction(
-        id: 11,
-        amount: 100,
-        type: TransactionType.expense,
-        source: 'manual',
-        transactionDate: DateTime.utc(2026, 9, 5),
-      );
+    testWidgets(
+      'the placeholder (no resolved image) is not tappable — nothing to view yet',
+      (tester) async {
+        final noSlip = Transaction(
+          id: 11,
+          amount: 100,
+          type: TransactionType.expense,
+          source: 'manual',
+          transactionDate: DateTime.utc(2026, 9, 5),
+        );
 
-      await tester.pumpWidget(buildEditApp(noSlip));
-      await _pumpBounded(tester);
-      await _scrollToKey(tester, const Key('slipImagePlaceholder'));
+        await tester.pumpWidget(buildEditApp(noSlip));
+        await _pumpBounded(tester);
+        await _scrollToKey(tester, const Key('slipImagePlaceholder'));
 
-      expect(find.byKey(const Key('slipThumbnailTapTarget')), findsNothing);
-      await tester.tap(find.byKey(const Key('slipImagePlaceholder')));
-      await _pumpBounded(tester);
+        expect(find.byKey(const Key('slipThumbnailTapTarget')), findsNothing);
+        await tester.tap(find.byKey(const Key('slipImagePlaceholder')));
+        await _pumpBounded(tester);
 
-      expect(find.byKey(const Key('closeFullScreenSlipViewer')), findsNothing);
-    });
+        expect(
+          find.byKey(const Key('closeFullScreenSlipViewer')),
+          findsNothing,
+        );
+      },
+    );
   });
 }

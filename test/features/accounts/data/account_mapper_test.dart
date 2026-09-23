@@ -21,19 +21,22 @@ void main() {
     expect(account.bankIcon, 'dime');
   });
 
-  test('accountFromJson tolerates an empty bank_icon (seen on live dev data)', () {
-    final account = accountFromJson({
-      'id': 1,
-      'name': 'SCB',
-      'account_type': 'bank',
-      'opening_balance': 5000,
-      'matching_keywords': ['SCB'],
-      'bank_icon': '',
-      'is_active': true,
-    });
+  test(
+    'accountFromJson tolerates an empty bank_icon (seen on live dev data)',
+    () {
+      final account = accountFromJson({
+        'id': 1,
+        'name': 'SCB',
+        'account_type': 'bank',
+        'opening_balance': 5000,
+        'matching_keywords': ['SCB'],
+        'bank_icon': '',
+        'is_active': true,
+      });
 
-    expect(account.bankIcon, '');
-  });
+      expect(account.bankIcon, '');
+    },
+  );
 
   test('round-trips through a CachedAccountsCompanion', () {
     const account = Account(

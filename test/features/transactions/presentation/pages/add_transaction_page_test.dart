@@ -27,8 +27,24 @@ import 'package:remix_icons_flutter/remixicon_ids.dart';
 class _FakeAccountsRepository implements AccountsRepository {
   @override
   Stream<List<Account>> watchActiveAccounts() => Stream.value(const [
-    Account(id: 1, name: 'Cash', accountType: AccountType.cash, openingBalance: 0, matchingKeywords: [], bankIcon: 'cash', isActive: true),
-    Account(id: 2, name: 'SCB', accountType: AccountType.bank, openingBalance: 0, matchingKeywords: [], bankIcon: 'scb', isActive: true),
+    Account(
+      id: 1,
+      name: 'Cash',
+      accountType: AccountType.cash,
+      openingBalance: 0,
+      matchingKeywords: [],
+      bankIcon: 'cash',
+      isActive: true,
+    ),
+    Account(
+      id: 2,
+      name: 'SCB',
+      accountType: AccountType.bank,
+      openingBalance: 0,
+      matchingKeywords: [],
+      bankIcon: 'scb',
+      isActive: true,
+    ),
   ]);
 
   @override
@@ -59,14 +75,27 @@ class _FakeAccountsRepository implements AccountsRepository {
   }) => throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this page test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
   @override
   Stream<List<Category>> watchAll() => Stream.value(const [
-    Category(id: 10, name: 'Food', type: CategoryType.expense, iconKey: 'food', colorHex: '#EF4444'),
-    Category(id: 20, name: 'Salary', type: CategoryType.income, iconKey: 'salary', colorHex: '#22C55E'),
+    Category(
+      id: 10,
+      name: 'Food',
+      type: CategoryType.expense,
+      iconKey: 'food',
+      colorHex: '#EF4444',
+    ),
+    Category(
+      id: 20,
+      name: 'Salary',
+      type: CategoryType.income,
+      iconKey: 'salary',
+      colorHex: '#22C55E',
+    ),
   ]);
 
   @override
@@ -90,10 +119,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   }) => throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this page test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this page test');
 }
 
 class _FakeTransactionsRepository implements TransactionsRepository {
@@ -101,12 +132,20 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, Transaction>? nextCreateResult;
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
-      throw UnimplementedError('not exercised by this page test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this page test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -151,7 +190,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   }) => throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this page test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this page test');
 }
 
 /// Same reasoning as `transaction_form_page_test.dart`'s copy: records which
@@ -160,10 +200,12 @@ class _RecordingCacheInvalidator implements CacheInvalidator {
   final List<Set<(int, int)>> invalidatedMonthSets = [];
 
   @override
-  void invalidateMonth(int year, int month) => invalidatedMonthSets.add({(year, month)});
+  void invalidateMonth(int year, int month) =>
+      invalidatedMonthSets.add({(year, month)});
 
   @override
-  void invalidateMonths(Set<(int, int)> months) => invalidatedMonthSets.add(months);
+  void invalidateMonths(Set<(int, int)> months) =>
+      invalidatedMonthSets.add(months);
 }
 
 /// In-memory stand-in — same reasoning as `transaction_form_page_test.dart`'s
@@ -174,7 +216,8 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   int _nextId = 1;
 
   @override
-  Stream<List<PendingAction>> watchAll() => Stream.value(List.unmodifiable(_items));
+  Stream<List<PendingAction>> watchAll() =>
+      Stream.value(List.unmodifiable(_items));
 
   @override
   Future<bool> recordIfTransient({
@@ -198,10 +241,12 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this page test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by this page test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by this page test');
+  Future<void> remove(int id) =>
+      throw UnimplementedError('not exercised by this page test');
 }
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
@@ -226,7 +271,9 @@ void main() {
   Widget buildApp() => ProviderScope(
     overrides: [
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
@@ -235,7 +282,9 @@ void main() {
       home: Scaffold(
         body: Builder(
           builder: (context) => ElevatedButton(
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionPage())),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const AddTransactionPage()),
+            ),
             child: const Text('open'),
           ),
         ),
@@ -254,7 +303,9 @@ void main() {
   }
 
   group('Topbar trailing action (ticket 04)', () {
-    testWidgets('no delete button on the create-transaction page', (tester) async {
+    testWidgets('no delete button on the create-transaction page', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp());
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
@@ -262,78 +313,94 @@ void main() {
       expect(find.byKey(const Key('deleteTransactionButton')), findsNothing);
     });
 
-    testWidgets('the create-transaction Topbar has no trailing action at all — only the close button on the left', (tester) async {
+    testWidgets(
+      'the create-transaction Topbar has no trailing action at all — only the close button on the left',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
+
+        // The close ("X") button is the page's only interactive Topbar
+        // control — create mode never shows a right-side action (spec: "ไม่มี
+        // ปุ่มขวา"), whether delete, overflow, or anything else.
+        expect(find.byIcon(RemixIcon.closeLine), findsOneWidget);
+        expect(find.byIcon(RemixIcon.deleteBinLine), findsNothing);
+        expect(find.byIcon(Icons.more_horiz), findsNothing);
+      },
+    );
+  });
+
+  testWidgets(
+    'a transfer with the same account on both sides is blocked before any create call',
+    (tester) async {
       await tester.pumpWidget(buildApp());
       await tester.tap(find.text('open'));
       await _pumpBounded(tester);
 
-      // The close ("X") button is the page's only interactive Topbar
-      // control — create mode never shows a right-side action (spec: "ไม่มี
-      // ปุ่มขวา"), whether delete, overflow, or anything else.
-      expect(find.byIcon(RemixIcon.closeLine), findsOneWidget);
-      expect(find.byIcon(RemixIcon.deleteBinLine), findsNothing);
-      expect(find.byIcon(Icons.more_horiz), findsNothing);
-    });
-  });
+      await tester.tap(find.text('ย้ายเงิน'));
+      await _pumpBounded(tester);
 
-  testWidgets('a transfer with the same account on both sides is blocked before any create call', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('fromAccountPill')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('accountOption_1')));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.text('ย้ายเงิน'));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('toAccountPill')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('accountOption_1')));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('fromAccountPill')));
-    await _pumpBounded(tester);
-    await tester.tap(find.byKey(const Key('accountOption_1')));
-    await _pumpBounded(tester);
+      await tapDigits(tester, '100');
+      await tester.ensureVisible(find.byKey(const Key('submitButton')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('submitButton')));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('toAccountPill')));
-    await _pumpBounded(tester);
-    await tester.tap(find.byKey(const Key('accountOption_1')));
-    await _pumpBounded(tester);
+      expect(
+        find.text('บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน'),
+        findsOneWidget,
+      );
+      expect(fakeTransactions.createCallCount, 0);
+      expect(find.byType(AddTransactionPage), findsOneWidget);
+    },
+  );
 
-    await tapDigits(tester, '100');
-    await tester.ensureVisible(find.byKey(const Key('submitButton')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('submitButton')));
-    await _pumpBounded(tester);
+  testWidgets(
+    'creating a valid income transaction calls create and pops the page',
+    (tester) async {
+      await tester.pumpWidget(buildApp());
+      await tester.tap(find.text('open'));
+      await _pumpBounded(tester);
 
-    expect(find.text('บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน'), findsOneWidget);
-    expect(fakeTransactions.createCallCount, 0);
-    expect(find.byType(AddTransactionPage), findsOneWidget);
-  });
+      await tester.tap(find.text('รายรับ'));
+      await _pumpBounded(tester);
 
-  testWidgets('creating a valid income transaction calls create and pops the page', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await tester.tap(find.text('open'));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('accountPill')));
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('accountOption_1')));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.text('รายรับ'));
-    await _pumpBounded(tester);
+      await tapDigits(tester, '5000');
+      await tester.ensureVisible(find.byKey(const Key('submitButton')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('submitButton')));
+      await _pumpBounded(tester);
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 50),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
 
-    await tester.tap(find.byKey(const Key('accountPill')));
-    await _pumpBounded(tester);
-    await tester.tap(find.byKey(const Key('accountOption_1')));
-    await _pumpBounded(tester);
+      expect(fakeTransactions.createCallCount, 1);
+      expect(find.byType(AddTransactionPage), findsNothing);
+      expect(find.text('open'), findsOneWidget);
 
-    await tapDigits(tester, '5000');
-    await tester.ensureVisible(find.byKey(const Key('submitButton')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('submitButton')));
-    await _pumpBounded(tester);
-    await tester.pumpAndSettle(const Duration(milliseconds: 50), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 5));
-
-    expect(fakeTransactions.createCallCount, 1);
-    expect(find.byType(AddTransactionPage), findsNothing);
-    expect(find.text('open'), findsOneWidget);
-
-    final today = DateTime.now();
-    expect(cacheInvalidator.invalidatedMonthSets, [
-      {(today.year, today.month)},
-    ]);
-  });
+      final today = DateTime.now();
+      expect(cacheInvalidator.invalidatedMonthSets, [
+        {(today.year, today.month)},
+      ]);
+    },
+  );
 
   group('T13 pending-actions queue', () {
     Future<void> fillAndSubmitIncome(WidgetTester tester) async {
@@ -351,26 +418,36 @@ void main() {
 
       await tapDigits(tester, '5000');
       await tester.ensureVisible(find.byKey(const Key('submitButton')));
-    await tester.pump();
-    await tester.tap(find.byKey(const Key('submitButton')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('submitButton')));
       await _pumpBounded(tester);
     }
 
-    testWidgets('a transient create failure gets queued and shows the retry-queue snackbar', (tester) async {
-      fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
-      await fillAndSubmitIncome(tester);
+    testWidgets(
+      'a transient create failure gets queued and shows the retry-queue snackbar',
+      (tester) async {
+        fakeTransactions.nextCreateResult = const Left(TimeoutFailure());
+        await fillAndSubmitIncome(tester);
 
-      expect(find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'), findsOneWidget);
-      expect(find.byType(AddTransactionPage), findsOneWidget);
+        expect(
+          find.text('ไม่มีการเชื่อมต่อ — บันทึกไว้ในคิวลองใหม่แล้ว'),
+          findsOneWidget,
+        );
+        expect(find.byType(AddTransactionPage), findsOneWidget);
 
-      final queued = await pendingActions.watchAll().first;
-      expect(queued, hasLength(1));
-      expect(queued.single.actionType, PendingActionType.createTransaction);
-      expect(queued.single.targetTransactionId, isNull);
-    });
+        final queued = await pendingActions.watchAll().first;
+        expect(queued, hasLength(1));
+        expect(queued.single.actionType, PendingActionType.createTransaction);
+        expect(queued.single.targetTransactionId, isNull);
+      },
+    );
 
-    testWidgets('a permanent create failure is not queued — snackbar only', (tester) async {
-      fakeTransactions.nextCreateResult = const Left(InvalidInputFailure(message: 'Invalid input'));
+    testWidgets('a permanent create failure is not queued — snackbar only', (
+      tester,
+    ) async {
+      fakeTransactions.nextCreateResult = const Left(
+        InvalidInputFailure(message: 'Invalid input'),
+      );
       await fillAndSubmitIncome(tester);
 
       expect(find.text('Invalid input'), findsOneWidget);

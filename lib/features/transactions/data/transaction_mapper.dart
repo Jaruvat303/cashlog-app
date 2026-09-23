@@ -34,7 +34,11 @@ Transaction transactionFromJson(Map<String, dynamic> json) {
     // Spec §7.7: the backend has no junk flag of its own — always derive it
     // client-side from the transaction's own fields, never trust a wire
     // value (there isn't one to trust).
-    isJunk: computeIsJunk(amount: amount, senderName: senderName, receiverName: receiverName),
+    isJunk: computeIsJunk(
+      amount: amount,
+      senderName: senderName,
+      receiverName: receiverName,
+    ),
   );
 }
 
@@ -85,7 +89,10 @@ Map<String, dynamic> createTransactionBody({
   required int accountId,
   int? categoryId,
 }) {
-  assert(type != TransactionType.transfer, 'createTransactionBody is income/expense only — use createTransferBody for a transfer');
+  assert(
+    type != TransactionType.transfer,
+    'createTransactionBody is income/expense only — use createTransferBody for a transfer',
+  );
   final body = <String, dynamic>{
     'transaction_type': type.name,
     'amount': amount,
@@ -140,22 +147,23 @@ Map<String, dynamic> updateTransactionBody({
   categoryId: categoryId,
 );
 
-CachedTransactionsCompanion transactionToCompanion(Transaction transaction) => CachedTransactionsCompanion.insert(
-  id: Value(transaction.id),
-  amount: transaction.amount,
-  transactionType: transaction.type.name,
-  senderName: Value(transaction.senderName),
-  receiverName: Value(transaction.receiverName),
-  note: Value(transaction.note),
-  accountId: Value(transaction.accountId),
-  fromAccountId: Value(transaction.fromAccountId),
-  toAccountId: Value(transaction.toAccountId),
-  source: transaction.source,
-  localImageName: Value(transaction.localImageName),
-  transactionDate: transaction.transactionDate,
-  categoryId: Value(transaction.categoryId),
-  isJunk: Value(transaction.isJunk),
-);
+CachedTransactionsCompanion transactionToCompanion(Transaction transaction) =>
+    CachedTransactionsCompanion.insert(
+      id: Value(transaction.id),
+      amount: transaction.amount,
+      transactionType: transaction.type.name,
+      senderName: Value(transaction.senderName),
+      receiverName: Value(transaction.receiverName),
+      note: Value(transaction.note),
+      accountId: Value(transaction.accountId),
+      fromAccountId: Value(transaction.fromAccountId),
+      toAccountId: Value(transaction.toAccountId),
+      source: transaction.source,
+      localImageName: Value(transaction.localImageName),
+      transactionDate: transaction.transactionDate,
+      categoryId: Value(transaction.categoryId),
+      isJunk: Value(transaction.isJunk),
+    );
 
 /// `GET /api/v1/transactions` (`PaginatedResponse<TransactionResponse>`,
 /// confirmed against the live dev swagger doc) — `data` is the page of
@@ -164,7 +172,9 @@ CachedTransactionsCompanion transactionToCompanion(Transaction transaction) => C
 TransactionPage transactionPageFromJson(Map<String, dynamic> json) {
   final meta = json['meta'] as Map<String, dynamic>;
   return TransactionPage(
-    transactions: (json['data'] as List).map((e) => transactionFromJson(e as Map<String, dynamic>)).toList(),
+    transactions: (json['data'] as List)
+        .map((e) => transactionFromJson(e as Map<String, dynamic>))
+        .toList(),
     currentPage: meta['current_page'] as int,
     totalPages: meta['total_pages'] as int,
   );

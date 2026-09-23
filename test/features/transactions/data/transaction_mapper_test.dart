@@ -13,7 +13,13 @@ void main() {
       'transaction_type': 'income',
       'account_id': 7,
       'transaction_date': '2026-09-01T00:00:00.000Z',
-      'category': {'id': 3, 'name': 'Salary', 'type': 'income', 'icon_key': 'salary', 'color_hex': '#22C55E'},
+      'category': {
+        'id': 3,
+        'name': 'Salary',
+        'type': 'income',
+        'icon_key': 'salary',
+        'color_hex': '#22C55E',
+      },
     });
 
     expect(transaction.id, 1);
@@ -55,33 +61,50 @@ void main() {
   });
 
   group('createTransactionBody (POST /transactions — income/expense only)', () {
-    test('carries account_id, transaction_type, and an optional category_id', () {
-      final body = createTransactionBody(
-        type: TransactionType.expense,
-        amount: 100,
-        date: DateTime.utc(2026, 9, 1),
-        accountId: 5,
-        categoryId: 9,
-      );
+    test(
+      'carries account_id, transaction_type, and an optional category_id',
+      () {
+        final body = createTransactionBody(
+          type: TransactionType.expense,
+          amount: 100,
+          date: DateTime.utc(2026, 9, 1),
+          accountId: 5,
+          categoryId: 9,
+        );
 
-      expect(body['transaction_type'], 'expense');
-      expect(body['account_id'], 5);
-      expect(body['category_id'], 9);
-      expect(body.containsKey('from_account_id'), isFalse);
-      expect(body.containsKey('to_account_id'), isFalse);
-    });
+        expect(body['transaction_type'], 'expense');
+        expect(body['account_id'], 5);
+        expect(body['category_id'], 9);
+        expect(body.containsKey('from_account_id'), isFalse);
+        expect(body.containsKey('to_account_id'), isFalse);
+      },
+    );
 
-    test('rejects a transfer type — that DTO does not exist for this endpoint', () {
-      expect(
-        () => createTransactionBody(type: TransactionType.transfer, amount: 100, date: DateTime.utc(2026, 9, 1), accountId: 1),
-        throwsA(isA<AssertionError>()),
-      );
-    });
+    test(
+      'rejects a transfer type — that DTO does not exist for this endpoint',
+      () {
+        expect(
+          () => createTransactionBody(
+            type: TransactionType.transfer,
+            amount: 100,
+            date: DateTime.utc(2026, 9, 1),
+            accountId: 1,
+          ),
+          throwsA(isA<AssertionError>()),
+        );
+      },
+    );
   });
 
   group('createTransferBody (POST /transactions/transfer)', () {
     test('carries from_account_id/to_account_id, never a transaction_type, category_id optional', () {
-      final body = createTransferBody(amount: 100, date: DateTime.utc(2026, 9, 1), fromAccountId: 1, toAccountId: 2, categoryId: 9);
+      final body = createTransferBody(
+        amount: 100,
+        date: DateTime.utc(2026, 9, 1),
+        fromAccountId: 1,
+        toAccountId: 2,
+        categoryId: 9,
+      );
 
       expect(body['from_account_id'], 1);
       expect(body['to_account_id'], 2);
@@ -91,7 +114,12 @@ void main() {
     });
 
     test('omits category_id entirely when none is given', () {
-      final body = createTransferBody(amount: 100, date: DateTime.utc(2026, 9, 1), fromAccountId: 1, toAccountId: 2);
+      final body = createTransferBody(
+        amount: 100,
+        date: DateTime.utc(2026, 9, 1),
+        fromAccountId: 1,
+        toAccountId: 2,
+      );
 
       expect(body.containsKey('category_id'), isFalse);
     });
@@ -116,11 +144,14 @@ void main() {
     expect(companion.fromAccountId.value, isNull);
   });
 
-  test('transactionTypeFromWire falls back to expense for an unrecognized value', () {
-    expect(transactionTypeFromWire('bogus'), TransactionType.expense);
-    expect(transactionTypeFromWire('income'), TransactionType.income);
-    expect(transactionTypeFromWire('transfer'), TransactionType.transfer);
-  });
+  test(
+    'transactionTypeFromWire falls back to expense for an unrecognized value',
+    () {
+      expect(transactionTypeFromWire('bogus'), TransactionType.expense);
+      expect(transactionTypeFromWire('income'), TransactionType.income);
+      expect(transactionTypeFromWire('transfer'), TransactionType.transfer);
+    },
+  );
 
   group('isJunk (spec §7.7 — client-derived, backend sends no such field)', () {
     test('amount==0 with no sender/receiver name is flagged junk', () {
@@ -200,7 +231,12 @@ void main() {
             'category': null,
           },
         ],
-        'meta': {'current_page': 1, 'page_size': 20, 'total_items': 22, 'total_pages': 2},
+        'meta': {
+          'current_page': 1,
+          'page_size': 20,
+          'total_items': 22,
+          'total_pages': 2,
+        },
         'message': 'Monthly history fetched successfully',
       });
 
@@ -214,7 +250,12 @@ void main() {
     test('hasMore is false once current_page reaches total_pages', () {
       final page = transactionPageFromJson({
         'data': <Map<String, dynamic>>[],
-        'meta': {'current_page': 2, 'page_size': 20, 'total_items': 22, 'total_pages': 2},
+        'meta': {
+          'current_page': 2,
+          'page_size': 20,
+          'total_items': 22,
+          'total_pages': 2,
+        },
       });
 
       expect(page.hasMore, isFalse);

@@ -25,12 +25,19 @@ class SegmentedTabs<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: trackColor, borderRadius: BorderRadius.circular(AppRadii.control)),
+      decoration: BoxDecoration(
+        color: trackColor,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
       child: Row(
         children: [
           for (var i = 0; i < values.length; i++)
             Expanded(
-              child: _Segment(label: labels[i], active: values[i] == selected, onTap: () => onChanged(values[i])),
+              child: _Segment(
+                label: labels[i],
+                active: values[i] == selected,
+                onTap: () => onChanged(values[i]),
+              ),
             ),
         ],
       ),
@@ -39,7 +46,11 @@ class SegmentedTabs<T> extends StatelessWidget {
 }
 
 class _Segment extends StatelessWidget {
-  const _Segment({required this.label, required this.active, required this.onTap});
+  const _Segment({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
 
   final String label;
   final bool active;

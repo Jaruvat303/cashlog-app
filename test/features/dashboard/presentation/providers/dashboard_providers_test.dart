@@ -13,36 +13,49 @@ class _FakeDashboardRepository implements DashboardRepository {
   Either<Failure, DashboardSummary>? nextResult;
 
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async =>
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) async =>
       nextResult ?? const Left(UnknownFailure(message: 'no result configured'));
 }
 
-DashboardSummary _summary({double income = 100, double expense = 40}) => DashboardSummary(
-  totalIncome: income,
-  totalExpense: expense,
-  totalTransfer: 0,
-  year: 2026,
-  month: 9,
-  income: const [],
-  expense: const [],
-);
+DashboardSummary _summary({double income = 100, double expense = 40}) =>
+    DashboardSummary(
+      totalIncome: income,
+      totalExpense: expense,
+      totalTransfer: 0,
+      year: 2026,
+      month: 9,
+      income: const [],
+      expense: const [],
+    );
 
 void main() {
-  test('dashboardSummaryProvider exposes AsyncData on a successful fetch', () async {
-    final fake = _FakeDashboardRepository()..nextResult = Right(_summary());
-    final container = ProviderContainer(overrides: [dashboardRepositoryProvider.overrideWithValue(fake)]);
-    addTearDown(container.dispose);
+  test(
+    'dashboardSummaryProvider exposes AsyncData on a successful fetch',
+    () async {
+      final fake = _FakeDashboardRepository()..nextResult = Right(_summary());
+      final container = ProviderContainer(
+        overrides: [dashboardRepositoryProvider.overrideWithValue(fake)],
+      );
+      addTearDown(container.dispose);
 
-    final summary = await container.read(dashboardSummaryProvider(2026, 9).future);
+      final summary = await container.read(
+        dashboardSummaryProvider(2026, 9).future,
+      );
 
-    expect(summary.totalIncome, 100);
-    expect(summary.net, 60);
-  });
+      expect(summary.totalIncome, 100);
+      expect(summary.net, 60);
+    },
+  );
 
   test('dashboardSummaryProvider surfaces the original Failure as AsyncError on a Left', () async {
     const failure = TimeoutFailure(message: 'timed out');
     final fake = _FakeDashboardRepository()..nextResult = const Left(failure);
-    final container = ProviderContainer(overrides: [dashboardRepositoryProvider.overrideWithValue(fake)]);
+    final container = ProviderContainer(
+      overrides: [dashboardRepositoryProvider.overrideWithValue(fake)],
+    );
     addTearDown(container.dispose);
 
     final provider = dashboardSummaryProvider(2026, 9);

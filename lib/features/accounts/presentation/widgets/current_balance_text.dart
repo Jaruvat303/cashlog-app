@@ -21,7 +21,14 @@ const currentBalanceDisclaimer = 'ประมาณการจากราย�
 /// entirely, same reasoning — a per-screen mockup decision, not a change to
 /// what every other caller still shows.
 class CurrentBalanceText extends ConsumerWidget {
-  const CurrentBalanceText({super.key, required this.accountId, this.style, this.subtitle, this.subtitleStyle, this.showSubtitle = true});
+  const CurrentBalanceText({
+    super.key,
+    required this.accountId,
+    this.style,
+    this.subtitle,
+    this.subtitleStyle,
+    this.showSubtitle = true,
+  });
 
   final int accountId;
   final TextStyle? style;
@@ -41,7 +48,11 @@ class CurrentBalanceText extends ConsumerWidget {
           error: (error, _) => const Text('ไม่สามารถแสดงยอดคงเหลือ'),
           data: (balance) => Text(formatAmount(balance), style: style),
         ),
-        if (showSubtitle) Text(subtitle ?? currentBalanceDisclaimer, style: subtitleStyle ?? Theme.of(context).textTheme.bodySmall),
+        if (showSubtitle)
+          Text(
+            subtitle ?? currentBalanceDisclaimer,
+            style: subtitleStyle ?? Theme.of(context).textTheme.bodySmall,
+          ),
       ],
     );
   }

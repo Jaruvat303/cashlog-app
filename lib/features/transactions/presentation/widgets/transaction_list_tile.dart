@@ -24,7 +24,11 @@ import 'category_quick_assign_sheet.dart';
 /// types — the warning row below is shared across both builders rather than
 /// added to just one.
 class TransactionListTile extends ConsumerWidget {
-  const TransactionListTile({super.key, required this.transaction, required this.categoriesById});
+  const TransactionListTile({
+    super.key,
+    required this.transaction,
+    required this.categoriesById,
+  });
 
   final Transaction transaction;
   final Map<int, Category> categoriesById;
@@ -33,26 +37,49 @@ class TransactionListTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return switch (transaction.type) {
       TransactionType.transfer => _buildTransfer(context, ref),
-      TransactionType.income => _buildIncomeOrExpense(context, ref, isIncome: true),
-      TransactionType.expense => _buildIncomeOrExpense(context, ref, isIncome: false),
+      TransactionType.income => _buildIncomeOrExpense(
+        context,
+        ref,
+        isIncome: true,
+      ),
+      TransactionType.expense => _buildIncomeOrExpense(
+        context,
+        ref,
+        isIncome: false,
+      ),
     };
   }
 
   Widget _buildTransfer(BuildContext context, WidgetRef ref) {
-    final fromAccount = transaction.fromAccountId == null ? null : ref.watch(cachedAccountProvider(transaction.fromAccountId!)).value;
-    final toAccount = transaction.toAccountId == null ? null : ref.watch(cachedAccountProvider(transaction.toAccountId!)).value;
+    final fromAccount = transaction.fromAccountId == null
+        ? null
+        : ref.watch(cachedAccountProvider(transaction.fromAccountId!)).value;
+    final toAccount = transaction.toAccountId == null
+        ? null
+        : ref.watch(cachedAccountProvider(transaction.toAccountId!)).value;
 
     return _Row(
       onTap: () => _edit(context),
       leading: Container(
         width: 44,
         height: 44,
-        decoration: BoxDecoration(color: AppColors.transferSurface, borderRadius: BorderRadius.circular(AppRadii.control)),
-        child: const Icon(RemixIcon.arrowLeftRightLine, color: AppColors.transfer, size: 20),
+        decoration: BoxDecoration(
+          color: AppColors.transferSurface,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+        ),
+        child: const Icon(
+          RemixIcon.arrowLeftRightLine,
+          color: AppColors.transfer,
+          size: 20,
+        ),
       ),
       title: Text(
         '${fromAccount?.name ?? 'ไม่ทราบบัญชี'} → ${toAccount?.name ?? 'ไม่ทราบบัญชี'}',
-        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.textPrimary),
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+          color: AppColors.textPrimary,
+        ),
       ),
       subtitle: _subtitle(
         Row(
@@ -60,7 +87,11 @@ class TransactionListTile extends ConsumerWidget {
           children: [
             _accountChip(fromAccount?.name),
             const SizedBox(width: 5),
-            const Icon(RemixIcon.arrowRightSLine, size: 11, color: AppColors.textSecondary),
+            const Icon(
+              RemixIcon.arrowRightSLine,
+              size: 11,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(width: 5),
             _accountChip(toAccount?.name),
           ],
@@ -70,17 +101,31 @@ class TransactionListTile extends ConsumerWidget {
         ref,
         Text(
           formatAmount(transaction.amount),
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.transfer),
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: AppColors.transfer,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildIncomeOrExpense(BuildContext context, WidgetRef ref, {required bool isIncome}) {
-    final account = transaction.accountId == null ? null : ref.watch(cachedAccountProvider(transaction.accountId!)).value;
-    final category = transaction.categoryId == null ? null : categoriesById[transaction.categoryId];
+  Widget _buildIncomeOrExpense(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool isIncome,
+  }) {
+    final account = transaction.accountId == null
+        ? null
+        : ref.watch(cachedAccountProvider(transaction.accountId!)).value;
+    final category = transaction.categoryId == null
+        ? null
+        : categoriesById[transaction.categoryId];
 
-    final counterpartyName = isIncome ? transaction.senderName : transaction.receiverName;
+    final counterpartyName = isIncome
+        ? transaction.senderName
+        : transaction.receiverName;
     final title = counterpartyName.isNotEmpty
         ? counterpartyName
         : transaction.note.isNotEmpty
@@ -88,12 +133,25 @@ class TransactionListTile extends ConsumerWidget {
         : account?.name ?? (isIncome ? 'รายรับ' : 'รายจ่าย');
 
     final amountColor = isIncome ? AppColors.income : AppColors.expense;
-    final amountText = formatAmount(transaction.amount, sign: isIncome ? '+' : '-');
+    final amountText = formatAmount(
+      transaction.amount,
+      sign: isIncome ? '+' : '-',
+    );
 
     return _Row(
       onTap: () => _edit(context),
-      leading: CategoryQuickAssignChip(transaction: transaction, category: category),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.textPrimary)),
+      leading: CategoryQuickAssignChip(
+        transaction: transaction,
+        category: category,
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+          color: AppColors.textPrimary,
+        ),
+      ),
       subtitle: _subtitle(
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -101,7 +159,16 @@ class TransactionListTile extends ConsumerWidget {
             _accountChip(account?.name),
             const SizedBox(width: 5),
             if (category != null)
-              Flexible(child: Text(category.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10.5, color: AppColors.textSecondary)))
+              Flexible(
+                child: Text(
+                  category.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              )
             else
               _uncategorizedBadge(),
           ],
@@ -109,7 +176,14 @@ class TransactionListTile extends ConsumerWidget {
       ),
       trailing: _trailing(
         ref,
-        Text(amountText, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: amountColor)),
+        Text(
+          amountText,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: amountColor,
+          ),
+        ),
       ),
     );
   }
@@ -117,8 +191,14 @@ class TransactionListTile extends ConsumerWidget {
   Widget _accountChip(String? name) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(5)),
-      child: Text(name ?? '—', style: const TextStyle(fontSize: 10, color: AppColors.textSecondary)),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Text(
+        name ?? '—',
+        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+      ),
     );
   }
 
@@ -130,7 +210,14 @@ class TransactionListTile extends ConsumerWidget {
         border: Border.all(color: AppColors.warningBadgeBorder),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: const Text('ยังไม่ระบุหมวดหมู่', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: AppColors.warningBadgeText)),
+      child: const Text(
+        'ยังไม่ระบุหมวดหมู่',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+          color: AppColors.warningBadgeText,
+        ),
+      ),
     );
   }
 
@@ -147,9 +234,16 @@ class TransactionListTile extends ConsumerWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.warning_amber_rounded, size: 14, color: AppColors.warningIcon),
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 14,
+              color: AppColors.warningIcon,
+            ),
             const SizedBox(width: 4),
-            const Text('อ่านข้อมูลจากสลิปไม่ได้', style: TextStyle(color: AppColors.warningIcon, fontSize: 11.5)),
+            const Text(
+              'อ่านข้อมูลจากสลิปไม่ได้',
+              style: TextStyle(color: AppColors.warningIcon, fontSize: 11.5),
+            ),
           ],
         ),
       ],
@@ -164,7 +258,10 @@ class TransactionListTile extends ConsumerWidget {
   Widget _trailing(WidgetRef ref, Widget normal) {
     final pendingIndicator = _pendingSyncIndicator(ref);
     if (pendingIndicator == null) return normal;
-    return Row(mainAxisSize: MainAxisSize.min, children: [pendingIndicator, const SizedBox(width: 6), normal]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [pendingIndicator, const SizedBox(width: 6), normal],
+    );
   }
 
   /// Sourced from `PendingActionsRepository.watchAll()` (spec: Bug 3
@@ -174,12 +271,20 @@ class TransactionListTile extends ConsumerWidget {
   /// transaction has no open queued action, including once a manual retry
   /// from the Pending Actions page removes the row.
   Widget? _pendingSyncIndicator(WidgetRef ref) {
-    final pendingActions = ref.watch(pendingActionsProvider).value ?? const <PendingAction>[];
-    final hasPending = pendingActions.any((action) => action.targetTransactionId == transaction.id);
+    final pendingActions =
+        ref.watch(pendingActionsProvider).value ?? const <PendingAction>[];
+    final hasPending = pendingActions.any(
+      (action) => action.targetTransactionId == transaction.id,
+    );
     if (!hasPending) return null;
     return const Tooltip(
       message: 'รอซิงค์ข้อมูล',
-      child: Icon(RemixIcon.refreshLine, key: Key('pendingSyncIndicator'), size: 14, color: AppColors.neutralIcon),
+      child: Icon(
+        RemixIcon.refreshLine,
+        key: Key('pendingSyncIndicator'),
+        size: 14,
+        color: AppColors.neutralIcon,
+      ),
     );
   }
 
@@ -189,7 +294,11 @@ class TransactionListTile extends ConsumerWidget {
   /// rule is an AND across amount/senderName/receiverName. Delete for any
   /// transaction, junk or not, now lives on that page instead of here.
   void _edit(BuildContext context) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => TransactionFormPage(initial: transaction)));
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TransactionFormPage(initial: transaction),
+      ),
+    );
   }
 }
 
@@ -198,7 +307,13 @@ class TransactionListTile extends ConsumerWidget {
 /// bottom-divided flex row rather than a Material `ListTile` (whose fixed
 /// paddings don't match the mockup's tighter 12/14 spacing).
 class _Row extends StatelessWidget {
-  const _Row({required this.leading, required this.title, required this.subtitle, required this.trailing, this.onTap});
+  const _Row({
+    required this.leading,
+    required this.title,
+    required this.subtitle,
+    required this.trailing,
+    this.onTap,
+  });
 
   final Widget leading;
   final Widget title;

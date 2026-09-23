@@ -37,7 +37,9 @@ part 'dashboard_providers.g.dart';
 /// must not add a second, policy-blind retry layer on top of it.
 @Riverpod(retry: _noRetry)
 Future<DashboardSummary> dashboardSummary(Ref ref, int year, int month) async {
-  final result = await ref.watch(dashboardRepositoryProvider).fetchSummary(year: year, month: month);
+  final result = await ref
+      .watch(dashboardRepositoryProvider)
+      .fetchSummary(year: year, month: month);
   return result.fold((failure) => throw failure, (summary) => summary);
 }
 

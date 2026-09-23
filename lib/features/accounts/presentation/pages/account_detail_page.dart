@@ -21,15 +21,27 @@ class AccountDetailPage extends ConsumerWidget {
 
   final int accountId;
 
-  Future<void> _confirmClose(BuildContext context, WidgetRef ref, Account account) async {
+  Future<void> _confirmClose(
+    BuildContext context,
+    WidgetRef ref,
+    Account account,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ปิดบัญชีนี้ใช่ไหม'),
-        content: const Text('บัญชีนี้จะไม่แสดงในรายการบัญชีอีกต่อไป ธุรกรรมเดิมยังคงอยู่และแสดงบัญชีนี้เหมือนเดิม'),
+        content: const Text(
+          'บัญชีนี้จะไม่แสดงในรายการบัญชีอีกต่อไป ธุรกรรมเดิมยังคงอยู่และแสดงบัญชีนี้เหมือนเดิม',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('ยกเลิก')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('ปิดบัญชี')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('ปิดบัญชี'),
+          ),
         ],
       ),
     );
@@ -38,9 +50,14 @@ class AccountDetailPage extends ConsumerWidget {
     final result = await ref.read(accountsRepositoryProvider).close(account.id);
     if (!context.mounted) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message ?? 'ทำรายการไม่สำเร็จ ลองใหม่อีกครั้ง'),
+        ),
+      ),
       (_) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ปิดบัญชีแล้ว')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('ปิดบัญชีแล้ว')));
         Navigator.of(context).pop();
       },
     );
@@ -68,13 +85,20 @@ class AccountDetailPage extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircularIconButton(icon: RemixIcon.arrowLeftLine, onTap: () => Navigator.of(context).pop()),
+                      CircularIconButton(
+                        icon: RemixIcon.arrowLeftLine,
+                        onTap: () => Navigator.of(context).pop(),
+                      ),
                       Expanded(
                         child: Text(
                           account.name,
                           textAlign: TextAlign.center,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 38, height: 38),
@@ -86,7 +110,9 @@ class AccountDetailPage extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
                     children: [
                       GradientHeroCard(
-                        gradient: const LinearGradient(colors: [AppColors.accentB, Color(0xFF6D28D9)]),
+                        gradient: const LinearGradient(
+                          colors: [AppColors.accentB, Color(0xFF6D28D9)],
+                        ),
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,15 +120,38 @@ class AccountDetailPage extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                BankIconAvatar(bankIconCode: account.bankIcon, radius: 12),
+                                BankIconAvatar(
+                                  bankIconCode: account.bankIcon,
+                                  radius: 12,
+                                ),
                                 const SizedBox(width: 8),
-                                Text(bankIcon.label, style: const TextStyle(fontSize: 13, color: Color(0xD9FFFFFF))),
+                                Text(
+                                  bankIcon.label,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xD9FFFFFF),
+                                  ),
+                                ),
                                 if (!account.isActive) ...[
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
-                                    child: const Text('ปิดแล้ว', style: TextStyle(fontSize: 11, color: Colors.white)),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Text(
+                                      'ปิดแล้ว',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ],
@@ -110,8 +159,15 @@ class AccountDetailPage extends ConsumerWidget {
                             const SizedBox(height: 10),
                             CurrentBalanceText(
                               accountId: account.id,
-                              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: Colors.white),
-                              subtitleStyle: const TextStyle(fontSize: 13, color: Colors.white),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              subtitleStyle: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.white,
+                              ),
                             ),
                           ],
                         ),
@@ -123,7 +179,12 @@ class AccountDetailPage extends ConsumerWidget {
                             child: _ActionPill(
                               icon: RemixIcon.editLine,
                               label: 'แก้ไขบัญชี',
-                              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AccountFormPage(initial: account))),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      AccountFormPage(initial: account),
+                                ),
+                              ),
                             ),
                           ),
                           if (account.isActive) ...[
@@ -133,7 +194,8 @@ class AccountDetailPage extends ConsumerWidget {
                                 icon: RemixIcon.deleteBinLine,
                                 label: 'ปิดบัญชี',
                                 color: AppColors.expense,
-                                onTap: () => _confirmClose(context, ref, account),
+                                onTap: () =>
+                                    _confirmClose(context, ref, account),
                               ),
                             ),
                           ],
@@ -142,17 +204,31 @@ class AccountDetailPage extends ConsumerWidget {
                       const SizedBox(height: 14),
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(
+                            AppRadii.cardLarge,
+                          ),
+                          boxShadow: const [AppShadows.card],
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _InfoRow(label: 'ประเภท', value: account.accountType.label),
+                            _InfoRow(
+                              label: 'ประเภท',
+                              value: account.accountType.label,
+                            ),
                             const Divider(height: 20, color: AppColors.divider),
-                            _InfoRow(label: 'ยอดเปิดบัญชี', value: account.openingBalance.toStringAsFixed(2)),
+                            _InfoRow(
+                              label: 'ยอดเปิดบัญชี',
+                              value: account.openingBalance.toStringAsFixed(2),
+                            ),
                             const Divider(height: 20, color: AppColors.divider),
                             _InfoRow(
                               label: 'คำค้นหาที่ใช้จับคู่',
-                              value: account.matchingKeywords.isEmpty ? '—' : account.matchingKeywords.join(', '),
+                              value: account.matchingKeywords.isEmpty
+                                  ? '—'
+                                  : account.matchingKeywords.join(', '),
                             ),
                           ],
                         ),
@@ -170,7 +246,12 @@ class AccountDetailPage extends ConsumerWidget {
 }
 
 class _ActionPill extends StatelessWidget {
-  const _ActionPill({required this.icon, required this.label, required this.onTap, this.color = AppColors.textPrimary});
+  const _ActionPill({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = AppColors.textPrimary,
+  });
 
   final IconData icon;
   final String label;
@@ -184,13 +265,24 @@ class _ActionPill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.control), boxShadow: const [AppShadows.card]),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          boxShadow: const [AppShadows.card],
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(height: 6),
-            Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -209,12 +301,19 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
         Flexible(
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           ),
         ),
       ],

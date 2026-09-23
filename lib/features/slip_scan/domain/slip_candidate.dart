@@ -5,7 +5,11 @@
 /// never persists or uploads anything (explicitly excluded from this
 /// ticket's scope).
 class SlipCandidate {
-  const SlipCandidate({required this.id, required this.filename, required this.sourceAlbum});
+  const SlipCandidate({
+    required this.id,
+    required this.filename,
+    required this.sourceAlbum,
+  });
 
   final String id;
   final String filename;

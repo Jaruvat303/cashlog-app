@@ -59,7 +59,8 @@ class _FakeAccountsRepository implements AccountsRepository {
     required String bankIcon,
   }) => throw UnimplementedError('not exercised by this test');
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 /// Starts empty; [refreshFromApi] is what populates it — the same shape a
@@ -76,7 +77,15 @@ class _FakeCategoriesRepository implements CategoriesRepository {
 
   @override
   Future<Either<Failure, void>> refreshFromApi() async {
-    _current = const [Category(id: 42, name: 'Food', type: CategoryType.expense, iconKey: 'food', colorHex: '#EF4444')];
+    _current = const [
+      Category(
+        id: 42,
+        name: 'Food',
+        type: CategoryType.expense,
+        iconKey: 'food',
+        colorHex: '#EF4444',
+      ),
+    ];
     _controller.add(_current);
     return const Right(null);
   }
@@ -97,9 +106,11 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     required String colorHex,
   }) => throw UnimplementedError('not exercised by this test');
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this test');
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 /// A single un-scoped channel (ignores year/month) — this test is about
@@ -110,13 +121,23 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   final _controller = StreamController<List<Transaction>>.broadcast();
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) async* {
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) async* {
     yield _current;
     yield* _controller.stream;
   }
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) async {
     _current = [
       Transaction(
         id: 1,
@@ -129,7 +150,9 @@ class _FakeTransactionsRepository implements TransactionsRepository {
       ),
     ];
     _controller.add(_current);
-    return Right(TransactionPage(transactions: _current, currentPage: 1, totalPages: 1));
+    return Right(
+      TransactionPage(transactions: _current, currentPage: 1, totalPages: 1),
+    );
   }
 
   @override
@@ -156,7 +179,8 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? categoryId,
   }) => throw UnimplementedError('not exercised by this test');
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 /// This test boots the real `MyApp`, which lands on the Dashboard tab by
@@ -166,8 +190,19 @@ class _FakeTransactionsRepository implements TransactionsRepository {
 /// about Transactions, not Dashboard.
 class _FakeDashboardRepository implements DashboardRepository {
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async => Right(
-    DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: year, month: month, income: const [], expense: const []),
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) async => Right(
+    DashboardSummary(
+      totalIncome: 0,
+      totalExpense: 0,
+      totalTransfer: 0,
+      year: year,
+      month: month,
+      income: const [],
+      expense: const [],
+    ),
   );
 }
 
@@ -192,10 +227,12 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }) => throw UnimplementedError('not exercised by this test');
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by this test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by this test');
+  Future<void> remove(int id) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 /// Ticket 09: Home now reads `lastAutoScanUploadProvider` — same "fake every
@@ -206,12 +243,17 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   Stream<DateTime?> watchLastSuccessfulAutoScanUpload() => Stream.value(null);
 
   @override
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by this test');
-  @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) => throw UnimplementedError('not exercised by this test');
-  @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) =>
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) =>
       throw UnimplementedError('not exercised by this test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(
+    SlipCandidate candidate,
+  ) => throw UnimplementedError('not exercised by this test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) => throw UnimplementedError('not exercised by this test');
 }
 
 /// pumpAndSettle can't tell "still legitimately loading" from "stuck
@@ -230,12 +272,24 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-            categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-            transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
-            dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
-            pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
-            slipUploadRepositoryProvider.overrideWithValue(_FakeSlipUploadRepository()),
+            accountsRepositoryProvider.overrideWithValue(
+              _FakeAccountsRepository(),
+            ),
+            categoriesRepositoryProvider.overrideWithValue(
+              _FakeCategoriesRepository(),
+            ),
+            transactionsRepositoryProvider.overrideWithValue(
+              _FakeTransactionsRepository(),
+            ),
+            dashboardRepositoryProvider.overrideWithValue(
+              _FakeDashboardRepository(),
+            ),
+            pendingActionsRepositoryProvider.overrideWithValue(
+              _FakePendingActionsRepository(),
+            ),
+            slipUploadRepositoryProvider.overrideWithValue(
+              _FakeSlipUploadRepository(),
+            ),
           ],
           child: const MyApp(),
         ),
@@ -247,51 +301,78 @@ void main() {
       await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
       await _pumpBounded(tester);
 
-      expect(find.textContaining('Food'), findsOneWidget, reason: 'category name should be visible without ever visiting Categories tab');
+      expect(
+        find.textContaining('Food'),
+        findsOneWidget,
+        reason: 'category name should be visible without ever visiting Categories tab',
+      );
     },
   );
 
-  testWidgets("T6's transaction form category dropdown is populated on cold start too (same root cause/fix)", (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-          categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-          transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
-          dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
-          pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
-          slipUploadRepositoryProvider.overrideWithValue(_FakeSlipUploadRepository()),
-        ],
-        child: const MyApp(),
-      ),
-    );
-    await _pumpBounded(tester);
+  testWidgets(
+    "T6's transaction form category dropdown is populated on cold start too (same root cause/fix)",
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            accountsRepositoryProvider.overrideWithValue(
+              _FakeAccountsRepository(),
+            ),
+            categoriesRepositoryProvider.overrideWithValue(
+              _FakeCategoriesRepository(),
+            ),
+            transactionsRepositoryProvider.overrideWithValue(
+              _FakeTransactionsRepository(),
+            ),
+            dashboardRepositoryProvider.overrideWithValue(
+              _FakeDashboardRepository(),
+            ),
+            pendingActionsRepositoryProvider.overrideWithValue(
+              _FakePendingActionsRepository(),
+            ),
+            slipUploadRepositoryProvider.overrideWithValue(
+              _FakeSlipUploadRepository(),
+            ),
+          ],
+          child: const MyApp(),
+        ),
+      );
+      await _pumpBounded(tester);
 
-    await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
-    await _pumpBounded(tester);
+      await tester.tap(find.widgetWithText(NavigationDestination, 'ดูสรุป'));
+      await _pumpBounded(tester);
 
-    // Post-launch redesign ticket 04 removed the page-level "+" button (the
-    // same manual-entry action moves to the global FAB in ticket 05) — the
-    // seeded "Groceries" row's edit path exercises the exact same form/
-    // dropdown code this regression test cares about.
-    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
-    await _pumpBounded(tester);
+      // Post-launch redesign ticket 04 removed the page-level "+" button (the
+      // same manual-entry action moves to the global FAB in ticket 05) — the
+      // seeded "Groceries" row's edit path exercises the exact same form/
+      // dropdown code this regression test cares about.
+      await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
+      await _pumpBounded(tester);
 
-    // Post-launch redesign: the category field is now a pill that opens the
-    // shared category grid sheet, not a DropdownButtonFormField. The edit
-    // form's slip-info card pushes it below the test viewport's fold — same
-    // "scroll before interacting" requirement transaction_form_page_test.dart's
-    // own `_scrollToKey` documents.
-    final categoryPill = find.byKey(const Key('categoryPill'));
-    await tester.scrollUntilVisible(categoryPill, 300, scrollable: find.byType(Scrollable).first);
-    await tester.tap(categoryPill);
-    await _pumpBounded(tester);
+      // Post-launch redesign: the category field is now a pill that opens the
+      // shared category grid sheet, not a DropdownButtonFormField. The edit
+      // form's slip-info card pushes it below the test viewport's fold — same
+      // "scroll before interacting" requirement transaction_form_page_test.dart's
+      // own `_scrollToKey` documents.
+      final categoryPill = find.byKey(const Key('categoryPill'));
+      await tester.scrollUntilVisible(
+        categoryPill,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(categoryPill);
+      await _pumpBounded(tester);
 
-    // findsWidgets (not findsOneWidget): the edited "Groceries" row is
-    // already categorized as "Food", so it renders both as the pill's
-    // already-selected value (before the tap) and as a grid tile label once
-    // the sheet opens — either presence proves the category cache was
-    // populated pre-tap.
-    expect(find.text('Food'), findsWidgets, reason: 'category options should be populated without ever visiting Categories tab');
-  });
+      // findsWidgets (not findsOneWidget): the edited "Groceries" row is
+      // already categorized as "Food", so it renders both as the pill's
+      // already-selected value (before the tap) and as a grid tile label once
+      // the sheet opens — either presence proves the category cache was
+      // populated pre-tap.
+      expect(
+        find.text('Food'),
+        findsWidgets,
+        reason: 'category options should be populated without ever visiting Categories tab',
+      );
+    },
+  );
 }

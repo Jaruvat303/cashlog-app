@@ -85,20 +85,29 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
+    if (_scrollController.position.pixels <
+        _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
       return;
     }
     final month = ref.read(selectedMonthProvider);
-    ref.read(transactionsFeedSyncProvider(month.year, month.month).notifier).loadNextPage();
+    ref
+        .read(transactionsFeedSyncProvider(month.year, month.month).notifier)
+        .loadNextPage();
   }
 
-  Future<void> _loadFirstPage(int year, int month, {bool showErrorSnackBar = true}) async {
-    final result = await ref.read(transactionsFeedSyncProvider(year, month).notifier).loadFirstPage();
+  Future<void> _loadFirstPage(
+    int year,
+    int month, {
+    bool showErrorSnackBar = true,
+  }) async {
+    final result = await ref
+        .read(transactionsFeedSyncProvider(year, month).notifier)
+        .loadFirstPage();
     if (!mounted || !showErrorSnackBar) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'รีเฟรชรายการไม่สำเร็จ'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message ?? 'รีเฟรชรายการไม่สำเร็จ')),
+      ),
       (_) {},
     );
   }
@@ -126,7 +135,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       _onMonthChanged(next);
     });
 
-    final transactionsAsync = ref.watch(monthTransactionsProvider(year, monthNum));
+    final transactionsAsync = ref.watch(
+      monthTransactionsProvider(year, monthNum),
+    );
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
     final categories = ref.watch(allCategoriesProvider).value ?? const [];
     final categoriesById = {for (final c in categories) c.id: c};
@@ -142,8 +153,19 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Cashlog', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  CircularIconButton(icon: RemixIcon.bankCardLine, onTap: () => context.go('/accounts'), tooltip: 'บัญชี'),
+                  const Text(
+                    'Cashlog',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  CircularIconButton(
+                    icon: RemixIcon.bankCardLine,
+                    onTap: () => context.go('/accounts'),
+                    tooltip: 'บัญชี',
+                  ),
                 ],
               ),
             ),
@@ -151,106 +173,135 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               child: RefreshIndicator(
                 onRefresh: () => _loadFirstPage(year, monthNum),
                 child: transactionsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
-          data: (transactions) {
-            if (transactions.isEmpty) {
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
-                children: [
-                  const ExpenseTotalWidget(),
-                  const SizedBox(height: 16),
-                  const PendingActionsBanner(),
-                  const _GalleryPermissionBanner(),
-                  const AutoScanProcessingIndicator(),
-                  const Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
-                  ),
-                ],
-              );
-            }
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) =>
+                      Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
+                  data: (transactions) {
+                    if (transactions.isEmpty) {
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+                        children: [
+                          const ExpenseTotalWidget(),
+                          const SizedBox(height: 16),
+                          const PendingActionsBanner(),
+                          const _GalleryPermissionBanner(),
+                          const AutoScanProcessingIndicator(),
+                          const Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Center(child: Text('ไม่มีรายการในเดือนนี้')),
+                          ),
+                        ],
+                      );
+                    }
 
-            final groups = _groupByDay(transactions);
-            return ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
-              // +4 for the expense-total widget, pending-actions banner,
-              // gallery-permission banner, and auto-scan processing
-              // indicator at indices 0/1/2/3 — everything else keeps its
-              // previous index math shifted accordingly. The last-auto-scan
-              // status text moved inside the expense-total widget itself
-              // (ticket 02) and no longer occupies its own index here.
-              itemCount: 4 + groups.length + (isLoadingMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return const Padding(
-                    padding: EdgeInsets.only(bottom: 16),
-                    child: ExpenseTotalWidget(),
-                  );
-                }
-                // `PendingActionsBanner`/`_GalleryPermissionBanner`/
-                // `AutoScanProcessingIndicator` each supply their own bottom
-                // margin when visible and collapse to a zero-size box when
-                // not — no extra wrapper padding here, unlike the widget
-                // above and the day groups below, or a hidden banner would
-                // still leave a gap in the list.
-                if (index == 1) {
-                  return const PendingActionsBanner();
-                }
-                if (index == 2) {
-                  return const _GalleryPermissionBanner();
-                }
-                if (index == 3) {
-                  return const AutoScanProcessingIndicator();
-                }
-                final groupIndex = index - 4;
-                if (groupIndex >= groups.length) {
-                  return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
-                }
-                final group = groups[groupIndex];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 7),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              relativeDayLabel(group.date),
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5, color: AppColors.textSecondary),
-                            ),
-                            Text(
-                              _formatSignedTotal(group.total),
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
-                          boxShadow: const [AppShadows.card],
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < group.transactions.length; i++) ...[
-                              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
-                              TransactionListTile(transaction: group.transactions[i], categoriesById: categoriesById),
+                    final groups = _groupByDay(transactions);
+                    return ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+                      // +4 for the expense-total widget, pending-actions banner,
+                      // gallery-permission banner, and auto-scan processing
+                      // indicator at indices 0/1/2/3 — everything else keeps its
+                      // previous index math shifted accordingly. The last-auto-scan
+                      // status text moved inside the expense-total widget itself
+                      // (ticket 02) and no longer occupies its own index here.
+                      itemCount: 4 + groups.length + (isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return const Padding(
+                            padding: EdgeInsets.only(bottom: 16),
+                            child: ExpenseTotalWidget(),
+                          );
+                        }
+                        // `PendingActionsBanner`/`_GalleryPermissionBanner`/
+                        // `AutoScanProcessingIndicator` each supply their own bottom
+                        // margin when visible and collapse to a zero-size box when
+                        // not — no extra wrapper padding here, unlike the widget
+                        // above and the day groups below, or a hidden banner would
+                        // still leave a gap in the list.
+                        if (index == 1) {
+                          return const PendingActionsBanner();
+                        }
+                        if (index == 2) {
+                          return const _GalleryPermissionBanner();
+                        }
+                        if (index == 3) {
+                          return const AutoScanProcessingIndicator();
+                        }
+                        final groupIndex = index - 4;
+                        if (groupIndex >= groups.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        final group = groups[groupIndex];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 7),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      relativeDayLabel(group.date),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11.5,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    Text(
+                                      _formatSignedTotal(group.total),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 11.5,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.cardLarge,
+                                  ),
+                                  boxShadow: const [AppShadows.card],
+                                ),
+                                child: Column(
+                                  children: [
+                                    for (
+                                      var i = 0;
+                                      i < group.transactions.length;
+                                      i++
+                                    ) ...[
+                                      if (i > 0)
+                                        const Divider(
+                                          height: 1,
+                                          indent: 14,
+                                          endIndent: 14,
+                                          color: AppColors.divider,
+                                        ),
+                                      TransactionListTile(
+                                        transaction: group.transactions[i],
+                                        categoriesById: categoriesById,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ),
@@ -263,7 +314,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   List<_DayGroup> _groupByDay(List<Transaction> transactions) {
     final groups = <DateTime, List<Transaction>>{};
     for (final t in transactions) {
-      final day = DateTime(t.transactionDate.year, t.transactionDate.month, t.transactionDate.day);
+      final day = DateTime(
+        t.transactionDate.year,
+        t.transactionDate.month,
+        t.transactionDate.day,
+      );
       groups.putIfAbsent(day, () => []).add(t);
     }
     return groups.entries
@@ -288,11 +343,16 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  String _formatSignedTotal(double total) => formatAmount(total, sign: total > 0 ? '+' : '');
+  String _formatSignedTotal(double total) =>
+      formatAmount(total, sign: total > 0 ? '+' : '');
 }
 
 class _DayGroup {
-  const _DayGroup({required this.date, required this.transactions, required this.total});
+  const _DayGroup({
+    required this.date,
+    required this.transactions,
+    required this.total,
+  });
   final DateTime date;
   final List<Transaction> transactions;
   final double total;
@@ -318,12 +378,19 @@ class _GalleryPermissionBanner extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final accessLevel = ref.watch(slipScanPipelineProvider.select((p) => p.accessLevel));
+    final accessLevel = ref.watch(
+      slipScanPipelineProvider.select((p) => p.accessLevel),
+    );
     if (accessLevel == null || accessLevel == GalleryAccessLevel.full) {
       return const SizedBox.shrink();
     }
 
-    final (title, body, buttonLabel, onPressed) = accessLevel == GalleryAccessLevel.denied
+    final (
+      title,
+      body,
+      buttonLabel,
+      onPressed,
+    ) = accessLevel == GalleryAccessLevel.denied
         ? (
             'ยังไม่ได้ให้สิทธิ์เข้าถึงคลังภาพ',
             'แอปต้องใช้สิทธิ์เข้าถึงรูปภาพเพื่อสแกนสลิปธนาคารจากอัลบั้ม SCB EASY และ Dime! โดยอัตโนมัติ',
@@ -334,7 +401,9 @@ class _GalleryPermissionBanner extends ConsumerWidget {
             'เข้าถึงรูปภาพแบบจำกัด',
             'แอปอาจมองไม่เห็นสลิปใหม่ ถ้าอัลบั้ม SCB EASY หรือ Dime! ไม่ได้ถูกเลือกไว้ในรายการรูปที่อนุญาต',
             'เลือกรูปเพิ่มเติม',
-            () => ref.read(slipGalleryRepositoryProvider).presentLimitedSelection(),
+            () => ref
+                .read(slipGalleryRepositoryProvider)
+                .presentLimitedSelection(),
           );
 
     return Container(
@@ -351,15 +420,40 @@ class _GalleryPermissionBanner extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Icon(RemixIcon.imageLine, size: 18, color: AppColors.warningIcon),
+              const Icon(
+                RemixIcon.imageLine,
+                size: 18,
+                color: AppColors.warningIcon,
+              ),
               const SizedBox(width: 8),
-              Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary))),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(body, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(
+            body,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: OutlinedButton(onPressed: onPressed, child: Text(buttonLabel))),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onPressed,
+              child: Text(buttonLabel),
+            ),
+          ),
         ],
       ),
     );

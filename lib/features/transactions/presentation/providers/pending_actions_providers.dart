@@ -9,4 +9,5 @@ part 'pending_actions_providers.g.dart';
 /// `allCategoriesProvider` — backs both `PendingActionsPage`'s list and
 /// `TransactionsPage`'s AppBar badge count off one drift `.watch()`.
 @riverpod
-Stream<List<PendingAction>> pendingActions(Ref ref) => ref.watch(pendingActionsRepositoryProvider).watchAll();
+Stream<List<PendingAction>> pendingActions(Ref ref) =>
+    ref.watch(pendingActionsRepositoryProvider).watchAll();

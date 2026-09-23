@@ -92,20 +92,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
+    if (_scrollController.position.pixels <
+        _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
       return;
     }
     final month = ref.read(selectedMonthProvider);
-    ref.read(transactionsFeedSyncProvider(month.year, month.month).notifier).loadNextPage();
+    ref
+        .read(transactionsFeedSyncProvider(month.year, month.month).notifier)
+        .loadNextPage();
   }
 
-  Future<void> _loadFirstPage(int year, int month, {bool showErrorSnackBar = true}) async {
-    final result = await ref.read(transactionsFeedSyncProvider(year, month).notifier).loadFirstPage();
+  Future<void> _loadFirstPage(
+    int year,
+    int month, {
+    bool showErrorSnackBar = true,
+  }) async {
+    final result = await ref
+        .read(transactionsFeedSyncProvider(year, month).notifier)
+        .loadFirstPage();
     if (!mounted || !showErrorSnackBar) return;
     result.fold(
-      (failure) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message ?? 'รีเฟรชรายการไม่สำเร็จ'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message ?? 'รีเฟรชรายการไม่สำเร็จ')),
+      ),
       (_) {},
     );
   }
@@ -137,7 +146,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   void _toggleCategoryFilter(int categoryId) {
-    setState(() => _categoryFilterId = _categoryFilterId == categoryId ? null : categoryId);
+    setState(
+      () => _categoryFilterId = _categoryFilterId == categoryId
+          ? null
+          : categoryId,
+    );
   }
 
   @override
@@ -147,11 +160,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     final monthNum = month.month;
 
     final transactionsAsync = ref.watch(
-      monthTransactionsProvider(year, monthNum, categoryId: _categoryFilterId, type: _categoryFilterType),
+      monthTransactionsProvider(
+        year,
+        monthNum,
+        categoryId: _categoryFilterId,
+        type: _categoryFilterType,
+      ),
     );
     final feedMeta = ref.watch(transactionsFeedSyncProvider(year, monthNum));
-    final categories = ref.watch(allCategoriesProvider).value ?? const <Category>[];
-    final categoriesById = {for (final category in categories) category.id: category};
+    final categories =
+        ref.watch(allCategoriesProvider).value ?? const <Category>[];
+    final categoriesById = {
+      for (final category in categories) category.id: category,
+    };
     final isLoadingMore = feedMeta?.isLoadingMore ?? false;
     // T13's entry point: a badge count off the same drift-backed stream
     // PendingActionsPage itself watches, so it always reflects the queue
@@ -173,22 +194,38 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           children: [
             _monthArrow(
               icon: RemixIcon.arrowLeftSLine,
-              onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).previous()),
+              onTap: () => _switchMonth(
+                () => ref.read(selectedMonthProvider.notifier).previous(),
+              ),
             ),
             const SizedBox(width: 10),
             InkWell(
               onTap: () => _openMonthYearPicker(month),
               borderRadius: BorderRadius.circular(11),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(11)),
-                child: Text(monthYearShortLabel(month), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Text(
+                  monthYearShortLabel(month),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 10),
             _monthArrow(
               icon: RemixIcon.arrowRightSLine,
-              onTap: () => _switchMonth(() => ref.read(selectedMonthProvider.notifier).next()),
+              onTap: () => _switchMonth(
+                () => ref.read(selectedMonthProvider.notifier).next(),
+              ),
             ),
           ],
         ),
@@ -197,9 +234,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           // the same action is now reachable from the global FAB (ticket 05).
           IconButton(
             key: const Key('pendingActionsButton'),
-            icon: Badge(label: Text('$pendingCount'), isLabelVisible: pendingCount > 0, child: const Icon(RemixIcon.errorWarningLine)),
+            icon: Badge(
+              label: Text('$pendingCount'),
+              isLabelVisible: pendingCount > 0,
+              child: const Icon(RemixIcon.errorWarningLine),
+            ),
             tooltip: 'รายการค้าง',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PendingActionsPage())),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PendingActionsPage()),
+            ),
           ),
         ],
       ),
@@ -207,7 +250,8 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         onRefresh: () => _loadFirstPage(year, monthNum),
         child: transactionsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
+          error: (error, _) =>
+              Center(child: Text('โหลดรายการไม่สำเร็จ: $error')),
           data: (transactions) {
             final summarySection = _SummarySection(
               year: year,
@@ -230,7 +274,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   Padding(
                     padding: const EdgeInsets.all(32),
                     child: Center(
-                      child: Text(_categoryFilterId == null ? 'ไม่มีรายการในเดือนนี้' : 'ไม่มีรายการในหมวดหมู่นี้'),
+                      child: Text(
+                        _categoryFilterId == null
+                            ? 'ไม่มีรายการในเดือนนี้'
+                            : 'ไม่มีรายการในหมวดหมู่นี้',
+                      ),
                     ),
                   ),
                 ],
@@ -247,14 +295,23 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               itemCount: 2 + groups.length + (isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
-                  return const Padding(padding: EdgeInsets.only(bottom: 16), child: _AccountInfoStrip());
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: _AccountInfoStrip(),
+                  );
                 }
                 if (index == 1) {
-                  return Padding(padding: const EdgeInsets.only(bottom: 14), child: summarySection);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: summarySection,
+                  );
                 }
                 final groupIndex = index - 2;
                 if (groupIndex >= groups.length) {
-                  return const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Center(child: CircularProgressIndicator()));
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
                 }
                 final group = groups[groupIndex];
                 return Padding(
@@ -269,11 +326,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                           children: [
                             Text(
                               relativeDayLabel(group.date),
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5, color: AppColors.textSecondary),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             Text(
                               _formatSignedTotal(group.total),
-                              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11.5, color: AppColors.textSecondary),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -281,14 +346,29 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+                          borderRadius: BorderRadius.circular(
+                            AppRadii.cardLarge,
+                          ),
                           boxShadow: const [AppShadows.card],
                         ),
                         child: Column(
                           children: [
-                            for (var i = 0; i < group.transactions.length; i++) ...[
-                              if (i > 0) const Divider(height: 1, indent: 14, endIndent: 14, color: AppColors.divider),
-                              TransactionListTile(transaction: group.transactions[i], categoriesById: categoriesById),
+                            for (
+                              var i = 0;
+                              i < group.transactions.length;
+                              i++
+                            ) ...[
+                              if (i > 0)
+                                const Divider(
+                                  height: 1,
+                                  indent: 14,
+                                  endIndent: 14,
+                                  color: AppColors.divider,
+                                ),
+                              TransactionListTile(
+                                transaction: group.transactions[i],
+                                categoriesById: categoriesById,
+                              ),
                             ],
                           ],
                         ),
@@ -313,7 +393,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.sheet),
+        ),
+      ),
       builder: (sheetContext) {
         var pickerYear = currentMonth.year;
         return StatefulBuilder(
@@ -323,16 +407,35 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(width: 36, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2))),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   const SizedBox(height: 18),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _monthArrow(icon: RemixIcon.arrowLeftSLine, onTap: () => setSheetState(() => pickerYear--)),
+                      _monthArrow(
+                        icon: RemixIcon.arrowLeftSLine,
+                        onTap: () => setSheetState(() => pickerYear--),
+                      ),
                       const SizedBox(width: 20),
-                      Text('${buddhistYear(pickerYear)}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                      Text(
+                        '${buddhistYear(pickerYear)}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(width: 20),
-                      _monthArrow(icon: RemixIcon.arrowRightSLine, onTap: () => setSheetState(() => pickerYear++)),
+                      _monthArrow(
+                        icon: RemixIcon.arrowRightSLine,
+                        onTap: () => setSheetState(() => pickerYear++),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -345,17 +448,27 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                     childAspectRatio: 1.6,
                     children: List.generate(12, (i) {
                       final m = i + 1;
-                      final selected = pickerYear == currentMonth.year && m == currentMonth.month;
+                      final selected =
+                          pickerYear == currentMonth.year &&
+                          m == currentMonth.month;
                       return InkWell(
                         borderRadius: BorderRadius.circular(AppRadii.control),
                         onTap: () {
                           Navigator.of(sheetContext).pop();
-                          _switchMonth(() => ref.read(selectedMonthProvider.notifier).set(pickerYear, m));
+                          _switchMonth(
+                            () => ref
+                                .read(selectedMonthProvider.notifier)
+                                .set(pickerYear, m),
+                          );
                         },
                         child: Container(
                           decoration: BoxDecoration(
-                            color: selected ? AppColors.primary : AppColors.background,
-                            borderRadius: BorderRadius.circular(AppRadii.control),
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(
+                              AppRadii.control,
+                            ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -363,7 +476,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
-                              color: selected ? Colors.white : AppColors.textPrimary,
+                              color: selected
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
                             ),
                           ),
                         ),
@@ -386,7 +501,10 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       child: Container(
         width: 30,
         height: 30,
-        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(9)),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(9),
+        ),
         child: Icon(icon, size: 18, color: AppColors.textSecondary),
       ),
     );
@@ -395,7 +513,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   List<_DayGroup> _groupByDay(List<Transaction> transactions) {
     final groups = <DateTime, List<Transaction>>{};
     for (final t in transactions) {
-      final day = DateTime(t.transactionDate.year, t.transactionDate.month, t.transactionDate.day);
+      final day = DateTime(
+        t.transactionDate.year,
+        t.transactionDate.month,
+        t.transactionDate.day,
+      );
       groups.putIfAbsent(day, () => []).add(t);
     }
     return groups.entries
@@ -420,11 +542,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  String _formatSignedTotal(double total) => formatAmount(total, sign: total > 0 ? '+' : '');
+  String _formatSignedTotal(double total) =>
+      formatAmount(total, sign: total > 0 ? '+' : '');
 }
 
 class _DayGroup {
-  const _DayGroup({required this.date, required this.transactions, required this.total});
+  const _DayGroup({
+    required this.date,
+    required this.transactions,
+    required this.total,
+  });
   final DateTime date;
   final List<Transaction> transactions;
   final double total;
@@ -446,19 +573,36 @@ class _AccountInfoStrip extends ConsumerWidget {
       key: const Key('accountInfoStrip'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('บัญชี', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary)),
+        const Text(
+          'บัญชี',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: AppColors.textPrimary,
+          ),
+        ),
         const SizedBox(height: 9),
         accountsAsync.when(
-          loading: () => const SizedBox(height: 80, child: Center(child: CircularProgressIndicator())),
+          loading: () => const SizedBox(
+            height: 80,
+            child: Center(child: CircularProgressIndicator()),
+          ),
           error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
           data: (accounts) => accounts.isEmpty
-              ? const Text('ยังไม่มีบัญชี', style: TextStyle(color: AppColors.textSecondary))
+              ? const Text(
+                  'ยังไม่มีบัญชี',
+                  style: TextStyle(color: AppColors.textSecondary),
+                )
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [for (final a in accounts) Expanded(child: _AccountMiniCard(account: a))]
-                      .expand((w) => [w, const SizedBox(width: 8)])
-                      .take(accounts.length * 2 - 1)
-                      .toList(),
+                  children:
+                      [
+                            for (final a in accounts)
+                              Expanded(child: _AccountMiniCard(account: a)),
+                          ]
+                          .expand((w) => [w, const SizedBox(width: 8)])
+                          .take(accounts.length * 2 - 1)
+                          .toList(),
                 ),
         ),
       ],
@@ -488,22 +632,50 @@ class _AccountMiniCard extends ConsumerWidget {
               Container(
                 width: 20,
                 height: 20,
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.25), borderRadius: BorderRadius.circular(6)),
-                child: Center(child: Text(initial, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700))),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 7),
-              Expanded(child: Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white))),
+              Expanded(
+                child: Text(
+                  name,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           CurrentBalanceText(
             accountId: account.id,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: Colors.white),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: Colors.white,
+            ),
             // Post-launch UI polish ticket 03: this card's subtitle shows the
             // account's own `matching_keywords` (already fetched, no new
             // endpoint) instead of the generic BR-7 balance disclaimer every
             // other `CurrentBalanceText` caller still shows.
-            subtitle: account.matchingKeywords.isEmpty ? '—' : account.matchingKeywords.join(', '),
+            subtitle: account.matchingKeywords.isEmpty
+                ? '—'
+                : account.matchingKeywords.join(', '),
             subtitleStyle: const TextStyle(fontSize: 11, color: Colors.white),
           ),
         ],
@@ -545,7 +717,11 @@ class _SummarySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       key: const Key('transactionsSummarySection'),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadii.cardLarge), boxShadow: const [AppShadows.card]),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.cardLarge),
+        boxShadow: const [AppShadows.card],
+      ),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,15 +742,26 @@ class _SummarySection extends ConsumerWidget {
           // so a loading/error state on the dashboard summary must never
           // block or blank out the Transfer tab.
           if (tab == _SummaryTab.transfer)
-            _TransferList(year: year, month: month, categoriesById: categoriesById)
+            _TransferList(
+              year: year,
+              month: month,
+              categoriesById: categoriesById,
+            )
           else
             Consumer(
               builder: (context, ref, _) {
-                final summaryAsync = ref.watch(dashboardSummaryProvider(year, month));
+                final summaryAsync = ref.watch(
+                  dashboardSummaryProvider(year, month),
+                );
                 return summaryAsync.when(
-                  loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
-                  error: (error, _) =>
-                      Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดสรุปไม่สำเร็จ: $error')),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text('โหลดสรุปไม่สำเร็จ: $error'),
+                  ),
                   data: (summary) => switch (tab) {
                     _SummaryTab.income => _CategoryBreakdownSection(
                       breakdown: summary.income,
@@ -616,7 +803,11 @@ class _SummarySection extends ConsumerWidget {
           child: Center(
             child: Text(
               label,
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: selected ? Colors.white : AppColors.textSecondary),
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : AppColors.textSecondary,
+              ),
             ),
           ),
         ),
@@ -662,7 +853,12 @@ class _CategoryBreakdownSection extends StatelessWidget {
           ExpensePieChart(expense: breakdown, total: total),
           const SizedBox(height: 14),
         ],
-        _CategoryTotalsList(breakdown: breakdown, selectedCategoryId: selectedCategoryId, onTap: onTap, emptyMessage: emptyMessage),
+        _CategoryTotalsList(
+          breakdown: breakdown,
+          selectedCategoryId: selectedCategoryId,
+          onTap: onTap,
+          emptyMessage: emptyMessage,
+        ),
       ],
     );
   }
@@ -690,11 +886,17 @@ class _CategoryTotalsList extends StatelessWidget {
     if (breakdown.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: Text(emptyMessage, style: const TextStyle(color: AppColors.textSecondary))),
+        child: Center(
+          child: Text(
+            emptyMessage,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
       );
     }
 
-    final sorted = [...breakdown]..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    final sorted = [...breakdown]
+      ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
     return Column(
       children: [
         for (var i = 0; i < sorted.length; i++) ...[
@@ -711,7 +913,11 @@ class _CategoryTotalsList extends StatelessWidget {
 }
 
 class _CategoryTotalRow extends StatelessWidget {
-  const _CategoryTotalRow({required this.breakdown, required this.selected, required this.onTap});
+  const _CategoryTotalRow({
+    required this.breakdown,
+    required this.selected,
+    required this.onTap,
+  });
 
   final CategoryBreakdown breakdown;
   final bool selected;
@@ -728,16 +934,39 @@ class _CategoryTotalRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppColors.primarySurface : null,
           borderRadius: BorderRadius.circular(10),
-          border: selected ? Border.all(color: AppColors.primarySurfaceBorder) : null,
+          border: selected
+              ? Border.all(color: AppColors.primarySurfaceBorder)
+              : null,
         ),
         child: Row(
           children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(color: colorFromHex(breakdown.colorHex), borderRadius: BorderRadius.circular(3))),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: colorFromHex(breakdown.colorHex),
+                borderRadius: BorderRadius.circular(3),
+              ),
+            ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(breakdown.categoryName, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: AppColors.textPrimary)),
+              child: Text(
+                breakdown.categoryName,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ),
-            Text(formatAmount(breakdown.totalAmount), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+            Text(
+              formatAmount(breakdown.totalAmount),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
           ],
         ),
       ),
@@ -758,7 +987,11 @@ class _CategoryTotalRow extends StatelessWidget {
 /// `TransactionListTile` row used by the plain feed below, just without the
 /// day-grouping headers that list applies.
 class _TransferList extends ConsumerWidget {
-  const _TransferList({required this.year, required this.month, required this.categoriesById});
+  const _TransferList({
+    required this.year,
+    required this.month,
+    required this.categoriesById,
+  });
 
   final int year;
   final int month;
@@ -769,15 +1002,27 @@ class _TransferList extends ConsumerWidget {
     final transactionsAsync = ref.watch(monthTransactionsProvider(year, month));
 
     return transactionsAsync.when(
-      loading: () => const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator())),
-      error: (error, _) =>
-          Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Text('โหลดรายการย้ายเงินไม่สำเร็จ: $error')),
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, _) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Text('โหลดรายการย้ายเงินไม่สำเร็จ: $error'),
+      ),
       data: (transactions) {
-        final transfers = transactions.where((t) => t.type == TransactionType.transfer).toList();
+        final transfers = transactions
+            .where((t) => t.type == TransactionType.transfer)
+            .toList();
         if (transfers.isEmpty) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: Text('ไม่มีรายการย้ายเงินในเดือนนี้', style: TextStyle(color: AppColors.textSecondary))),
+            child: Center(
+              child: Text(
+                'ไม่มีรายการย้ายเงินในเดือนนี้',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
           );
         }
         return Column(
@@ -785,7 +1030,10 @@ class _TransferList extends ConsumerWidget {
           children: [
             for (var i = 0; i < transfers.length; i++) ...[
               if (i > 0) const Divider(height: 1, color: AppColors.divider),
-              TransactionListTile(transaction: transfers[i], categoriesById: categoriesById),
+              TransactionListTile(
+                transaction: transfers[i],
+                categoriesById: categoriesById,
+              ),
             ],
           ],
         );

@@ -50,22 +50,24 @@ Map<String, dynamic> updateAccountBody({
   'bank_icon': bankIcon,
 };
 
-CachedAccountsCompanion accountToCompanion(Account account) => CachedAccountsCompanion.insert(
-  id: Value(account.id),
-  name: account.name,
-  accountType: account.accountType.name,
-  openingBalance: account.openingBalance,
-  matchingKeywordsJson: jsonEncode(account.matchingKeywords),
-  bankIcon: account.bankIcon,
-  isActive: account.isActive,
-);
+CachedAccountsCompanion accountToCompanion(Account account) =>
+    CachedAccountsCompanion.insert(
+      id: Value(account.id),
+      name: account.name,
+      accountType: account.accountType.name,
+      openingBalance: account.openingBalance,
+      matchingKeywordsJson: jsonEncode(account.matchingKeywords),
+      bankIcon: account.bankIcon,
+      isActive: account.isActive,
+    );
 
 Account accountFromCached(CachedAccount row) => Account(
   id: row.id,
   name: row.name,
   accountType: accountTypeFromWire(row.accountType),
   openingBalance: row.openingBalance,
-  matchingKeywords: (jsonDecode(row.matchingKeywordsJson) as List).cast<String>(),
+  matchingKeywords: (jsonDecode(row.matchingKeywordsJson) as List)
+      .cast<String>(),
   bankIcon: row.bankIcon,
   isActive: row.isActive,
 );

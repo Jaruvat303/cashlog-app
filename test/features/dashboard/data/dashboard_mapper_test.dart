@@ -11,11 +11,29 @@ void main() {
       'year': 2026,
       'month': 9,
       'income': [
-        {'category_id': 1, 'category_name': 'Salary', 'icon_key': 'money-dollar-circle-fill', 'color_hex': '#22C55E', 'total_amount': 5000},
+        {
+          'category_id': 1,
+          'category_name': 'Salary',
+          'icon_key': 'money-dollar-circle-fill',
+          'color_hex': '#22C55E',
+          'total_amount': 5000,
+        },
       ],
       'expense': [
-        {'category_id': 2, 'category_name': 'Food', 'icon_key': 'restaurant-fill', 'color_hex': '#EF4444', 'total_amount': 2000},
-        {'category_id': 3, 'category_name': 'Transport', 'icon_key': 'car-fill', 'color_hex': '#3B82F6', 'total_amount': 1200.5},
+        {
+          'category_id': 2,
+          'category_name': 'Food',
+          'icon_key': 'restaurant-fill',
+          'color_hex': '#EF4444',
+          'total_amount': 2000,
+        },
+        {
+          'category_id': 3,
+          'category_name': 'Transport',
+          'icon_key': 'car-fill',
+          'color_hex': '#3B82F6',
+          'total_amount': 1200.5,
+        },
       ],
     });
 

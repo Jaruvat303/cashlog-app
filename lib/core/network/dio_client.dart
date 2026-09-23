@@ -34,7 +34,9 @@ Dio dio(Ref ref) {
   dio.interceptors.add(_ErrorAndRetryInterceptor(dio));
 
   if (kDebugMode) {
-    dio.interceptors.add(LogInterceptor(requestBody: false, responseBody: false));
+    dio.interceptors.add(
+      LogInterceptor(requestBody: false, responseBody: false),
+    );
   }
 
   return dio;
@@ -53,7 +55,8 @@ class _ErrorAndRetryInterceptor extends Interceptor {
     final failure = _mapToFailure(err);
     final retryCount = (err.requestOptions.extra['retryCount'] as int?) ?? 0;
 
-    if (failure.retryPolicy == RetryPolicy.transient && retryCount < _maxRetries) {
+    if (failure.retryPolicy == RetryPolicy.transient &&
+        retryCount < _maxRetries) {
       await Future<void>.delayed(_retryDelay);
       final options = err.requestOptions..extra['retryCount'] = retryCount + 1;
       try {
@@ -79,9 +82,21 @@ class _ErrorAndRetryInterceptor extends Interceptor {
       // fallback for status codes with no dedicated case) still falls
       // through to UnknownFailure by design, not by omission.
       final errorField = data['error'];
-      final code = (data['error_code'] ?? data['code'] ?? (errorField is Map ? errorField['code'] : null))?.toString();
-      final message = (data['message'] ?? (errorField is String ? errorField : null) ?? (errorField is Map ? errorField['message'] : null))?.toString();
-      return Failure.fromErrorCode(code, message: message, statusCode: err.response?.statusCode);
+      final code =
+          (data['error_code'] ??
+                  data['code'] ??
+                  (errorField is Map ? errorField['code'] : null))
+              ?.toString();
+      final message =
+          (data['message'] ??
+                  (errorField is String ? errorField : null) ??
+                  (errorField is Map ? errorField['message'] : null))
+              ?.toString();
+      return Failure.fromErrorCode(
+        code,
+        message: message,
+        statusCode: err.response?.statusCode,
+      );
     }
     return Failure.fromDioException(err);
   }

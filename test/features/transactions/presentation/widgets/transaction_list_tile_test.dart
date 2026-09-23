@@ -56,7 +56,8 @@ class _FakeAccountsRepository implements AccountsRepository {
   }) => throw UnimplementedError('not exercised by this tile test');
 
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by this tile test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by this tile test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
@@ -84,10 +85,12 @@ class _FakeCategoriesRepository implements CategoriesRepository {
   }) => throw UnimplementedError('not exercised by this tile test');
 
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by this tile test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by this tile test');
 
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by this tile test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by this tile test');
 }
 
 class _FakeTransactionsRepository implements TransactionsRepository {
@@ -95,12 +98,20 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Either<Failure, void> deleteResult = const Right(null);
 
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) =>
-      throw UnimplementedError('not exercised by this tile test');
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => throw UnimplementedError('not exercised by this tile test');
 
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) =>
-      throw UnimplementedError('not exercised by this tile test');
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) => throw UnimplementedError('not exercised by this tile test');
 
   @override
   Future<Either<Failure, Transaction>> create({
@@ -178,7 +189,8 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by this tile test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by this tile test');
 
   @override
   Future<void> remove(int id) async {
@@ -195,10 +207,12 @@ class _RecordingCacheInvalidator implements CacheInvalidator {
   final List<(int, int)> invalidatedMonths = [];
 
   @override
-  void invalidateMonth(int year, int month) => invalidatedMonths.add((year, month));
+  void invalidateMonth(int year, int month) =>
+      invalidatedMonths.add((year, month));
 
   @override
-  void invalidateMonths(Set<(int, int)> months) => invalidatedMonths.addAll(months);
+  void invalidateMonths(Set<(int, int)> months) =>
+      invalidatedMonths.addAll(months);
 }
 
 final _junkTransaction = Transaction(
@@ -251,113 +265,149 @@ void main() {
   Widget buildApp(Transaction transaction) => ProviderScope(
     overrides: [
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
       cacheInvalidatorProvider.overrideWithValue(cacheInvalidator),
     ],
     child: MaterialApp(
-      home: Scaffold(body: TransactionListTile(transaction: transaction, categoriesById: const {})),
+      home: Scaffold(
+        body: TransactionListTile(
+          transaction: transaction,
+          categoriesById: const {},
+        ),
+      ),
     ),
   );
 
-  testWidgets('a junk transaction shows the warning badge and no edit/delete icons (ticket 04)', (tester) async {
-    await tester.pumpWidget(buildApp(_junkTransaction));
-    await _pumpBounded(tester);
+  testWidgets(
+    'a junk transaction shows the warning badge and no edit/delete icons (ticket 04)',
+    (tester) async {
+      await tester.pumpWidget(buildApp(_junkTransaction));
+      await _pumpBounded(tester);
 
-    expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
-    expect(find.byKey(const Key('junkEditButton')), findsNothing);
-    expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
-  });
+      expect(find.text('อ่านข้อมูลจากสลิปไม่ได้'), findsOneWidget);
+      expect(find.byKey(const Key('junkEditButton')), findsNothing);
+      expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
+    },
+  );
 
-  testWidgets('a normal (non-junk) transaction shows neither the badge nor edit/delete icons', (tester) async {
-    await tester.pumpWidget(buildApp(_editedTransaction));
-    await _pumpBounded(tester);
+  testWidgets(
+    'a normal (non-junk) transaction shows neither the badge nor edit/delete icons',
+    (tester) async {
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
 
-    expect(find.text("Couldn't read slip data"), findsNothing);
-    expect(find.byKey(const Key('junkEditButton')), findsNothing);
-    expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
-  });
+      expect(find.text("Couldn't read slip data"), findsNothing);
+      expect(find.byKey(const Key('junkEditButton')), findsNothing);
+      expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
+    },
+  );
 
-  testWidgets('tapping a junk row opens the edit form prefilled with this transaction (ticket 04)', (tester) async {
-    await tester.pumpWidget(buildApp(_junkTransaction));
-    await _pumpBounded(tester);
+  testWidgets(
+    'tapping a junk row opens the edit form prefilled with this transaction (ticket 04)',
+    (tester) async {
+      await tester.pumpWidget(buildApp(_junkTransaction));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
+      await _pumpBounded(tester);
 
-    final formFinder = find.byType(TransactionFormPage);
-    expect(formFinder, findsOneWidget);
-    final form = tester.widget<TransactionFormPage>(formFinder);
-    expect(form.initial.id, _junkTransaction.id);
-  });
+      final formFinder = find.byType(TransactionFormPage);
+      expect(formFinder, findsOneWidget);
+      final form = tester.widget<TransactionFormPage>(formFinder);
+      expect(form.initial.id, _junkTransaction.id);
+    },
+  );
 
-  testWidgets('tapping a non-junk row opens the edit form prefilled with this transaction (ticket 04)', (tester) async {
-    await tester.pumpWidget(buildApp(_editedTransaction));
-    await _pumpBounded(tester);
+  testWidgets(
+    'tapping a non-junk row opens the edit form prefilled with this transaction (ticket 04)',
+    (tester) async {
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
 
-    await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
-    await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('transactionRowTapTarget')));
+      await _pumpBounded(tester);
 
-    final formFinder = find.byType(TransactionFormPage);
-    expect(formFinder, findsOneWidget);
-    final form = tester.widget<TransactionFormPage>(formFinder);
-    expect(form.initial.id, _editedTransaction.id);
-  });
+      final formFinder = find.byType(TransactionFormPage);
+      expect(formFinder, findsOneWidget);
+      final form = tester.widget<TransactionFormPage>(formFinder);
+      expect(form.initial.id, _editedTransaction.id);
+    },
+  );
 
   group('pending-sync indicator (ticket 02)', () {
-    testWidgets('a transaction with an open queued action shows the indicator', (tester) async {
-      await pendingActions.recordIfTransient(
-        failure: const TimeoutFailure(),
-        actionType: PendingActionType.deleteTransaction,
-        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
-        targetTransactionId: _editedTransaction.id,
-      );
+    testWidgets(
+      'a transaction with an open queued action shows the indicator',
+      (tester) async {
+        await pendingActions.recordIfTransient(
+          failure: const TimeoutFailure(),
+          actionType: PendingActionType.deleteTransaction,
+          payload: deleteTransactionPayload(
+            date: _editedTransaction.transactionDate,
+          ),
+          targetTransactionId: _editedTransaction.id,
+        );
 
-      await tester.pumpWidget(buildApp(_editedTransaction));
-      await _pumpBounded(tester);
+        await tester.pumpWidget(buildApp(_editedTransaction));
+        await _pumpBounded(tester);
 
-      expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
-    });
+        expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+      },
+    );
 
-    testWidgets('a transaction with no queued action shows no indicator', (tester) async {
-      await tester.pumpWidget(buildApp(_editedTransaction));
-      await _pumpBounded(tester);
-
-      expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
-    });
-
-    testWidgets('a queued action for a different transaction id does not show the indicator on this row', (tester) async {
-      await pendingActions.recordIfTransient(
-        failure: const TimeoutFailure(),
-        actionType: PendingActionType.deleteTransaction,
-        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
-        targetTransactionId: 999,
-      );
-
+    testWidgets('a transaction with no queued action shows no indicator', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildApp(_editedTransaction));
       await _pumpBounded(tester);
 
       expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
     });
 
-    testWidgets('removing the pending action (successful manual retry) removes the indicator reactively', (tester) async {
-      final queuedId = 1;
-      await pendingActions.recordIfTransient(
-        failure: const TimeoutFailure(),
-        actionType: PendingActionType.deleteTransaction,
-        payload: deleteTransactionPayload(date: _editedTransaction.transactionDate),
-        targetTransactionId: _editedTransaction.id,
-      );
+    testWidgets(
+      'a queued action for a different transaction id does not show the indicator on this row',
+      (tester) async {
+        await pendingActions.recordIfTransient(
+          failure: const TimeoutFailure(),
+          actionType: PendingActionType.deleteTransaction,
+          payload: deleteTransactionPayload(
+            date: _editedTransaction.transactionDate,
+          ),
+          targetTransactionId: 999,
+        );
 
-      await tester.pumpWidget(buildApp(_editedTransaction));
-      await _pumpBounded(tester);
-      expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+        await tester.pumpWidget(buildApp(_editedTransaction));
+        await _pumpBounded(tester);
 
-      await pendingActions.remove(queuedId);
-      await _pumpBounded(tester);
+        expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
+      },
+    );
 
-      expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
-    });
+    testWidgets(
+      'removing the pending action (successful manual retry) removes the indicator reactively',
+      (tester) async {
+        final queuedId = 1;
+        await pendingActions.recordIfTransient(
+          failure: const TimeoutFailure(),
+          actionType: PendingActionType.deleteTransaction,
+          payload: deleteTransactionPayload(
+            date: _editedTransaction.transactionDate,
+          ),
+          targetTransactionId: _editedTransaction.id,
+        );
+
+        await tester.pumpWidget(buildApp(_editedTransaction));
+        await _pumpBounded(tester);
+        expect(find.byKey(const Key('pendingSyncIndicator')), findsOneWidget);
+
+        await pendingActions.remove(queuedId);
+        await _pumpBounded(tester);
+
+        expect(find.byKey(const Key('pendingSyncIndicator')), findsNothing);
+      },
+    );
   });
 }

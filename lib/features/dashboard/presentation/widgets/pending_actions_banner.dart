@@ -29,7 +29,8 @@ class PendingActionsBanner extends ConsumerWidget {
     return InkWell(
       key: const Key('pendingActionsBanner'),
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PendingActionsPage())),
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const PendingActionsPage())),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -40,18 +41,30 @@ class PendingActionsBanner extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            const Icon(RemixIcon.errorWarningLine, size: 18, color: AppColors.warningIcon),
+            const Icon(
+              RemixIcon.errorWarningLine,
+              size: 18,
+              color: AppColors.warningIcon,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 key: const Key('pendingActionsBannerText'),
                 'มีรายการค้างอยู่ $pendingCount รายการ — แตะเพื่อดำเนินการ',
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.textPrimary),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  color: AppColors.textPrimary,
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 6),
-            const Icon(RemixIcon.arrowRightSLine, size: 16, color: AppColors.textSecondary),
+            const Icon(
+              RemixIcon.arrowRightSLine,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
           ],
         ),
       ),

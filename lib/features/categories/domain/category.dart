@@ -12,10 +12,11 @@ extension CategoryTypeLabel on CategoryType {
 /// Falls back to [CategoryType.expense] for any wire value this build
 /// doesn't recognize yet, so an unfamiliar/future enum value never crashes
 /// the app — mirrors `accountTypeFromWire`.
-CategoryType categoryTypeFromWire(String value) => CategoryType.values.firstWhere(
-  (type) => type.name == value,
-  orElse: () => CategoryType.expense,
-);
+CategoryType categoryTypeFromWire(String value) =>
+    CategoryType.values.firstWhere(
+      (type) => type.name == value,
+      orElse: () => CategoryType.expense,
+    );
 
 class Category {
   const Category({

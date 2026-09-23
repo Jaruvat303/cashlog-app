@@ -77,7 +77,8 @@ class _FakeAccountsRepository implements AccountsRepository {
     required String bankIcon,
   }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<Either<Failure, void>> close(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<Either<Failure, void>> close(int id) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 class _FakeCategoriesRepository implements CategoriesRepository {
@@ -101,17 +102,30 @@ class _FakeCategoriesRepository implements CategoriesRepository {
     required String colorHex,
   }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<int> countLinkedTransactions(int categoryId) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<int> countLinkedTransactions(int categoryId) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 class _FakeTransactionsRepository implements TransactionsRepository {
   @override
-  Stream<List<Transaction>> watchMonth({required int year, required int month, int? categoryId, TransactionType? type}) => Stream.value(const []);
+  Stream<List<Transaction>> watchMonth({
+    required int year,
+    required int month,
+    int? categoryId,
+    TransactionType? type,
+  }) => Stream.value(const []);
   @override
-  Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async =>
-      const Right(TransactionPage(transactions: [], currentPage: 1, totalPages: 1));
+  Future<Either<Failure, TransactionPage>> fetchPage({
+    required int year,
+    required int month,
+    required int page,
+    int limit = 20,
+  }) async => const Right(
+    TransactionPage(transactions: [], currentPage: 1, totalPages: 1),
+  );
   @override
   Future<Either<Failure, Transaction>> create({
     required TransactionType type,
@@ -136,13 +150,25 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     int? categoryId,
   }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<Either<Failure, void>> delete(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<Either<Failure, void>> delete(int id) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 class _FakeDashboardRepository implements DashboardRepository {
   @override
-  Future<Either<Failure, DashboardSummary>> fetchSummary({required int year, required int month}) async => Right(
-    DashboardSummary(totalIncome: 0, totalExpense: 0, totalTransfer: 0, year: year, month: month, income: const [], expense: const []),
+  Future<Either<Failure, DashboardSummary>> fetchSummary({
+    required int year,
+    required int month,
+  }) async => Right(
+    DashboardSummary(
+      totalIncome: 0,
+      totalExpense: 0,
+      totalTransfer: 0,
+      year: year,
+      month: month,
+      income: const [],
+      expense: const [],
+    ),
   );
 }
 
@@ -167,10 +193,12 @@ class _FakePendingActionsRepository implements PendingActionsRepository {
   }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
 
   @override
-  Future<void> recordRetryFailure(int id, String? errorCode) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<void> recordRetryFailure(int id, String? errorCode) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 
   @override
-  Future<void> remove(int id) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<void> remove(int id) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 /// [currentAccess] is the first thing the real `SlipScanPipeline.runScan()`
@@ -190,20 +218,28 @@ class _FakeSlipGalleryRepository implements SlipGalleryRepository {
   Future<GalleryAccessLevel> currentAccess() {
     currentAccessCalls++;
     final pending = pendingAccess;
-    return pending != null ? pending.future : Future.value(GalleryAccessLevel.denied);
+    return pending != null
+        ? pending.future
+        : Future.value(GalleryAccessLevel.denied);
   }
 
   @override
-  Future<GalleryAccessLevel> requestAccess() => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<GalleryAccessLevel> requestAccess() =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<void> presentLimitedSelection() => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<void> presentLimitedSelection() =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<void> openSettings() => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<void> openSettings() =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
   Future<List<SlipCandidate>> queryConfiguredAlbums() =>
-      throw UnimplementedError('access is always denied in this test, so runScan() should short-circuit before ever reaching this');
+      throw UnimplementedError(
+        'access is always denied in this test, so runScan() should short-circuit before ever reaching this',
+      );
   @override
-  Future<Uint8List?> readBytes(String assetId) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<Uint8List?> readBytes(String assetId) =>
+      throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 /// Ticket 09: Home now reads `lastAutoScanUploadProvider`
@@ -216,13 +252,17 @@ class _FakeSlipUploadRepository implements SlipUploadRepository {
   Stream<DateTime?> watchLastSuccessfulAutoScanUpload() => Stream.value(null);
 
   @override
-  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
-  @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadOne(SlipCandidate candidate) =>
+  Future<List<SlipCandidate>> diffNewFiles(List<SlipCandidate> candidates) =>
       throw UnimplementedError('not exercised by the lifecycle-wiring test');
   @override
-  Future<Either<Failure, SlipUploadOutcome>> uploadManual({required Uint8List bytes, required String filename}) =>
-      throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  Future<Either<Failure, SlipUploadOutcome>> uploadOne(
+    SlipCandidate candidate,
+  ) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+  @override
+  Future<Either<Failure, SlipUploadOutcome>> uploadManual({
+    required Uint8List bytes,
+    required String filename,
+  }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
 }
 
 Future<void> _pumpBounded(WidgetTester tester) async {
@@ -237,14 +277,22 @@ void main() {
   Widget buildApp() => ProviderScope(
     overrides: [
       accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
-      categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
-      transactionsRepositoryProvider.overrideWithValue(_FakeTransactionsRepository()),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
+      transactionsRepositoryProvider.overrideWithValue(
+        _FakeTransactionsRepository(),
+      ),
       dashboardRepositoryProvider.overrideWithValue(_FakeDashboardRepository()),
       slipGalleryRepositoryProvider.overrideWithValue(galleryRepository),
       // T13: TransactionsPage watches this for its stuck-items badge as soon
       // as it's built (IndexedStack builds every tab up front).
-      pendingActionsRepositoryProvider.overrideWithValue(_FakePendingActionsRepository()),
-      slipUploadRepositoryProvider.overrideWithValue(_FakeSlipUploadRepository()),
+      pendingActionsRepositoryProvider.overrideWithValue(
+        _FakePendingActionsRepository(),
+      ),
+      slipUploadRepositoryProvider.overrideWithValue(
+        _FakeSlipUploadRepository(),
+      ),
     ],
     child: const MyApp(),
   );
@@ -260,7 +308,9 @@ void main() {
     expect(galleryRepository.currentAccessCalls, greaterThanOrEqualTo(1));
   });
 
-  testWidgets('backgrounding then resuming triggers exactly one more scan', (tester) async {
+  testWidgets('backgrounding then resuming triggers exactly one more scan', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await _pumpBounded(tester);
     final afterColdStart = galleryRepository.currentAccessCalls;
@@ -279,113 +329,142 @@ void main() {
     expect(galleryRepository.currentAccessCalls, afterColdStart + 1);
   });
 
-  testWidgets('pausing/inactive/detached alone never trigger a scan — only resumed does', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-    final afterColdStart = galleryRepository.currentAccessCalls;
+  testWidgets(
+    'pausing/inactive/detached alone never trigger a scan — only resumed does',
+    (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      final afterColdStart = galleryRepository.currentAccessCalls;
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    await _pumpBounded(tester);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await _pumpBounded(tester);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.detached);
-    await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.detached);
+      await _pumpBounded(tester);
 
-    expect(galleryRepository.currentAccessCalls, afterColdStart, reason: 'only AppLifecycleState.resumed should trigger a scan');
-  });
+      expect(
+        galleryRepository.currentAccessCalls,
+        afterColdStart,
+        reason: 'only AppLifecycleState.resumed should trigger a scan',
+      );
+    },
+  );
 
-  testWidgets('unmounting removes the lifecycle observer — no further calls after dispose', (tester) async {
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-    final afterColdStart = galleryRepository.currentAccessCalls;
+  testWidgets(
+    'unmounting removes the lifecycle observer — no further calls after dispose',
+    (tester) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      final afterColdStart = galleryRepository.currentAccessCalls;
 
-    // Replace the whole tree (same effect as MyApp being disposed).
-    await tester.pumpWidget(const SizedBox.shrink());
-    await _pumpBounded(tester);
+      // Replace the whole tree (same effect as MyApp being disposed).
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpBounded(tester);
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _pumpBounded(tester);
 
-    expect(
-      galleryRepository.currentAccessCalls,
-      afterColdStart,
-      reason: 'the observer should have been removed on dispose, so this resumed event has no listener left to react to it',
-    );
-  });
+      expect(
+        galleryRepository.currentAccessCalls,
+        afterColdStart,
+        reason: 'the observer should have been removed on dispose, so this resumed event has no listener left to react to it',
+      );
+    },
+  );
 
-  testWidgets('a resume firing while a scan is still mid-flight is deduplicated by T10\'s guard, not run concurrently', (tester) async {
-    final pending = Completer<GalleryAccessLevel>();
-    galleryRepository.pendingAccess = pending;
+  testWidgets(
+    'a resume firing while a scan is still mid-flight is deduplicated by T10\'s guard, not run concurrently',
+    (tester) async {
+      final pending = Completer<GalleryAccessLevel>();
+      galleryRepository.pendingAccess = pending;
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-    // Cold start's scan should have reached currentAccess() exactly once
-    // and now be stuck there, awaiting `pending` — i.e. genuinely mid-flight
-    // (isScanning still true on the real SlipScanPipeline), not settled.
-    expect(galleryRepository.currentAccessCalls, 1, reason: 'cold start should be stuck mid-scan at this point');
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      // Cold start's scan should have reached currentAccess() exactly once
+      // and now be stuck there, awaiting `pending` — i.e. genuinely mid-flight
+      // (isScanning still true on the real SlipScanPipeline), not settled.
+      expect(
+        galleryRepository.currentAccessCalls,
+        1,
+        reason: 'cold start should be stuck mid-scan at this point',
+      );
 
-    // Rapid re-trigger while the first scan is still in flight — this is
-    // exactly the scenario T10's re-entrancy guard exists for.
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await _pumpBounded(tester);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await _pumpBounded(tester);
+      // Rapid re-trigger while the first scan is still in flight — this is
+      // exactly the scenario T10's re-entrancy guard exists for.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _pumpBounded(tester);
 
-    expect(
-      galleryRepository.currentAccessCalls,
-      1,
-      reason: 'a resume firing mid-scan must be rejected by the guard before ever reaching currentAccess() again — if this is 2, T10\'s '
-          'sequential-upload guarantee has been violated: two overlapping scans are now running concurrently',
-    );
+      expect(
+        galleryRepository.currentAccessCalls,
+        1,
+        reason:
+            'a resume firing mid-scan must be rejected by the guard before ever reaching currentAccess() again — if this is 2, T10\'s '
+            'sequential-upload guarantee has been violated: two overlapping scans are now running concurrently',
+      );
 
-    // Let the first (and only) scan finish, then confirm a later resume,
-    // now that nothing is in flight, proceeds normally.
-    pending.complete(GalleryAccessLevel.denied);
-    await _pumpBounded(tester);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await _pumpBounded(tester);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await _pumpBounded(tester);
+      // Let the first (and only) scan finish, then confirm a later resume,
+      // now that nothing is in flight, proceeds normally.
+      pending.complete(GalleryAccessLevel.denied);
+      await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await _pumpBounded(tester);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _pumpBounded(tester);
 
-    expect(galleryRepository.currentAccessCalls, 2, reason: 'once the first scan has finished, a fresh resume should proceed normally');
-  });
+      expect(
+        galleryRepository.currentAccessCalls,
+        2,
+        reason: 'once the first scan has finished, a fresh resume should proceed normally',
+      );
+    },
+  );
 
-  testWidgets('a manual trigger firing while a lifecycle-triggered scan is mid-flight does not double-fire either', (tester) async {
-    // T9/T10's debug page keeps its own manual "Scan & Upload" button
-    // alongside the automatic triggers (T11's own choice, flagged at the
-    // time) — its onPressed handler is exactly
-    // `ref.read(slipScanPipelineProvider.notifier).runScan`, the same
-    // method and the same guard as every trigger above, so calling it
-    // directly here (rather than navigating to and tapping the actual
-    // button) exercises the identical code path a real tap would. The
-    // button is additionally disabled in the UI while `isScanning` is true
-    // (`onPressed: progress.isScanning ? null : onScan` in
-    // slip_gallery_debug_page.dart) — a second, UI-level line of defense on
-    // top of the guard this test targets, not exercised here since this
-    // test calls the notifier directly.
-    final pending = Completer<GalleryAccessLevel>();
-    galleryRepository.pendingAccess = pending;
+  testWidgets(
+    'a manual trigger firing while a lifecycle-triggered scan is mid-flight does not double-fire either',
+    (tester) async {
+      // T9/T10's debug page keeps its own manual "Scan & Upload" button
+      // alongside the automatic triggers (T11's own choice, flagged at the
+      // time) — its onPressed handler is exactly
+      // `ref.read(slipScanPipelineProvider.notifier).runScan`, the same
+      // method and the same guard as every trigger above, so calling it
+      // directly here (rather than navigating to and tapping the actual
+      // button) exercises the identical code path a real tap would. The
+      // button is additionally disabled in the UI while `isScanning` is true
+      // (`onPressed: progress.isScanning ? null : onScan` in
+      // slip_gallery_debug_page.dart) — a second, UI-level line of defense on
+      // top of the guard this test targets, not exercised here since this
+      // test calls the notifier directly.
+      final pending = Completer<GalleryAccessLevel>();
+      galleryRepository.pendingAccess = pending;
 
-    await tester.pumpWidget(buildApp());
-    await _pumpBounded(tester);
-    expect(galleryRepository.currentAccessCalls, 1, reason: 'cold start should be stuck mid-scan at this point');
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+      expect(
+        galleryRepository.currentAccessCalls,
+        1,
+        reason: 'cold start should be stuck mid-scan at this point',
+      );
 
-    final element = tester.element(find.byType(MyApp));
-    final container = ProviderScope.containerOf(element);
-    await container.read(slipScanPipelineProvider.notifier).runScan();
-    await _pumpBounded(tester);
+      final element = tester.element(find.byType(MyApp));
+      final container = ProviderScope.containerOf(element);
+      await container.read(slipScanPipelineProvider.notifier).runScan();
+      await _pumpBounded(tester);
 
-    expect(
-      galleryRepository.currentAccessCalls,
-      1,
-      reason: 'a manual trigger firing mid-scan must be rejected by the same guard — no double-fire alongside the automatic lifecycle trigger',
-    );
+      expect(
+        galleryRepository.currentAccessCalls,
+        1,
+        reason: 'a manual trigger firing mid-scan must be rejected by the same guard — no double-fire alongside the automatic lifecycle trigger',
+      );
 
-    // Never leave a Completer permanently incomplete at test end — an
-    // earlier version of this suite did exactly that and, combined with a
-    // real production bug that defeated the guard, caused a genuine 10
-    // minute test hang instead of a fast, clear failure.
-    pending.complete(GalleryAccessLevel.denied);
-    await _pumpBounded(tester);
-  });
+      // Never leave a Completer permanently incomplete at test end — an
+      // earlier version of this suite did exactly that and, combined with a
+      // real production bug that defeated the guard, caused a genuine 10
+      // minute test hang instead of a fast, clear failure.
+      pending.complete(GalleryAccessLevel.denied);
+      await _pumpBounded(tester);
+    },
+  );
 }

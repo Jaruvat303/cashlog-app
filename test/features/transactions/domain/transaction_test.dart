@@ -10,23 +10,44 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('computeIsJunk (spec §7.7: amount==0 && senderName.isEmpty && receiverName.isEmpty)', () {
     test('all three conditions true — junk', () {
-      expect(computeIsJunk(amount: 0, senderName: '', receiverName: ''), isTrue);
+      expect(
+        computeIsJunk(amount: 0, senderName: '', receiverName: ''),
+        isTrue,
+      );
     });
 
-    test('amount nonzero alone is enough to clear it, even with both names empty', () {
-      expect(computeIsJunk(amount: 100, senderName: '', receiverName: ''), isFalse);
-    });
+    test(
+      'amount nonzero alone is enough to clear it, even with both names empty',
+      () {
+        expect(
+          computeIsJunk(amount: 100, senderName: '', receiverName: ''),
+          isFalse,
+        );
+      },
+    );
 
-    test('a nonempty senderName alone is enough to clear it, even with amount==0', () {
-      expect(computeIsJunk(amount: 0, senderName: 'Someone', receiverName: ''), isFalse);
-    });
+    test(
+      'a nonempty senderName alone is enough to clear it, even with amount==0',
+      () {
+        expect(
+          computeIsJunk(amount: 0, senderName: 'Someone', receiverName: ''),
+          isFalse,
+        );
+      },
+    );
 
     test('a nonempty receiverName alone is enough to clear it, even with amount==0 (the symmetric case)', () {
-      expect(computeIsJunk(amount: 0, senderName: '', receiverName: 'Someone'), isFalse);
+      expect(
+        computeIsJunk(amount: 0, senderName: '', receiverName: 'Someone'),
+        isFalse,
+      );
     });
 
     test('all three conditions false — not junk', () {
-      expect(computeIsJunk(amount: 500, senderName: 'A', receiverName: 'B'), isFalse);
+      expect(
+        computeIsJunk(amount: 500, senderName: 'A', receiverName: 'B'),
+        isFalse,
+      );
     });
   });
 }

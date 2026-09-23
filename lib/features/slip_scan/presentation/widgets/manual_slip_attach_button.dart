@@ -29,11 +29,13 @@ class _RealManualSlipImageSource implements ManualSlipImageSource {
   final _picker = ImagePicker();
 
   @override
-  Future<XFile?> pickImage(ImageSource source) => _picker.pickImage(source: source);
+  Future<XFile?> pickImage(ImageSource source) =>
+      _picker.pickImage(source: source);
 }
 
 @riverpod
-ManualSlipImageSource manualSlipImageSource(Ref ref) => _RealManualSlipImageSource();
+ManualSlipImageSource manualSlipImageSource(Ref ref) =>
+    _RealManualSlipImageSource();
 
 /// Ticket 05's global create FAB — the mockup's speed-dial: tapping it raises
 /// a translucent backdrop plus 3 stacked pill options (create manually /
@@ -47,7 +49,9 @@ class ManualSlipAttachButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isBusy = ref.watch(slipScanPipelineProvider.select((s) => s.isManualUploading));
+    final isBusy = ref.watch(
+      slipScanPipelineProvider.select((s) => s.isManualUploading),
+    );
 
     return FloatingActionButton(
       key: const Key('manualSlipAttachButton'),
@@ -68,7 +72,10 @@ class ManualSlipAttachButton extends ConsumerWidget {
             ? const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
               )
             : const Icon(RemixIcon.addLine, color: Colors.white, size: 26),
       ),
@@ -80,25 +87,40 @@ class ManualSlipAttachButton extends ConsumerWidget {
     if (choice == null || !context.mounted) return;
 
     if (choice == _AttachChoice.createManually) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionPage()));
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const AddTransactionPage()));
       return;
     }
 
-    final source = choice == _AttachChoice.camera ? ImageSource.camera : ImageSource.gallery;
-    final file = await ref.read(manualSlipImageSourceProvider).pickImage(source);
+    final source = choice == _AttachChoice.camera
+        ? ImageSource.camera
+        : ImageSource.gallery;
+    final file = await ref
+        .read(manualSlipImageSourceProvider)
+        .pickImage(source);
     if (file == null || !context.mounted) return;
 
     final bytes = await file.readAsBytes();
     if (!context.mounted) return;
 
-    final result = await ref.read(slipScanPipelineProvider.notifier).uploadManual(bytes: bytes, filename: file.name);
+    final result = await ref
+        .read(slipScanPipelineProvider.notifier)
+        .uploadManual(bytes: bytes, filename: file.name);
     if (!context.mounted) return;
 
     result.fold(
-      (failure) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failure.message ?? 'อัปโหลดสลิปไม่สำเร็จ'))),
-      (outcome) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(outcome is SlipUploaded ? 'อัปโหลดสลิปแล้ว' : 'สลิปนี้ถูกประมวลผลไปแล้ว'))),
+      (failure) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(failure.message ?? 'อัปโหลดสลิปไม่สำเร็จ')),
+      ),
+      (outcome) => ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            outcome is SlipUploaded
+                ? 'อัปโหลดสลิปแล้ว'
+                : 'สลิปนี้ถูกประมวลผลไปแล้ว',
+          ),
+        ),
+      ),
     );
   }
 
@@ -109,7 +131,8 @@ class ManualSlipAttachButton extends ConsumerWidget {
       barrierDismissible: true,
       barrierLabel: 'ปิด',
       transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (context, animation, secondaryAnimation) => const SizedBox.shrink(),
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          const SizedBox.shrink(),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
         return Stack(
           children: [
@@ -127,8 +150,13 @@ class ManualSlipAttachButton extends ConsumerWidget {
               child: FadeTransition(
                 opacity: animation,
                 child: SlideTransition(
-                  position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(animation),
-                  child: _SpeedDialOptions(onPicked: (choice) => Navigator.of(context).pop(choice)),
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.2),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: _SpeedDialOptions(
+                    onPicked: (choice) => Navigator.of(context).pop(choice),
+                  ),
                 ),
               ),
             ),
@@ -175,7 +203,13 @@ class _SpeedDialOptions extends StatelessWidget {
     );
   }
 
-  Widget _pill({required String key, required IconData icon, required String label, required VoidCallback onTap, bool gradient = false}) {
+  Widget _pill({
+    required String key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool gradient = false,
+  }) {
     return Material(
       key: Key(key),
       color: Colors.transparent,
@@ -194,11 +228,19 @@ class _SpeedDialOptions extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: gradient ? Colors.white : AppColors.textPrimary),
+              Icon(
+                icon,
+                size: 18,
+                color: gradient ? Colors.white : AppColors.textPrimary,
+              ),
               const SizedBox(width: 10),
               Text(
                 label,
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: gradient ? Colors.white : AppColors.textPrimary),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: gradient ? Colors.white : AppColors.textPrimary,
+                ),
               ),
             ],
           ),

@@ -31,12 +31,20 @@ Future<CategoryPickerResult?> showCategoryGridPicker(
   return showModalBottomSheet<CategoryPickerResult>(
     context: context,
     isScrollControlled: true,
-    builder: (_) => _CategoryGridSheet(categoryType: categoryType, currentCategoryId: currentCategoryId, subtitle: subtitle),
+    builder: (_) => _CategoryGridSheet(
+      categoryType: categoryType,
+      currentCategoryId: currentCategoryId,
+      subtitle: subtitle,
+    ),
   );
 }
 
 class _CategoryGridSheet extends ConsumerStatefulWidget {
-  const _CategoryGridSheet({required this.categoryType, required this.currentCategoryId, required this.subtitle});
+  const _CategoryGridSheet({
+    required this.categoryType,
+    required this.currentCategoryId,
+    required this.subtitle,
+  });
 
   final CategoryType categoryType;
   final int? currentCategoryId;
@@ -76,7 +84,14 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('เลือกหมวดหมู่', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.textPrimary)),
+                  const Text(
+                    'เลือกหมวดหมู่',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   InkWell(
                     key: const Key('categoryPickerCloseButton'),
                     onTap: () => Navigator.of(context).pop(),
@@ -84,8 +99,15 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                     child: Container(
                       width: 28,
                       height: 28,
-                      decoration: const BoxDecoration(color: AppColors.background, shape: BoxShape.circle),
-                      child: const Icon(RemixIcon.closeLine, size: 16, color: AppColors.textSecondary),
+                      decoration: const BoxDecoration(
+                        color: AppColors.background,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        RemixIcon.closeLine,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -93,15 +115,25 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
               const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(widget.subtitle, style: const TextStyle(fontSize: 11.5, color: AppColors.textSecondary)),
+                child: Text(
+                  widget.subtitle,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
               ),
               const SizedBox(height: 14),
               Expanded(
                 child: categoriesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) =>
+                      Center(child: Text('โหลดหมวดหมู่ไม่สำเร็จ: $error')),
                   data: (categories) {
-                    final matching = categories.where((c) => c.type == widget.categoryType).toList();
+                    final matching = categories
+                        .where((c) => c.type == widget.categoryType)
+                        .toList();
                     final tiles = [
                       CategoryGridTile(
                         key: const Key('categoryOptionUncategorized'),
@@ -111,9 +143,11 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                         backgroundColor: AppColors.background,
                         borderColor: AppColors.textSecondary,
                         selected: widget.currentCategoryId == null,
-                        onTap: () => Navigator.of(
-                          context,
-                        ).pop(widget.currentCategoryId == null ? null : const CategoryPickerResult(null)),
+                        onTap: () => Navigator.of(context).pop(
+                          widget.currentCategoryId == null
+                              ? null
+                              : const CategoryPickerResult(null),
+                        ),
                       ),
                       for (final category in matching)
                         CategoryGridTile(
@@ -121,12 +155,15 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                           label: category.name,
                           icon: resolveCategoryIcon(category.iconKey),
                           iconColor: colorFromHex(category.colorHex),
-                          backgroundColor: colorFromHex(category.colorHex).withValues(alpha: 0.15),
+                          backgroundColor: colorFromHex(category.colorHex)
+                              .withValues(alpha: 0.15),
                           borderColor: colorFromHex(category.colorHex),
                           selected: widget.currentCategoryId == category.id,
-                          onTap: () => Navigator.of(
-                            context,
-                          ).pop(widget.currentCategoryId == category.id ? null : CategoryPickerResult(category.id)),
+                          onTap: () => Navigator.of(context).pop(
+                            widget.currentCategoryId == category.id
+                                ? null
+                                : CategoryPickerResult(category.id),
+                          ),
                         ),
                       CategoryGridTile(
                         key: const Key('categoryOptionAddNew'),
@@ -139,9 +176,14 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                         selected: false,
                         onTap: () async {
                           final navigator = Navigator.of(context);
-                          final created = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute(builder: (_) => CategoryFormPage(initialType: widget.categoryType)),
-                          );
+                          final created = await Navigator.of(context)
+                              .push<bool>(
+                                MaterialPageRoute(
+                                  builder: (_) => CategoryFormPage(
+                                    initialType: widget.categoryType,
+                                  ),
+                                ),
+                              );
                           if (created == true) navigator.pop();
                         },
                       ),
@@ -163,12 +205,13 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                         // ticket 08 already applied to the Categories grid
                         // screen's own (separate — see `CategoryGridTile`'s
                         // doc comment) tile/grid.
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
-                          mainAxisSpacing: 14,
-                          crossAxisSpacing: 10,
-                          mainAxisExtent: 108,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 4,
+                              mainAxisSpacing: 14,
+                              crossAxisSpacing: 10,
+                              mainAxisExtent: 108,
+                            ),
                         itemCount: tiles.length,
                         itemBuilder: (context, index) => tiles[index],
                       ),
@@ -188,13 +231,23 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(padding: EdgeInsets.only(top: 1), child: Icon(RemixIcon.flashlightLine, size: 13, color: AppColors.textSecondary)),
+                  Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      RemixIcon.flashlightLine,
+                      size: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   SizedBox(width: 7),
                   Flexible(
                     child: Text(
                       'แตะไอคอนเดียว = บันทึกและปิดทันที ไม่มีปุ่มยืนยัน',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 10.5, color: AppColors.textSecondary),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                 ],
@@ -265,7 +318,10 @@ class CategoryGridTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(AppRadii.cardLarge),
                     border: dashed
                         ? Border.all(color: AppColors.textFaint, width: 1.5)
-                        : Border.all(color: selected ? borderColor : Colors.transparent, width: 2),
+                        : Border.all(
+                            color: selected ? borderColor : Colors.transparent,
+                            width: 2,
+                          ),
                   ),
                   child: Center(child: Icon(icon, color: iconColor, size: 23)),
                 ),
@@ -279,9 +335,15 @@ class CategoryGridTile extends StatelessWidget {
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: AppColors.accentGradient,
-                        border: Border.fromBorderSide(BorderSide(color: AppColors.background, width: 2)),
+                        border: Border.fromBorderSide(
+                          BorderSide(color: AppColors.background, width: 2),
+                        ),
                       ),
-                      child: const Icon(Icons.check, size: 12, color: Colors.white),
+                      child: const Icon(
+                        Icons.check,
+                        size: 12,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
               ],
@@ -297,7 +359,12 @@ class CategoryGridTile extends StatelessWidget {
             // 08 applied to the Categories grid screen's tile label, needed
             // here for the same reason: without it, two lines at this font
             // size don't fit `mainAxisExtent` above.
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, height: 1.15, color: AppColors.chipUnselectedText),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1.15,
+              color: AppColors.chipUnselectedText,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ],

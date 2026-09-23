@@ -36,10 +36,11 @@ extension TransactionTypeLabel on TransactionType {
 /// Falls back to [TransactionType.expense] for any wire value this build
 /// doesn't recognize yet, so an unfamiliar/future enum value never crashes
 /// the app — mirrors `accountTypeFromWire`/`categoryTypeFromWire`.
-TransactionType transactionTypeFromWire(String value) => TransactionType.values.firstWhere(
-  (type) => type.name == value,
-  orElse: () => TransactionType.expense,
-);
+TransactionType transactionTypeFromWire(String value) =>
+    TransactionType.values.firstWhere(
+      (type) => type.name == value,
+      orElse: () => TransactionType.expense,
+    );
 
 /// Spec §7.7: the backend never sends a junk flag — Gemini is prompted to
 /// answer empty/zero rather than error when a slip image can't be read, so
@@ -47,8 +48,11 @@ TransactionType transactionTypeFromWire(String value) => TransactionType.values.
 /// otherwise-normal transaction with no usable data. The client detects
 /// that shape itself and flags it for the feed badge (see
 /// `TransactionListTile`).
-bool computeIsJunk({required double amount, required String senderName, required String receiverName}) =>
-    amount == 0 && senderName.isEmpty && receiverName.isEmpty;
+bool computeIsJunk({
+  required double amount,
+  required String senderName,
+  required String receiverName,
+}) => amount == 0 && senderName.isEmpty && receiverName.isEmpty;
 
 /// Mirrors `CachedTransactions` (spec §8) field-for-field so this doubles
 /// as T7's future feed read model with no rework.

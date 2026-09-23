@@ -38,10 +38,12 @@ class AutoScanProcessingIndicator extends ConsumerStatefulWidget {
   const AutoScanProcessingIndicator({super.key});
 
   @override
-  ConsumerState<AutoScanProcessingIndicator> createState() => _AutoScanProcessingIndicatorState();
+  ConsumerState<AutoScanProcessingIndicator> createState() =>
+      _AutoScanProcessingIndicatorState();
 }
 
-class _AutoScanProcessingIndicatorState extends ConsumerState<AutoScanProcessingIndicator> {
+class _AutoScanProcessingIndicatorState
+    extends ConsumerState<AutoScanProcessingIndicator> {
   Timer? _holdTimer;
   int? _completionCount;
 
@@ -52,7 +54,9 @@ class _AutoScanProcessingIndicatorState extends ConsumerState<AutoScanProcessing
   }
 
   void _onProgressChanged(SlipScanProgress? previous, SlipScanProgress next) {
-    final wasBusy = (previous?.isScanning ?? false) || (previous?.isManualUploading ?? false);
+    final wasBusy =
+        (previous?.isScanning ?? false) ||
+        (previous?.isManualUploading ?? false);
     final stillBusy = next.isScanning || next.isManualUploading;
 
     if (stillBusy) {
@@ -96,7 +100,9 @@ class _AutoScanProcessingIndicatorState extends ConsumerState<AutoScanProcessing
     final String label;
     if (isBusy) {
       if (progress.isScanning) {
-        label = progress.total > 0 ? 'กำลังประมวลผลสลิป ${progress.completed}/${progress.total}' : 'กำลังตรวจสอบสลิปใหม่...';
+        label = progress.total > 0
+            ? 'กำลังประมวลผลสลิป ${progress.completed}/${progress.total}'
+            : 'กำลังตรวจสอบสลิปใหม่...';
       } else {
         label = 'กำลังอัปโหลดสลิป...';
       }
@@ -116,15 +122,30 @@ class _AutoScanProcessingIndicatorState extends ConsumerState<AutoScanProcessing
       child: Row(
         children: [
           if (isBusy)
-            const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
           else
-            const Icon(RemixIcon.checkboxCircleFill, size: 18, color: AppColors.primary),
+            const Icon(
+              RemixIcon.checkboxCircleFill,
+              size: 18,
+              color: AppColors.primary,
+            ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               key: const Key('autoScanProcessingIndicatorText'),
               label,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: AppColors.primaryText),
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                color: AppColors.primaryText,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
