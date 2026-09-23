@@ -4,6 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../features/accounts/presentation/pages/accounts_page.dart';
 import '../../features/categories/presentation/pages/categories_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/dashboard/presentation/pages/trend_page.dart';
 import '../../features/slip_scan/presentation/pages/slip_gallery_debug_page.dart';
 import '../../features/transactions/presentation/pages/transactions_page.dart';
 import 'app_shell.dart';
@@ -25,6 +26,16 @@ GoRouter appRouter(Ref ref) {
       GoRoute(
         path: '/debug/slip-scan',
         builder: (context, state) => const SlipGalleryDebugPage(),
+      ),
+      // F3: pushed from an icon button on the "ดูสรุป" tab's (TransactionsPage)
+      // AppBar — a top-level sibling route rather than a 5th shell branch, so
+      // the shell (and the "ดูสรุป" tab underneath) stays mounted and back
+      // pops straight back to it, matching every other `context.push` route
+      // in this codebase's convention (none existed before this — see
+      // `/debug/slip-scan` above for the only prior top-level-route example).
+      GoRoute(
+        path: '/summary/trend',
+        builder: (context, state) => const TrendPage(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
