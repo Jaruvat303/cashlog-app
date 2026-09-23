@@ -4,6 +4,7 @@
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +19,10 @@ class _FakeDashboardRepository implements DashboardRepository {
     required int month,
   }) async =>
       nextResult ?? const Left(UnknownFailure(message: 'no result configured'));
+
+  @override
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 DashboardSummary _summary({double income = 100, double expense = 40}) =>

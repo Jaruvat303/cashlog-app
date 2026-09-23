@@ -21,6 +21,12 @@ part of 'cache_invalidator.dart';
 /// instance rebuilds immediately, one nobody's watching just gets dropped
 /// and lazily refetches next time it's watched — never an eager background
 /// refetch for months not in view.
+///
+/// F2: a mutation at (year, month) also changes that year's month-mode trend
+/// buckets, and (since one year's total changed) the single year-mode entry
+/// — so both ride along here too, on the same "invalidate, don't eagerly
+/// refetch" semantics, rather than each of `invalidateMonth`'s four call
+/// sites needing its own trend-invalidation call.
 
 @ProviderFor(cacheInvalidator)
 final cacheInvalidatorProvider = CacheInvalidatorProvider._();
@@ -38,6 +44,12 @@ final cacheInvalidatorProvider = CacheInvalidatorProvider._();
 /// instance rebuilds immediately, one nobody's watching just gets dropped
 /// and lazily refetches next time it's watched — never an eager background
 /// refetch for months not in view.
+///
+/// F2: a mutation at (year, month) also changes that year's month-mode trend
+/// buckets, and (since one year's total changed) the single year-mode entry
+/// — so both ride along here too, on the same "invalidate, don't eagerly
+/// refetch" semantics, rather than each of `invalidateMonth`'s four call
+/// sites needing its own trend-invalidation call.
 
 final class CacheInvalidatorProvider
     extends
@@ -60,6 +72,12 @@ final class CacheInvalidatorProvider
   /// instance rebuilds immediately, one nobody's watching just gets dropped
   /// and lazily refetches next time it's watched — never an eager background
   /// refetch for months not in view.
+  ///
+  /// F2: a mutation at (year, month) also changes that year's month-mode trend
+  /// buckets, and (since one year's total changed) the single year-mode entry
+  /// — so both ride along here too, on the same "invalidate, don't eagerly
+  /// refetch" semantics, rather than each of `invalidateMonth`'s four call
+  /// sites needing its own trend-invalidation call.
   CacheInvalidatorProvider._()
     : super(
         from: null,

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:cashlog/core/network/api_client.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -85,6 +86,86 @@ void main() {
     final repository = DashboardRepository(ApiClient(dio));
 
     final result = await repository.fetchSummary(year: 2026, month: 9);
+
+    expect(result.isLeft(), isTrue);
+  });
+
+  test('fetchTrend sends granularity and year as query params in month mode and parses the response', () async {
+    final adapter = _FakeAdapter({
+      'success': true,
+      'message': '',
+      'data': {
+        'granularity': 'month',
+        'year': 2026,
+        'buckets': [
+          {
+            'year': 2026,
+            'month': 1,
+            'total_income': 45000,
+            'total_expense': 32000,
+            'net': 13000,
+          },
+        ],
+      },
+    }, 200);
+    final dio = Dio()..httpClientAdapter = adapter;
+    final repository = DashboardRepository(ApiClient(dio));
+
+    final result = await repository.fetchTrend(const TrendQuery.month(2026));
+
+    expect(adapter.lastRequest?.path, '/api/v1/transactions/trend');
+    expect(adapter.lastRequest?.queryParameters, {
+      'granularity': 'month',
+      'year': 2026,
+    });
+    result.fold((failure) => fail('expected success, got $failure'), (summary) {
+      expect(summary.granularity, TrendGranularity.month);
+      expect(summary.year, 2026);
+      expect(summary.buckets, hasLength(1));
+    });
+  });
+
+  test('fetchTrend omits year entirely in year mode', () async {
+    final adapter = _FakeAdapter({
+      'success': true,
+      'message': '',
+      'data': {
+        'granularity': 'year',
+        'year': null,
+        'buckets': [
+          {
+            'year': 2026,
+            'month': null,
+            'total_income': 610250.75,
+            'total_expense': 356000,
+            'net': 254250.75,
+          },
+        ],
+      },
+    }, 200);
+    final dio = Dio()..httpClientAdapter = adapter;
+    final repository = DashboardRepository(ApiClient(dio));
+
+    final result = await repository.fetchTrend(const TrendQuery.year());
+
+    expect(adapter.lastRequest?.path, '/api/v1/transactions/trend');
+    expect(adapter.lastRequest?.queryParameters, {'granularity': 'year'});
+    result.fold((failure) => fail('expected success, got $failure'), (summary) {
+      expect(summary.granularity, TrendGranularity.year);
+      expect(summary.year, isNull);
+      expect(summary.buckets.single.month, isNull);
+    });
+  });
+
+  test('fetchTrend surfaces a Left(Failure) on a non-2xx response', () async {
+    final adapter = _FakeAdapter({
+      'error_code': 'BAD_REQUEST_PARAMETERS',
+      'message': 'year is required in month mode',
+    }, 400);
+    final dio = Dio()..httpClientAdapter = adapter;
+    final repository = DashboardRepository(ApiClient(dio));
+
+    final result = await repository.fetchTrend(const TrendQuery.month(2026));
 
     expect(result.isLeft(), isTrue);
   });

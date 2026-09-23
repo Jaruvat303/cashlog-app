@@ -7,7 +7,9 @@ import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/providers/dashboard_providers.dart';
+import 'package:cashlog/features/dashboard/presentation/providers/trend_providers.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
 import 'package:cashlog/features/transactions/domain/transaction.dart';
 import 'package:cashlog/features/transactions/domain/transaction_page.dart';
@@ -70,6 +72,7 @@ class _FakeTransactionsRepository implements TransactionsRepository {
 
 class _FakeDashboardRepository implements DashboardRepository {
   final List<(int, int)> fetchSummaryCalls = [];
+  final List<TrendQuery> fetchTrendCalls = [];
 
   @override
   Future<Either<Failure, DashboardSummary>> fetchSummary({
@@ -86,6 +89,18 @@ class _FakeDashboardRepository implements DashboardRepository {
         month: month,
         income: const [],
         expense: const [],
+      ),
+    );
+  }
+
+  @override
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) async {
+    fetchTrendCalls.add(query);
+    return Right(
+      TrendSummary(
+        granularity: query.granularity,
+        year: query.year,
+        buckets: const [],
       ),
     );
   }
@@ -170,6 +185,66 @@ void main() {
     expect(
       fakeDashboard.fetchSummaryCalls.where((m) => m == (2026, 8)).length,
       1,
+    );
+  });
+
+  test('invalidateMonth also invalidates that year\'s trend in both month and year mode, when watched', () async {
+    container.listen(
+      trendProvider(const TrendQuery.month(2026)),
+      (prev, next) {},
+    );
+    container.listen(trendProvider(const TrendQuery.year()), (prev, next) {});
+    await container.read(trendProvider(const TrendQuery.month(2026)).future);
+    await container.read(trendProvider(const TrendQuery.year()).future);
+    expect(fakeDashboard.fetchTrendCalls, [
+      const TrendQuery.month(2026),
+      const TrendQuery.year(),
+    ]);
+
+    container.read(cacheInvalidatorProvider).invalidateMonth(2026, 9);
+    await Future<void>.delayed(Duration.zero);
+    await container.read(trendProvider(const TrendQuery.month(2026)).future);
+    await container.read(trendProvider(const TrendQuery.year()).future);
+
+    expect(fakeDashboard.fetchTrendCalls, [
+      const TrendQuery.month(2026),
+      const TrendQuery.year(),
+      const TrendQuery.month(2026),
+      const TrendQuery.year(),
+    ]);
+  });
+
+  test('invalidateMonths across a year boundary invalidates trend for both affected years', () async {
+    container.listen(
+      trendProvider(const TrendQuery.month(2025)),
+      (prev, next) {},
+    );
+    container.listen(
+      trendProvider(const TrendQuery.month(2026)),
+      (prev, next) {},
+    );
+    await container.read(trendProvider(const TrendQuery.month(2025)).future);
+    await container.read(trendProvider(const TrendQuery.month(2026)).future);
+
+    container.read(cacheInvalidatorProvider).invalidateMonths({
+      (2025, 12),
+      (2026, 1),
+    });
+    await Future<void>.delayed(Duration.zero);
+    await container.read(trendProvider(const TrendQuery.month(2025)).future);
+    await container.read(trendProvider(const TrendQuery.month(2026)).future);
+
+    expect(
+      fakeDashboard.fetchTrendCalls
+          .where((q) => q == const TrendQuery.month(2025))
+          .length,
+      2,
+    );
+    expect(
+      fakeDashboard.fetchTrendCalls
+          .where((q) => q == const TrendQuery.month(2026))
+          .length,
+      2,
     );
   });
 }

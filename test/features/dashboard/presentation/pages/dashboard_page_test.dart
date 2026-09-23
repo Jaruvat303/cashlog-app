@@ -14,6 +14,7 @@ import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:cashlog/features/dashboard/presentation/widgets/auto_scan_processing_indicator.dart';
 import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
@@ -219,6 +220,10 @@ class _FakeDashboardRepository implements DashboardRepository {
       const Left(
         UnknownFailure(message: 'no result configured for this month'),
       );
+
+  @override
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 class _FakeSlipGalleryRepository implements SlipGalleryRepository {
