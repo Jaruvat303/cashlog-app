@@ -477,7 +477,9 @@ class _Thumbnail extends StatelessWidget {
       future: pendingFuture,
       builder: (context, snapshot) {
         final bytes = snapshot.data;
-        if (snapshot.connectionState != ConnectionState.done || bytes == null) return _placeholder();
+        if (snapshot.connectionState != ConnectionState.done || bytes == null) {
+          return _placeholder();
+        }
         return Column(
           children: [
             InkWell(

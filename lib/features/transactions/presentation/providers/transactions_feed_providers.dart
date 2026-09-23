@@ -78,7 +78,9 @@ class TransactionsFeedSync extends _$TransactionsFeedSync {
 
   Future<Either<Failure, void>> loadNextPage() async {
     final meta = state;
-    if (meta == null || meta.isLoadingMore || !meta.hasMore) return const Right(null);
+    if (meta == null || meta.isLoadingMore || !meta.hasMore) {
+      return const Right(null);
+    }
 
     state = meta.copyWith(isLoadingMore: true);
     final result = await ref.read(transactionsRepositoryProvider).fetchPage(year: year, month: month, page: meta.currentPage + 1);

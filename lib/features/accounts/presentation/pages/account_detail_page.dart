@@ -56,7 +56,9 @@ class AccountDetailPage extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('โหลดไม่สำเร็จ: $error')),
           data: (account) {
-            if (account == null) return const Center(child: Text('ไม่พบบัญชีนี้'));
+            if (account == null) {
+              return const Center(child: Text('ไม่พบบัญชีนี้'));
+            }
 
             final bankIcon = resolveBankIcon(account.bankIcon);
             return Column(

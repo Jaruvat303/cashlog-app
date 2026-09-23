@@ -1,3 +1,5 @@
+// ignore_for_file: non_const_argument_for_const_parameter
+
 import 'package:flutter/material.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
@@ -132,7 +134,6 @@ IconData resolveCategoryIcon(String iconKey) {
   // can't statically enumerate which glyphs are used. The project's release
   // build passes `--no-tree-shake-icons` accordingly (see
   // .github/workflows/ci.yml), shipping the full Remix Icon font instead.
-  // ignore: non_const_argument_for_const_parameter
   return IconData(codepoint, fontFamily: _fallbackIcon.fontFamily, fontPackage: _fallbackIcon.fontPackage);
 }
 

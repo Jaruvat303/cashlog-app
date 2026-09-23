@@ -254,9 +254,13 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
 
   String _dateLabel(DateTime date) {
     final today = DateTime.now();
-    if (date.year == today.year && date.month == today.month && date.day == today.day) return 'วันนี้';
+    if (date.year == today.year && date.month == today.month && date.day == today.day) {
+      return 'วันนี้';
+    }
     final yesterday = today.subtract(const Duration(days: 1));
-    if (date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day) return 'เมื่อวาน';
+    if (date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day) {
+      return 'เมื่อวาน';
+    }
     return '${date.day}/${date.month}/${date.year}';
   }
 

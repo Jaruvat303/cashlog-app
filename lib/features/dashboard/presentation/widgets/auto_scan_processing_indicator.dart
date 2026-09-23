@@ -65,14 +65,18 @@ class _AutoScanProcessingIndicatorState extends ConsumerState<AutoScanProcessing
       return;
     }
 
-    if (!wasBusy) return; // idle → idle, e.g. an unrelated `accessLevel` update.
+    if (!wasBusy) {
+      return; // idle → idle, e.g. an unrelated `accessLevel` update.
+    }
 
     final completedCount = previous!.isScanning && next.completed > 0
         ? next.completed
         : previous.isManualUploading
         ? 1
         : 0;
-    if (completedCount == 0) return; // an empty scan cycle found nothing to report.
+    if (completedCount == 0) {
+      return; // an empty scan cycle found nothing to report.
+    }
 
     _holdTimer?.cancel();
     setState(() => _completionCount = completedCount);

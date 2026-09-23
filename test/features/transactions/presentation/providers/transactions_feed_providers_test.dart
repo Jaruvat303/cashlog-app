@@ -25,7 +25,9 @@ class _FakeTransactionsRepository implements TransactionsRepository {
     requestedPages.add(page);
     if (gate != null) await gate!.future;
     final result = pages[page];
-    if (result == null) return const Left(UnknownFailure(message: 'no page configured'));
+    if (result == null) {
+      return const Left(UnknownFailure(message: 'no page configured'));
+    }
     return Right(result);
   }
 

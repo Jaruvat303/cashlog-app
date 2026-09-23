@@ -68,7 +68,9 @@ class SlipGalleryDebugController extends _$SlipGalleryDebugController {
       // Querying photo_manager with zero access either throws or returns
       // nothing meaningful — skip straight to an empty, denied state rather
       // than attempting it.
-      if (ref.mounted) state = state.copyWith(accessLevel: access, candidates: const [], hasLoaded: true);
+      if (ref.mounted) {
+        state = state.copyWith(accessLevel: access, candidates: const [], hasLoaded: true);
+      }
       return;
     }
     final candidates = await repo.queryConfiguredAlbums();
@@ -76,6 +78,8 @@ class SlipGalleryDebugController extends _$SlipGalleryDebugController {
     // the debug page being closed mid-query) — writing state after it's
     // gone throws, so bail per riverpod's own guidance (same reasoning as
     // TransactionsFeedSync).
-    if (ref.mounted) state = state.copyWith(accessLevel: access, candidates: candidates, hasLoaded: true);
+    if (ref.mounted) {
+      state = state.copyWith(accessLevel: access, candidates: candidates, hasLoaded: true);
+    }
   }
 }

@@ -4,7 +4,9 @@
 /// mid-entry (either side unset) rather than erroring early.
 String? validateTransferAccounts(int? fromAccountId, int? toAccountId) {
   if (fromAccountId == null || toAccountId == null) return null;
-  if (fromAccountId == toAccountId) return 'บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน';
+  if (fromAccountId == toAccountId) {
+    return 'บัญชีต้นทางและปลายทางต้องไม่ใช่บัญชีเดียวกัน';
+  }
   return null;
 }
 

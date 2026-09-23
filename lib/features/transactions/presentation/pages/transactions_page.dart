@@ -92,7 +92,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) return;
+    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
+      return;
+    }
     final month = ref.read(selectedMonthProvider);
     ref.read(transactionsFeedSyncProvider(month.year, month.month).notifier).loadNextPage();
   }

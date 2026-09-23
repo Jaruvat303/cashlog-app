@@ -147,7 +147,9 @@ class _FakeTransactionsRepository implements TransactionsRepository {
   Future<Either<Failure, TransactionPage>> fetchPage({required int year, required int month, required int page, int limit = 20}) async {
     fetchCalls.add((year, month, page));
     final result = pages[(year, month, page)];
-    if (result == null) return const Left(UnknownFailure(message: 'no page configured for this request'));
+    if (result == null) {
+      return const Left(UnknownFailure(message: 'no page configured for this request'));
+    }
     channelFor(year, month).append(result.transactions);
     return Right(result);
   }

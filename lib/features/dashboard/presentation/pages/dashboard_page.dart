@@ -85,7 +85,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) return;
+    if (_scrollController.position.pixels < _scrollController.position.maxScrollExtent - _kLoadMoreThreshold) {
+      return;
+    }
     final month = ref.read(selectedMonthProvider);
     ref.read(transactionsFeedSyncProvider(month.year, month.month).notifier).loadNextPage();
   }
@@ -317,7 +319,9 @@ class _GalleryPermissionBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accessLevel = ref.watch(slipScanPipelineProvider.select((p) => p.accessLevel));
-    if (accessLevel == null || accessLevel == GalleryAccessLevel.full) return const SizedBox.shrink();
+    if (accessLevel == null || accessLevel == GalleryAccessLevel.full) {
+      return const SizedBox.shrink();
+    }
 
     final (title, body, buttonLabel, onPressed) = accessLevel == GalleryAccessLevel.denied
         ? (
