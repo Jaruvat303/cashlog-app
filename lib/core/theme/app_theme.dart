@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'finance_colors.dart';
+
 /// Design tokens lifted from the Cashlog Home Redesign mockup (Artifact
 /// canvas `EzQR2CFArVrtPonnrqiezH`) — every hex here is copied verbatim from
 /// that canvas's screens, not approximated. One deliberate exception: the
@@ -117,6 +119,7 @@ class AppTheme {
 
     return base.copyWith(
       textTheme: textTheme,
+      extensions: const [FinanceColors.light],
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,

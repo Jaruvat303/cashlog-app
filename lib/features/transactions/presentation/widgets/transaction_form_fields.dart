@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/finance_colors.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../../../shared/widgets/pill_form_row.dart';
 import '../../../categories/domain/category.dart';
@@ -81,9 +82,9 @@ class TransactionFormFields extends StatelessWidget {
 
   bool get _isTransfer => type == TransactionType.transfer;
 
-  Color get _typeColor => switch (type) {
-    TransactionType.income => AppColors.income,
-    TransactionType.expense => AppColors.expense,
+  Color _typeColor(BuildContext context) => switch (type) {
+    TransactionType.income => context.financeColors.income,
+    TransactionType.expense => context.financeColors.expense,
     TransactionType.transfer => AppColors.accentA,
   };
 
@@ -146,10 +147,14 @@ class TransactionFormFields extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: _typeColor.withValues(alpha: 0.12),
+                      color: _typeColor(context).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(_typeIcon, color: _typeColor, size: 20),
+                    child: Icon(
+                      _typeIcon,
+                      color: _typeColor(context),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -164,7 +169,7 @@ class TransactionFormFields extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w700,
-                        color: _typeColor,
+                        color: _typeColor(context),
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -174,7 +179,7 @@ class TransactionFormFields extends StatelessWidget {
                         hintStyle: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w700,
-                          color: _typeColor.withValues(alpha: 0.3),
+                          color: _typeColor(context).withValues(alpha: 0.3),
                         ),
                       ),
                       validator: amountValidator,
