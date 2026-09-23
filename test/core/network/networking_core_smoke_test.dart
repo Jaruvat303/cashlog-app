@@ -1,3 +1,6 @@
+@Tags(['smoke'])
+library;
+
 // T1 DoD verification — hits the real dev Cloud Run deployment (read-only
 // GET requests only). Run with:
 //   flutter test --dart-define-from-file=env/dev.json test/core/network/networking_core_smoke_test.dart
