@@ -295,46 +295,24 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                       }),
                     ),
                     const SizedBox(height: 12),
-                    accountsAsync.when(
-                      loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (error, _) => Text('โหลดบัญชีไม่สำเร็จ: $error'),
-                      data: (accounts) {
-                        final account = _findAccount(accounts, _accountId);
-                        final from = _findAccount(accounts, _fromAccountId);
-                        final to = _findAccount(accounts, _toAccountId);
-                        return TransactionFormFields(
-                          type: _type,
-                          amountController: _amountController,
-                          amountValidator: (value) {
-                            // `value` now carries `AmountInputFormatter`'s
-                            // thousands-commas (e.g. "1,234.50") — strip them
-                            // before parsing, same as [parseAmountInput].
-                            final parsed = double.tryParse((value ?? '').replaceAll(',', ''));
-                            if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
-                            if (parsed <= 0) return 'ต้องมากกว่า 0';
-                            return null;
-                          },
-                          category: category,
-                          accountName: account?.name,
-                          fromAccountName: from?.name,
-                          toAccountName: to?.name,
-                          dateLabel: relativeDayLabel(_date),
-                          onCategoryTap: _pickCategory,
-                          onDateTap: (anchorContext) => _pickDate(),
-                          onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
-                          onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                            _fromAccountId = id;
-                            _transferError = null;
-                          })),
-                          onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
-                            _toAccountId = id;
-                            _transferError = null;
-                          })),
-                          transferError: _transferError,
-                          noteController: _noteController,
-                        );
-                      },
-                    ),
+                    // Bug fix: the amount/note fields used to live inside
+                    // `accountsAsync.when(...)`'s `data:` branch, so on
+                    // `loading`/`error` they weren't mounted at all — an
+                    // empty `Form` validates as `true`, so `_submit` could
+                    // slip past the amount validator entirely. Fields now
+                    // always render (mirroring `categoriesAsync` below,
+                    // which already fell back to `.value ?? const []`
+                    // instead of gating on `.when`), so they always
+                    // register with `_formKey` regardless of the accounts
+                    // stream's state.
+                    _buildFormFields(accountsAsync.value ?? const <Account>[], category),
+                    if (accountsAsync.hasError) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'โหลดบัญชีไม่สำเร็จ: ${accountsAsync.error}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.expense),
+                      ),
+                    ],
                     if (isTransfer) ...[
                       const SizedBox(height: 12),
                       const Text(
@@ -361,12 +339,62 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
     );
   }
 
+  Widget _buildFormFields(List<Account> accounts, Category? category) {
+    return TransactionFormFields(
+      type: _type,
+      amountController: _amountController,
+      amountValidator: (value) {
+        // `value` now carries `AmountInputFormatter`'s thousands-commas
+        // (e.g. "1,234.50") — strip them before parsing, same as
+        // [parseAmountInput].
+        final parsed = double.tryParse((value ?? '').replaceAll(',', ''));
+        if (parsed == null) return 'กรอกตัวเลขให้ถูกต้อง';
+        if (parsed <= 0) return 'ต้องมากกว่า 0';
+        return null;
+      },
+      category: category,
+      accountName: _resolveAccountName(accounts, _accountId),
+      fromAccountName: _resolveAccountName(accounts, _fromAccountId),
+      toAccountName: _resolveAccountName(accounts, _toAccountId),
+      dateLabel: relativeDayLabel(_date),
+      onCategoryTap: _pickCategory,
+      onDateTap: (anchorContext) => _pickDate(),
+      onAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() => _accountId = id)),
+      onFromAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+        _fromAccountId = id;
+        _transferError = null;
+      })),
+      onToAccountTap: (anchorContext) => _pickAccount(anchorContext, accounts, (id) => setState(() {
+        _toAccountId = id;
+        _transferError = null;
+      })),
+      transferError: _transferError,
+      noteController: _noteController,
+    );
+  }
+
   Account? _findAccount(List<Account> accounts, int? id) {
     if (id == null) return null;
     for (final a in accounts) {
       if (a.id == id) return a;
     }
     return null;
+  }
+
+  /// Bug fix: `accounts` (from [activeAccountsProvider]) is filtered to
+  /// `is_active = true`, so a transaction pointing at a since-closed
+  /// account resolved to no name at all here — contradicting CLAUDE.md's
+  /// rule that closed accounts stay in `cached_accounts` precisely so old
+  /// transactions can still resolve a name/logo. Falls back to
+  /// [cachedAccountProvider], the same full-cache-by-id lookup
+  /// `TransactionListTile` already uses for this exact reason, only when
+  /// the id isn't in the active list (the common case resolves for free
+  /// off the list already loaded for the picker, no extra stream needed).
+  String? _resolveAccountName(List<Account> accounts, int? id) {
+    if (id == null) return null;
+    final active = _findAccount(accounts, id);
+    if (active != null) return active.name;
+    return ref.watch(cachedAccountProvider(id)).value?.name;
   }
 
   Category? _findCategory(List<Category> categories, int? id) {

@@ -29,14 +29,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
-  @override
-  Stream<List<Account>> watchActiveAccounts() => Stream.value(const [
-    Account(id: 1, name: 'Cash', accountType: AccountType.cash, openingBalance: 0, matchingKeywords: [], bankIcon: 'cash', isActive: true),
-    Account(id: 2, name: 'SCB', accountType: AccountType.bank, openingBalance: 0, matchingKeywords: [], bankIcon: 'scb', isActive: true),
-  ]);
+  _FakeAccountsRepository({this.activeAccountsStream, this.cachedById = const {}});
+
+  /// Most tests just need the fixed two-account list below; a test that
+  /// wants to drive `activeAccountsProvider` into `loading`/`error` passes
+  /// its own stream instead (e.g. `Stream.error(...)`, never completed).
+  final Stream<List<Account>>? activeAccountsStream;
+
+  /// Backs [watchCached] — the full-cache-by-id lookup that (per
+  /// CLAUDE.md) still resolves a since-closed account's name, unlike
+  /// [watchActiveAccounts] which filters to `is_active = true`.
+  final Map<int, Account> cachedById;
 
   @override
-  Stream<Account?> watchCached(int id) => Stream.value(null);
+  Stream<List<Account>> watchActiveAccounts() =>
+      activeAccountsStream ??
+      Stream.value(const [
+        Account(id: 1, name: 'Cash', accountType: AccountType.cash, openingBalance: 0, matchingKeywords: [], bankIcon: 'cash', isActive: true),
+        Account(id: 2, name: 'SCB', accountType: AccountType.bank, openingBalance: 0, matchingKeywords: [], bankIcon: 'scb', isActive: true),
+      ]);
+
+  @override
+  Stream<Account?> watchCached(int id) => Stream.value(cachedById[id]);
 
   @override
   Stream<double> watchCurrentBalance(int accountId) => Stream.value(0);
@@ -351,9 +365,9 @@ void main() {
     PaintingBinding.instance.imageCache.clearLiveImages();
   });
 
-  Widget buildEditApp(Transaction initial) => ProviderScope(
+  Widget buildEditApp(Transaction initial, {AccountsRepository? accountsRepository}) => ProviderScope(
     overrides: [
-      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+      accountsRepositoryProvider.overrideWithValue(accountsRepository ?? _FakeAccountsRepository()),
       categoriesRepositoryProvider.overrideWithValue(_FakeCategoriesRepository()),
       transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
       pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
@@ -388,6 +402,76 @@ void main() {
       expect(cacheInvalidator.invalidatedMonthSets, [
         {(2026, 9)},
       ]);
+    });
+  });
+
+  /// Bug fix (found in code review of ticket 13's refactor): the amount/
+  /// note fields used to live inside `accountsAsync.when(...)`'s `data:`
+  /// branch alongside the account pills, so on `loading`/`error` they were
+  /// never mounted — an empty `Form` validates as `true`, so `_submit`
+  /// could skip the amount validator entirely whenever the accounts stream
+  /// wasn't in `data` state.
+  group('amount validation survives accounts-stream state (bug fix)', () {
+    testWidgets('the amount field stays mounted and its validator still blocks submit when the accounts stream errors', (tester) async {
+      final existing = Transaction(
+        id: 9,
+        amount: 100,
+        type: TransactionType.expense,
+        source: 'manual',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+      final erroringAccounts = _FakeAccountsRepository(activeAccountsStream: Stream<List<Account>>.error('boom'));
+      await tester.pumpWidget(buildEditApp(existing, accountsRepository: erroringAccounts));
+      await _pumpBounded(tester);
+
+      // The field must be present at all (this is what "unmounted, so the
+      // validator never runs" actually looked like).
+      expect(find.byKey(const Key('amountField')), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('amountField')), '');
+      await _pumpBounded(tester);
+      await tester.tap(find.byKey(const Key('submitButton')));
+      await _pumpBounded(tester);
+
+      expect(find.text('กรอกตัวเลขให้ถูกต้อง'), findsOneWidget);
+      expect(fakeTransactions.updateCallCount, 0);
+    });
+  });
+
+  /// Bug fix (found in code review of ticket 13's refactor): the amount
+  /// card's summary line resolved the account name from
+  /// `activeAccountsProvider`, which filters to `is_active = true` — so a
+  /// transaction on a since-closed account rendered as if it had no
+  /// account at all. CLAUDE.md is explicit that closed accounts stay in
+  /// `cached_accounts` precisely so old transactions can still resolve a
+  /// name; this now falls back to `cachedAccountProvider` (the full cache,
+  /// same lookup `TransactionListTile` already relies on) for that case.
+  group('closed-account name resolution (bug fix)', () {
+    testWidgets('editing a transaction on a since-closed account still shows its real account name, not "ยังไม่เลือกบัญชี"', (tester) async {
+      final existing = Transaction(
+        id: 11,
+        amount: 250,
+        type: TransactionType.expense,
+        accountId: 99,
+        source: 'manual',
+        transactionDate: DateTime.utc(2026, 9, 5),
+      );
+      const closedAccount = Account(
+        id: 99,
+        name: 'Old Wallet',
+        accountType: AccountType.cash,
+        openingBalance: 0,
+        matchingKeywords: [],
+        bankIcon: 'cash',
+        isActive: false,
+      );
+      final accountsWithClosed = _FakeAccountsRepository(cachedById: const {99: closedAccount});
+      await tester.pumpWidget(buildEditApp(existing, accountsRepository: accountsWithClosed));
+      await _pumpBounded(tester);
+
+      expect(find.text('Old Wallet'), findsOneWidget);
+      expect(find.text('ยังไม่เลือกบัญชี'), findsNothing);
+      expect(find.text('เลือกบัญชี'), findsNothing);
     });
   });
 

@@ -344,18 +344,41 @@ String _groupAmountDigits(String raw) {
 /// Ticket 07: replaces the removed custom on-screen numpad — the amount
 /// field takes the native numeric keyboard, and this formatter keeps the
 /// same comma-grouped-thousands / max-2-decimal-places display the numpad's
-/// live preview used, live as the user types. Always collapses the cursor
-/// to the end, which is fine for a field only ever appended to (no
-/// mid-string editing use case for a monetary amount).
+/// live preview used, live as the user types.
 ///
 /// Ticket 13: now shared by both Add and Edit's amount fields via
 /// [TransactionFormFields] — previously Add-only, since Edit had its own
 /// unformatted amount field before this ticket unified them.
+///
+/// Bug fix: this used to always collapse the cursor to the end, on the
+/// premise that the field is "only ever appended to". That held while it
+/// was Add-only (always starts empty), but Edit's field now opens
+/// pre-filled via [formatAmountForInput], where correcting a digit in the
+/// middle of the amount is the normal case — collapsing to the end there
+/// meant every keystroke after the first landed in the wrong place (e.g.
+/// deleting the leading "1" of "1,234.50" would reformat to "234.50" then
+/// jump the caret to the end, so the *next* backspace deleted the trailing
+/// "0" instead of the digit the user was actually aiming at). Now preserves
+/// the caret's position relative to the digits/decimal point around it —
+/// comma separators are pure presentation and never count as a position.
 class AmountInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     final formatted = _groupAmountDigits(newValue.text);
-    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+
+    final selectionEnd = newValue.selection.end;
+    final keptBeforeCaret = selectionEnd < 0
+        ? formatted.length
+        : newValue.text.substring(0, selectionEnd).replaceAll(RegExp(r'[^0-9.]'), '').length;
+
+    var offset = 0;
+    var kept = 0;
+    while (offset < formatted.length && kept < keptBeforeCaret) {
+      if (formatted[offset] != ',') kept++;
+      offset++;
+    }
+
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: offset));
   }
 }
 
