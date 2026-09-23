@@ -45,13 +45,13 @@ Tapping a bar shows a tooltip with income, expense and net. The data comes from 
 **Placement**
 
 - Everything lives inside the existing `dashboard` feature (same domain as the summary), not a new feature folder
-- New go_router route `/summary/trend`, pushed from an icon button (`ri-bar-chart-2-line`) on the "ดูสรุป" AppBar
+- New go_router route `/summary/trend`, pushed from an icon button (`ri-bar-chart-2-line`) on the "ดูสรุป" AppBar — a top-level route (sibling to the existing `/debug/slip-scan`) outside the bottom-nav `StatefulShellRoute`, not a 5th shell branch, so the shell (and the "ดูสรุป" tab underneath) stays mounted and back pops straight back to it
 
 **Theme**
 
 - New `FinanceColors` `ThemeExtension` with `income` and `expense` colors, registered on the main theme
 - Values are taken from the colors the create-transaction screen already uses for income/expense; that screen is refactored to read from `FinanceColors`
-- All other UI on the page uses the existing theme (blue–purple gradient)
+- The trend page's `AppBar` is flat, matching every other page's `AppBarTheme` (no page in the app gives its `AppBar` a gradient background) — "gradient theme" is expressed instead through the mode toggle (`SegmentedTabs`, whose selected segment already uses the app's accent gradient) and the ◀ ▶ year-switcher buttons (same icon-button styling `TransactionsPage`'s own month switcher uses)
 
 **Domain**
 
@@ -79,13 +79,14 @@ TrendResponse {
 
 **UI**
 
-- `SegmentedButton` [รายเดือน | รายปี]; year switcher ◀ year ▶ visible only in monthly mode
-- Year switcher bounds: not beyond the current year going forward; going back is bounded by the backend's allowed range
-- Grouped bar chart widget built with the existing `fl_chart` dependency (no new package)
-- Monthly mode: 12 slots always; future months of the current year are detected on the app side (bucket after the current Bangkok month) and render no bars with faded labels
-- Tap a bar → tooltip with income, expense, net; Y axis abbreviated K/M
+- `SegmentedTabs<TrendGranularity>` [รายเดือน | รายปี] — the app's existing shared toggle widget (already used for type/category tabs elsewhere), not Material's `SegmentedButton`; year switcher ◀ year ▶ visible only in monthly mode
+- Year switcher bounds: not beyond the current year going forward; going back is bounded by the earliest year `trendProvider(const TrendQuery.year())` reports a bucket for (that data is already needed for yearly mode and is `keepAlive`-cached, so this costs no extra request) — permissive (doesn't block navigation) while that read hasn't resolved yet or errors
+- Grouped bar chart widget built with the existing `fl_chart` dependency (no new package); rod width is computed from the actually available width (`LayoutBuilder`, same approach `ExpensePieChart` uses) and clamped, rather than a fixed pixel width — a fixed width times 12 month-mode groups overflows a narrow phone
+- Monthly mode: 12 slots always; future months of the current year are detected the same way `SelectedMonth` determines "now" — bare device-local `DateTime.now()`, not a genuine Asia/Bangkok timezone conversion (no such helper exists anywhere in the app) — and render no bars with faded labels
+- Tap a bar → tooltip with a period header (`มี.ค. 2569` in monthly mode, just `2569` in yearly mode) followed by labelled `รายรับ`/`รายจ่าย`/`สุทธิ` lines (e.g. `สุทธิ -฿2,000` when expense exceeds income for that period — `formatAmount`'s existing negative-number handling already renders this correctly); Y axis abbreviated K/M
 - Legend for income/expense
 - Loading, error (with retry), and data states driven by the provider
+- Pull-to-refresh (`RefreshIndicator` around a scrollable `AlwaysScrollableScrollPhysics` body, so the pull registers even when content already fits the screen) re-fetches the currently shown query — added because `trendProvider` is `keepAlive`, so without this an edit made outside the app (e.g. a `curl` against dev) would never be reflected here
 
 **Backend dependency**
 
