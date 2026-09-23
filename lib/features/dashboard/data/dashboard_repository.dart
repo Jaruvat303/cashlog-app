@@ -4,7 +4,9 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/failure.dart';
 import '../domain/dashboard_summary.dart';
+import '../domain/trend_summary.dart';
 import 'dashboard_mapper.dart';
+import 'trend_mapper.dart';
 
 part 'dashboard_repository.g.dart';
 
@@ -35,6 +37,23 @@ class DashboardRepository {
     parse: (data) =>
         dashboardSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
   );
+
+  /// No local table backs this either, same reasoning as [fetchSummary]
+  /// (spec's in-memory-only trend data decision) — `year` is only ever sent
+  /// on the wire when [TrendQuery] carries one (month mode); year mode's
+  /// `TrendQuery.year` always has `year == null`, so it's omitted here by
+  /// construction rather than by a second branch that could drift out of
+  /// sync with the query type.
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
+      _apiClient.get<TrendSummary>(
+        '/api/v1/transactions/trend',
+        queryParameters: {
+          'granularity': query.granularity.queryValue,
+          if (query.year != null) 'year': query.year,
+        },
+        parse: (data) =>
+            trendSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
+      );
 }
 
 @riverpod

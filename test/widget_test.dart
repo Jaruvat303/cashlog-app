@@ -22,6 +22,7 @@ import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/categories/presentation/pages/categories_page.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:cashlog/features/slip_scan/data/slip_gallery_repository.dart';
 import 'package:cashlog/features/slip_scan/data/slip_upload_repository.dart';
@@ -192,6 +193,10 @@ class _FakeDashboardRepository implements DashboardRepository {
       expense: const [],
     ),
   );
+
+  @override
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 /// T13 replaced the Transactions placeholder's AppBar with a stuck-items

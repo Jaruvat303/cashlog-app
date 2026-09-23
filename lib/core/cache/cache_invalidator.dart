@@ -1,6 +1,8 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import '../../features/dashboard/domain/trend_summary.dart';
 import '../../features/dashboard/presentation/providers/dashboard_providers.dart';
+import '../../features/dashboard/presentation/providers/trend_providers.dart';
 import '../../features/transactions/presentation/providers/transactions_feed_providers.dart';
 
 part 'cache_invalidator.g.dart';
@@ -18,6 +20,12 @@ part 'cache_invalidator.g.dart';
 /// instance rebuilds immediately, one nobody's watching just gets dropped
 /// and lazily refetches next time it's watched — never an eager background
 /// refetch for months not in view.
+///
+/// F2: a mutation at (year, month) also changes that year's month-mode trend
+/// buckets, and (since one year's total changed) the single year-mode entry
+/// — so both ride along here too, on the same "invalidate, don't eagerly
+/// refetch" semantics, rather than each of `invalidateMonth`'s four call
+/// sites needing its own trend-invalidation call.
 @riverpod
 CacheInvalidator cacheInvalidator(Ref ref) => CacheInvalidator(ref);
 
@@ -29,6 +37,8 @@ class CacheInvalidator {
   void invalidateMonth(int year, int month) {
     _ref.invalidate(monthTransactionsProvider(year, month));
     _ref.invalidate(dashboardSummaryProvider(year, month));
+    _ref.invalidate(trendProvider(TrendQuery.month(year)));
+    _ref.invalidate(trendProvider(const TrendQuery.year()));
   }
 
   void invalidateMonths(Set<(int year, int month)> months) {

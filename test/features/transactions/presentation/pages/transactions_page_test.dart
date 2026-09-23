@@ -15,6 +15,7 @@ import 'package:cashlog/features/categories/data/categories_repository.dart';
 import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
+import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
 import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -292,6 +293,10 @@ class _FakeDashboardRepository implements DashboardRepository {
       const Left(
         UnknownFailure(message: 'no result configured for this month'),
       );
+
+  @override
+  Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
+      throw UnimplementedError('not exercised by this test');
 }
 
 CategoryBreakdown _breakdown(int id, String name, double amount) =>
