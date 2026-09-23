@@ -16,6 +16,7 @@ import 'package:cashlog/features/categories/domain/category.dart';
 import 'package:cashlog/features/dashboard/data/dashboard_repository.dart';
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/domain/trend_summary.dart';
+import 'package:cashlog/features/dashboard/presentation/pages/trend_page.dart';
 import 'package:cashlog/features/transactions/data/pending_action_mapper.dart';
 import 'package:cashlog/features/transactions/data/pending_actions_repository.dart';
 import 'package:cashlog/features/transactions/data/transactions_repository.dart';
@@ -29,6 +30,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
@@ -403,6 +405,57 @@ void main() {
       dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
     ],
     child: const MaterialApp(home: TransactionsPage()),
+  );
+
+  /// F3's route wiring specifically ("pushes route `/summary/trend`; back
+  /// returns to the tab") needs a real `GoRouter` in the tree — `buildApp`
+  /// above intentionally stays a plain `MaterialApp(home: ...)` for every
+  /// other test here, since none of them exercise navigation.
+  Widget buildRoutedApp() => ProviderScope(
+    overrides: [
+      accountsRepositoryProvider.overrideWithValue(_FakeAccountsRepository()),
+      categoriesRepositoryProvider.overrideWithValue(
+        _FakeCategoriesRepository(),
+      ),
+      transactionsRepositoryProvider.overrideWithValue(fakeTransactions),
+      pendingActionsRepositoryProvider.overrideWithValue(pendingActions),
+      dashboardRepositoryProvider.overrideWithValue(fakeDashboard),
+    ],
+    child: MaterialApp.router(
+      routerConfig: GoRouter(
+        initialLocation: '/transactions',
+        routes: [
+          GoRoute(
+            path: '/transactions',
+            builder: (context, state) => const TransactionsPage(),
+          ),
+          GoRoute(
+            path: '/summary/trend',
+            builder: (context, state) => const TrendPage(),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  testWidgets(
+    'F3: the trend chart button pushes /summary/trend, and back returns to this page',
+    (tester) async {
+      await tester.pumpWidget(buildRoutedApp());
+      await _pumpBounded(tester);
+
+      expect(find.byKey(const Key('trendChartButton')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('trendChartButton')));
+      await _pumpBounded(tester);
+
+      expect(find.byType(TransactionsPage), findsNothing);
+      expect(find.text('เปรียบเทียบรายรับ–รายจ่าย'), findsOneWidget);
+
+      await tester.pageBack();
+      await _pumpBounded(tester);
+
+      expect(find.byType(TransactionsPage), findsOneWidget);
+    },
   );
 
   testWidgets(
@@ -1187,8 +1240,8 @@ void main() {
         final appBar = tester.widget<AppBar>(find.byType(AppBar));
         expect(
           appBar.actions,
-          hasLength(1),
-          reason: 'ticket 02\'s own action button, nothing else beside it',
+          hasLength(2),
+          reason: 'ticket 02\'s own action button plus F3\'s trend chart button, nothing else beside them',
         );
         expect(find.byIcon(RemixIcon.filterLine), findsNothing);
         expect(find.byIcon(RemixIcon.filter3Line), findsNothing);

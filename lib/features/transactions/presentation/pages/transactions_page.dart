@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/month/selected_month_provider.dart';
@@ -230,6 +231,15 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ],
         ),
         actions: [
+          // F3: opens "เปรียบเทียบรายรับ–รายจ่าย" — a `push`, not `go`, so this
+          // tab's own state (month, scroll position, filters) stays exactly
+          // as it was underneath, and back returns to it unchanged.
+          IconButton(
+            key: const Key('trendChartButton'),
+            icon: const Icon(RemixIcon.barChart2Line),
+            tooltip: 'เปรียบเทียบรายรับ–รายจ่าย',
+            onPressed: () => context.push('/summary/trend'),
+          ),
           // Ticket 04: the page-level manual-entry "+" button is removed —
           // the same action is now reachable from the global FAB (ticket 05).
           IconButton(
