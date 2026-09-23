@@ -1,9 +1,11 @@
 # CLAUDE.md — Cashlog Mobile (Flutter client)
 
-This file is project-wide context for Claude Code. It reflects decisions already
-finalized in `cashlog-frontend-spec.md` and `cashlog-frontend-tickets.md`, plus
-the follow-up bug-fix/redesign round in `cashlog-fixes-redesign-spec.md` and
-`cashlog-fixes-redesign-tickets.md`.
+This file is project-wide context for Claude Code. It reflects decisions
+finalized across the original build (T1–T21, tracked in `TASKS.md`) and the
+subsequent UI redesign/polish rounds. The spec docs those rounds were written
+against have since been superseded and removed from the repo — `TASKS.md` and
+`SRS-cashlog-system.md` are the only living reference documents; everything
+else settled from those rounds has been folded into this file directly.
 Do not re-litigate these — if something here conflicts with a request, flag it
 instead of silently overriding.
 
@@ -35,8 +37,10 @@ instead of silently overriding.
   interceptor converts errors into `Failure` at the boundary.
 - **Local persistence:** `drift` (typed sqlite). Five tables: `ScannedSlips`,
   `CachedTransactions`, `CachedAccounts`, `CachedCategories`,
-  `PendingManualActions`. See spec §8 for exact schema — don't invent new
-  columns without checking there first.
+  `PendingManualActions`. Schema now lives only in
+  `lib/core/db/app_database.dart` (the doc that used to hold it,
+  `cashlog-frontend-spec.md` §8, was removed from the repo) — don't invent
+  new columns without checking there first.
 - **Routing:** `go_router`.
 
 ## Environments
@@ -103,7 +107,9 @@ instead of silently overriding.
 - **Rate limits:** `/api/v1/*` general = 60 req/60s. `/upload-slip` = 10
   req/60s specifically. Slip uploads must be sequential with a fixed ~7s
   delay between files — never fire uploads concurrently.
-- **Retry policy** (see spec §4 for the full error_code table):
+- **Retry policy** (this list below is the full error_code table now — the
+  doc it came from, `cashlog-frontend-spec.md` §4, has been removed from the
+  repo):
   - Transient (`ErrTimeout`, `ErrGeminiUnavailable`, `ErrInternalDB`,
     `ErrContextCanceled`) → auto-retry.
   - Permanent (`ErrNotFound`, `ErrDuplicateRequest`, `ErrInvalidInput`,
@@ -157,11 +163,18 @@ instead of silently overriding.
 
 ## Reference documents
 
-- `SRS-cashlog-system-v2.docx` — source of truth for backend business rules
-  (note: as of the last check, a few sections are stale — see "Open Items"
-  in the frontend spec for known doc/code mismatches).
-- `cashlog-frontend-spec.md` — this file's source; consult it for anything
-  not covered here (full drift schema, sequence diagrams, etc).
-- `cashlog-frontend-tickets.md` — the T1–T19 implementation plan and
-  dependency graph. Work ticket-by-ticket; check "Blocked by" before
-  starting one.
+- `SRS-cashlog-system.md` — source of truth for backend business rules
+  (BR-1 through BR-11) and data model (§6). Supersedes the old
+  `SRS-cashlog-system-v2.docx` reference (that file was never in this repo;
+  this is now the in-repo, up-to-date version).
+- `TASKS.md` — the T1–T21 implementation plan and dependency graph for the
+  original build. Work ticket-by-ticket; check "Blocked by" before starting
+  one.
+- The frontend spec/tickets docs this file was originally written against
+  (`cashlog-frontend-spec.md`, `cashlog-frontend-tickets.md`,
+  `cashlog-fixes-redesign-spec.md`, `cashlog-fixes-redesign-tickets.md`, and
+  the later UI-redesign-round docs that replaced them) have all been
+  deleted from the repo — their decisions are captured in this file and in
+  `TASKS.md`. Don't reference filenames outside this list; if you need
+  detail this file doesn't have, ask rather than assuming a doc still
+  exists.
