@@ -7,6 +7,7 @@
 // hatch, covered separately.
 import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
+import 'package:cashlog/core/theme/finance_colors.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
@@ -453,5 +454,54 @@ void main() {
       expect(find.text('Invalid input'), findsOneWidget);
       expect(await pendingActions.watchAll().first, isEmpty);
     });
+  });
+
+  // F1: income/expense colors moved to FinanceColors — this guards that the
+  // create-transaction screen still renders the exact same colors it did
+  // before the refactor (FinanceColors.light carries the same values as the
+  // AppColors constants this screen used directly).
+  group('F1 FinanceColors regression', () {
+    testWidgets(
+      'expense (default type) renders FinanceColors.expense for the icon and amount field',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
+
+        final icon = tester.widget<Icon>(find.byIcon(RemixIcon.arrowDownLine));
+        expect(icon.color, FinanceColors.light.expense);
+
+        final amountField = tester.widget<TextField>(
+          find.descendant(
+            of: find.byKey(const Key('amountField')),
+            matching: find.byType(TextField),
+          ),
+        );
+        expect(amountField.style!.color, FinanceColors.light.expense);
+      },
+    );
+
+    testWidgets(
+      'income renders FinanceColors.income for the icon and amount field',
+      (tester) async {
+        await tester.pumpWidget(buildApp());
+        await tester.tap(find.text('open'));
+        await _pumpBounded(tester);
+
+        await tester.tap(find.text('รายรับ'));
+        await _pumpBounded(tester);
+
+        final icon = tester.widget<Icon>(find.byIcon(RemixIcon.arrowUpLine));
+        expect(icon.color, FinanceColors.light.income);
+
+        final amountField = tester.widget<TextField>(
+          find.descendant(
+            of: find.byKey(const Key('amountField')),
+            matching: find.byType(TextField),
+          ),
+        );
+        expect(amountField.style!.color, FinanceColors.light.income);
+      },
+    );
   });
 }
