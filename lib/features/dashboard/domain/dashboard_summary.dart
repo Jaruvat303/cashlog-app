@@ -20,10 +20,10 @@ class CategoryBreakdown {
   final double totalAmount;
 }
 
-/// `GET /api/v1/transactions/summary`'s `DashboardSummaryResponse` (spec §11 — monthly
-/// scope only in v1). No `cached_dashboard_summary` drift table exists on
-/// purpose (spec §8): this is never persisted to disk, only held in-memory
-/// by `dashboardSummaryProvider`.
+/// `GET /api/v1/transactions/summary`'s `DashboardSummaryResponse`, in
+/// monthly scope for the dashboard and yearly scope for the annual summary.
+/// No `cached_dashboard_summary` drift table exists on purpose (spec §8):
+/// this is never persisted to disk, only held in-memory by Riverpod.
 class DashboardSummary {
   const DashboardSummary({
     required this.totalIncome,

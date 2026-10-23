@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/finance_colors.dart';
 import '../../../../shared/widgets/category_icon.dart';
 import '../../../../shared/widgets/pill_form_row.dart';
 import '../../../categories/domain/category.dart';
@@ -82,10 +81,10 @@ class TransactionFormFields extends StatelessWidget {
 
   bool get _isTransfer => type == TransactionType.transfer;
 
-  Color _typeColor(BuildContext context) => switch (type) {
-    TransactionType.income => context.financeColors.income,
-    TransactionType.expense => context.financeColors.expense,
-    TransactionType.transfer => AppColors.accentA,
+  Color get _typeColor => switch (type) {
+    TransactionType.income => AppColors.income,
+    TransactionType.expense => AppColors.expense,
+    TransactionType.transfer => AppColors.transfer,
   };
 
   IconData get _typeIcon => switch (type) {
@@ -115,10 +114,7 @@ class TransactionFormFields extends StatelessWidget {
                 children: [
                   const Text(
                     'จำนวนเงิน',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
-                    ),
+                    style: TextStyle(fontSize: 13, color: AppColors.textMuted),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -126,7 +122,7 @@ class TransactionFormFields extends StatelessWidget {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.pillChipBg,
+                      color: AppColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Text(
@@ -134,7 +130,7 @@ class TransactionFormFields extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -147,14 +143,10 @@ class TransactionFormFields extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: _typeColor(context).withValues(alpha: 0.12),
+                      color: AppColors.tint(_typeColor),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      _typeIcon,
-                      color: _typeColor(context),
-                      size: 20,
-                    ),
+                    child: Icon(_typeIcon, color: _typeColor, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -169,7 +161,7 @@ class TransactionFormFields extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w700,
-                        color: _typeColor(context),
+                        color: _typeColor,
                       ),
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -179,7 +171,7 @@ class TransactionFormFields extends StatelessWidget {
                         hintStyle: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w700,
-                          color: _typeColor(context).withValues(alpha: 0.3),
+                          color: AppColors.tint(_typeColor, .3),
                         ),
                       ),
                       validator: amountValidator,
@@ -197,7 +189,7 @@ class TransactionFormFields extends StatelessWidget {
                     const Icon(
                       RemixIcon.arrowRightLine,
                       size: 14,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -205,7 +197,7 @@ class TransactionFormFields extends StatelessWidget {
                         '${fromAccountName ?? 'เลือกบัญชีต้นทาง'} → ${toAccountName ?? 'เลือกบัญชีปลายทาง'}',
                         style: const TextStyle(
                           fontSize: 12.5,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMuted,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -220,7 +212,7 @@ class TransactionFormFields extends StatelessWidget {
                       height: 8,
                       decoration: BoxDecoration(
                         color: category == null
-                            ? AppColors.warningIcon
+                            ? AppColors.textMuted
                             : colorFromHex(category!.colorHex),
                         shape: BoxShape.circle,
                       ),
@@ -231,7 +223,7 @@ class TransactionFormFields extends StatelessWidget {
                         '${category?.name ?? 'ยังไม่ระบุหมวดหมู่'} • ${accountName ?? 'ยังไม่เลือกบัญชี'}',
                         style: const TextStyle(
                           fontSize: 12.5,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMuted,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -253,7 +245,7 @@ class TransactionFormFields extends StatelessWidget {
                     label: 'หมวดหมู่',
                     value: category?.name ?? 'ยังไม่ระบุ',
                     iconColor: category == null
-                        ? AppColors.warningIcon
+                        ? AppColors.textMuted
                         : colorFromHex(category!.colorHex),
                     onTap: onCategoryTap,
                   ),
@@ -320,7 +312,7 @@ class TransactionFormFields extends StatelessWidget {
                     height: 34,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: AppColors.accentGradient,
+                      gradient: AppColors.primaryGradient,
                       border: Border.fromBorderSide(
                         BorderSide(color: AppColors.background, width: 3),
                       ),
@@ -366,7 +358,7 @@ class TransactionFormFields extends StatelessWidget {
               const Icon(
                 RemixIcon.editLine,
                 size: 16,
-                color: AppColors.accentA,
+                color: AppColors.primary,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -383,7 +375,7 @@ class TransactionFormFields extends StatelessWidget {
                     border: InputBorder.none,
                     hintText: 'เพิ่มบันทึกย่อ',
                     hintStyle: TextStyle(
-                      color: AppColors.accentA,
+                      color: AppColors.primary,
                       fontSize: 14,
                     ),
                   ),

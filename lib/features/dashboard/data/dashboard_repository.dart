@@ -38,6 +38,18 @@ class DashboardRepository {
         dashboardSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
   );
 
+  /// Fetches the annual totals and category breakdowns. The backend's `month`
+  /// field is part of the shared response DTO but is not used by the yearly
+  /// summary screen.
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => _apiClient.get<DashboardSummary>(
+    '/api/v1/transactions/summary',
+    queryParameters: {'scope': 'yearly', 'year': year},
+    parse: (data) =>
+        dashboardSummaryFromJson((data as Map)['data'] as Map<String, dynamic>),
+  );
+
   /// No local table backs this either, same reasoning as [fetchSummary]
   /// (spec's in-memory-only trend data decision) — `year` is only ever sent
   /// on the wire when [TrendQuery] carries one (month mode); year mode's

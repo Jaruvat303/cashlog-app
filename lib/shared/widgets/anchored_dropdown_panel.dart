@@ -99,7 +99,7 @@ class DropdownPanelOption extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.pillChipBg : Colors.transparent,
+          color: selected ? AppColors.surfaceMuted : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(

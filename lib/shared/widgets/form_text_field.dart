@@ -48,7 +48,7 @@ class FormTextField extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 14),
-            child: Icon(icon, size: 16, color: AppColors.accentA),
+            child: Icon(icon, size: 16, color: AppColors.primary),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -67,7 +67,7 @@ class FormTextField extends StatelessWidget {
                 hintText: hintText,
                 helperText: helperText,
                 hintStyle: const TextStyle(
-                  color: AppColors.accentA,
+                  color: AppColors.textMuted,
                   fontSize: 14,
                 ),
                 counterText: '',

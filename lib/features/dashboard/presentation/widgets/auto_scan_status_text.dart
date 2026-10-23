@@ -33,7 +33,7 @@ class AutoScanStatusText extends ConsumerWidget {
       lastUpload == null
           ? 'ยังไม่มีการสแกนสลิป'
           : 'สแกนสลิปล่าสุด: ${dateTimeLabel(lastUpload)}',
-      style: const TextStyle(fontSize: 11.5, color: Color(0xD9FFFFFF)),
+      style: const TextStyle(fontSize: 11.5, color: Colors.white),
     );
   }
 }

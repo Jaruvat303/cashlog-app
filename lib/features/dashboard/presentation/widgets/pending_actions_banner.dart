@@ -35,8 +35,8 @@ class PendingActionsBanner extends ConsumerWidget {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
-          color: AppColors.warningIconBg,
-          border: Border.all(color: AppColors.warningBorder),
+          color: AppColors.surfaceMuted,
+          border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -44,7 +44,7 @@ class PendingActionsBanner extends ConsumerWidget {
             const Icon(
               RemixIcon.errorWarningLine,
               size: 18,
-              color: AppColors.warningIcon,
+              color: AppColors.textBody,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -63,7 +63,7 @@ class PendingActionsBanner extends ConsumerWidget {
             const Icon(
               RemixIcon.arrowRightSLine,
               size: 16,
-              color: AppColors.textSecondary,
+              color: AppColors.textMuted,
             ),
           ],
         ),

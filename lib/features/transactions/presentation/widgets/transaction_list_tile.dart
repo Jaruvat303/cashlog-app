@@ -64,7 +64,7 @@ class TransactionListTile extends ConsumerWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: AppColors.transferSurface,
+          color: AppColors.tint(AppColors.transfer),
           borderRadius: BorderRadius.circular(AppRadii.control),
         ),
         child: const Icon(
@@ -90,7 +90,7 @@ class TransactionListTile extends ConsumerWidget {
             const Icon(
               RemixIcon.arrowRightSLine,
               size: 11,
-              color: AppColors.textSecondary,
+              color: AppColors.textBody,
             ),
             const SizedBox(width: 5),
             _accountChip(toAccount?.name),
@@ -165,7 +165,7 @@ class TransactionListTile extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10.5,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textMuted,
                   ),
                 ),
               )
@@ -192,31 +192,23 @@ class TransactionListTile extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.surfaceMuted,
         borderRadius: BorderRadius.circular(5),
       ),
       child: Text(
         name ?? '—',
-        style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+        style: const TextStyle(fontSize: 10, color: AppColors.textBody),
       ),
     );
   }
 
   Widget _uncategorizedBadge() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.warningBadgeBg,
-        border: Border.all(color: AppColors.warningBadgeBorder),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: const Text(
-        'ยังไม่ระบุหมวดหมู่',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: AppColors.warningBadgeText,
-        ),
+    return const Text(
+      'ยังไม่ระบุหมวดหมู่',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textMuted,
       ),
     );
   }
@@ -237,12 +229,12 @@ class TransactionListTile extends ConsumerWidget {
             const Icon(
               Icons.warning_amber_rounded,
               size: 14,
-              color: AppColors.warningIcon,
+              color: AppColors.textMuted,
             ),
             const SizedBox(width: 4),
             const Text(
               'อ่านข้อมูลจากสลิปไม่ได้',
-              style: TextStyle(color: AppColors.warningIcon, fontSize: 11.5),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 11.5),
             ),
           ],
         ),
@@ -283,7 +275,7 @@ class TransactionListTile extends ConsumerWidget {
         RemixIcon.refreshLine,
         key: Key('pendingSyncIndicator'),
         size: 14,
-        color: AppColors.neutralIcon,
+        color: AppColors.textBody,
       ),
     );
   }

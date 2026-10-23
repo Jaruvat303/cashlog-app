@@ -115,8 +115,8 @@ class _AutoScanProcessingIndicatorState
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: AppColors.primarySurface,
-        border: Border.all(color: AppColors.primarySurfaceBorder),
+        color: AppColors.tint(AppColors.primary),
+        border: Border.all(color: AppColors.tint(AppColors.primary, .3)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -144,7 +144,7 @@ class _AutoScanProcessingIndicatorState
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 12.5,
-                color: AppColors.primaryText,
+                color: AppColors.primary,
               ),
               overflow: TextOverflow.ellipsis,
             ),

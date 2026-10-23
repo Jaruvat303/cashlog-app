@@ -12,9 +12,9 @@ import '../../domain/dashboard_summary.dart';
 /// ใหญ่ขึ้นชัดเจน") with each slice's percentage floating around the ring at
 /// its own angular midpoint, rather than the previous side-by-side dot+name
 /// legend list — no leader lines, matching the mockup. One slice per
-/// `expense`/`income` entry (generic despite the name — ticket 03 reinstates
-/// it on both the Income and Expense summary tabs), sorted descending by
-/// [CategoryBreakdown.totalAmount] (DoD requirement) — the caller
+/// `expense`/`income` entry with a share of at least 5% gets a floating label
+/// (generic despite the name — used on both Income and Expense summary tabs),
+/// sorted descending by [CategoryBreakdown.totalAmount] (DoD requirement) — the caller
 /// (`TransactionsPage`) is expected to only build this when the breakdown is
 /// non-empty; the empty-state message is a page-level concern (same split as
 /// `TransactionsPage`'s own empty check), not this widget's. Category
@@ -34,6 +34,8 @@ class ExpensePieChart extends StatelessWidget {
   /// `PieChartData.startDegreeOffset` below, so the percentage labels'
   /// angles agree with where `fl_chart` actually draws each slice.
   static const double _startDegreeOffset = -90;
+
+  static const double _minimumPercentageLabelShare = 0.05;
 
   /// Caps how large the chart grows on wide screens — still a large jump
   /// from the previous fixed 110px, without letting the ring or its
@@ -67,8 +69,9 @@ class ExpensePieChart extends StatelessWidget {
           final midAngle = cumulativeDegrees + sweepDegrees / 2;
           cumulativeDegrees += sweepDegrees;
 
-          final pct = (entry.totalAmount / total * 100).round();
-          if (pct <= 0) continue;
+          final share = entry.totalAmount / total;
+          if (share < _minimumPercentageLabelShare) continue;
+          final pct = (share * 100).round();
 
           final radians = midAngle * math.pi / 180;
           final center = Offset(stackSize / 2, stackSize / 2);
@@ -132,7 +135,7 @@ class ExpensePieChart extends StatelessWidget {
                       'รวม',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                     Text(

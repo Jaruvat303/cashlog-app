@@ -120,7 +120,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                   ),
                   CircularIconButton(
                     icon: RemixIcon.addLine,
-                    gradient: AppColors.accentGradient,
+                    gradient: AppColors.primaryGradient,
                     iconColor: Colors.white,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -230,7 +230,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w600,
                                   height: 1.15,
-                                  color: AppColors.chipUnselectedText,
+                                  color: AppColors.textBody,
                                 ),
                               ),
                             ],

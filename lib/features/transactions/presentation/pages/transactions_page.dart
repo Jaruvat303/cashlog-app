@@ -231,13 +231,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ],
         ),
         actions: [
-          // F3: opens "เปรียบเทียบรายรับ–รายจ่าย" — a `push`, not `go`, so this
+          // F3: opens "สรุปรายปี" — a `push`, not `go`, so this
           // tab's own state (month, scroll position, filters) stays exactly
           // as it was underneath, and back returns to it unchanged.
           IconButton(
             key: const Key('trendChartButton'),
             icon: const Icon(RemixIcon.barChart2Line),
-            tooltip: 'เปรียบเทียบรายรับ–รายจ่าย',
+            tooltip: 'สรุปรายปี',
             onPressed: () => context.push('/summary/trend'),
           ),
           // Ticket 04: the page-level manual-entry "+" button is removed —
@@ -339,7 +339,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 11.5,
-                                color: AppColors.textSecondary,
+                                color: AppColors.textMuted,
                               ),
                             ),
                             Text(
@@ -347,7 +347,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 11.5,
-                                color: AppColors.textSecondary,
+                                color: AppColors.textMuted,
                               ),
                             ),
                           ],
@@ -515,7 +515,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           color: AppColors.background,
           borderRadius: BorderRadius.circular(9),
         ),
-        child: Icon(icon, size: 18, color: AppColors.textSecondary),
+        child: Icon(icon, size: 18, color: AppColors.textMuted),
       ),
     );
   }
@@ -601,7 +601,7 @@ class _AccountInfoStrip extends ConsumerWidget {
           data: (accounts) => accounts.isEmpty
               ? const Text(
                   'ยังไม่มีบัญชี',
-                  style: TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: AppColors.textMuted),
                 )
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -807,7 +807,8 @@ class _SummarySection extends ConsumerWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: selected ? AppColors.chipSelectedBg : AppColors.background,
+            color: selected ? null : AppColors.surfaceMuted,
+            gradient: selected ? AppColors.primaryGradient : null,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
@@ -816,7 +817,7 @@ class _SummarySection extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : AppColors.textSecondary,
+                color: selected ? Colors.white : AppColors.textBody,
               ),
             ),
           ),
@@ -899,7 +900,7 @@ class _CategoryTotalsList extends StatelessWidget {
         child: Center(
           child: Text(
             emptyMessage,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: const TextStyle(color: AppColors.textMuted),
           ),
         ),
       );
@@ -942,10 +943,10 @@ class _CategoryTotalRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primarySurface : null,
+          color: selected ? AppColors.tint(AppColors.primary) : null,
           borderRadius: BorderRadius.circular(10),
           border: selected
-              ? Border.all(color: AppColors.primarySurfaceBorder)
+              ? Border.all(color: AppColors.tint(AppColors.primary, .3))
               : null,
         ),
         child: Row(
@@ -1030,7 +1031,7 @@ class _TransferList extends ConsumerWidget {
             child: Center(
               child: Text(
                 'ไม่มีรายการย้ายเงินในเดือนนี้',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textMuted),
               ),
             ),
           );

@@ -30,11 +30,11 @@ class CategoryQuickAssignChip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isUncategorized = category == null;
     final color = isUncategorized
-        ? AppColors.warningIcon
+        ? AppColors.textMuted
         : colorFromHex(category!.colorHex);
     final background = isUncategorized
-        ? AppColors.warningIconBg
-        : color.withValues(alpha: 0.12);
+        ? AppColors.surfaceMuted
+        : AppColors.tint(color);
     final icon = isUncategorized
         ? RemixIcon.addLine
         : resolveCategoryIcon(category!.iconKey);
@@ -50,7 +50,7 @@ class CategoryQuickAssignChip extends ConsumerWidget {
           color: background,
           borderRadius: BorderRadius.circular(AppRadii.control),
           border: isUncategorized
-              ? Border.all(color: AppColors.warningBorder, width: 1.5)
+              ? Border.all(color: AppColors.border, width: 1.5)
               : null,
         ),
         child: Icon(icon, size: isUncategorized ? 21 : 20, color: color),

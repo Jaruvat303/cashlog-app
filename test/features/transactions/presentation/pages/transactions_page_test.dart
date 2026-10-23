@@ -297,6 +297,11 @@ class _FakeDashboardRepository implements DashboardRepository {
       );
 
   @override
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => throw UnimplementedError('not exercised by this test');
+
+  @override
   Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
       throw UnimplementedError('not exercised by this test');
 }
@@ -372,7 +377,34 @@ bool _categoryRowIsHighlighted(WidgetTester tester, int categoryId) {
         .first,
   );
   final decoration = container.decoration as BoxDecoration?;
-  return decoration?.color == AppColors.primarySurface;
+  return decoration?.color == AppColors.tint(AppColors.primary);
+}
+
+void _expectSummaryTabStyle(
+  WidgetTester tester,
+  String tab,
+  String label, {
+  required bool selected,
+}) {
+  final tabFinder = find.byKey(Key('summaryTab-$tab'));
+  final container = tester.widget<Container>(
+    find.descendant(of: tabFinder, matching: find.byType(Container)),
+  );
+  final decoration = container.decoration! as BoxDecoration;
+  final labelWidget = tester.widget<Text>(
+    find.descendant(of: tabFinder, matching: find.text(label)),
+  );
+
+  if (selected) {
+    final gradient = decoration.gradient! as LinearGradient;
+    expect(gradient.colors, [AppColors.primary, AppColors.primaryLight]);
+    expect(decoration.color, isNull);
+    expect(labelWidget.style?.color, Colors.white);
+  } else {
+    expect(decoration.gradient, isNull);
+    expect(decoration.color, AppColors.surfaceMuted);
+    expect(labelWidget.style?.color, AppColors.textBody);
+  }
 }
 
 void main() {
@@ -449,7 +481,7 @@ void main() {
       await _pumpBounded(tester);
 
       expect(find.byType(TransactionsPage), findsNothing);
-      expect(find.text('เปรียบเทียบรายรับ–รายจ่าย'), findsOneWidget);
+      expect(find.text('สรุปรายปี'), findsOneWidget);
 
       await tester.pageBack();
       await _pumpBounded(tester);
@@ -663,6 +695,40 @@ void main() {
         expect(find.text('อาหาร'), findsNothing);
       },
     );
+
+    testWidgets('only the selected summary tab uses the shared gradient', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildApp());
+      await _pumpBounded(tester);
+
+      _expectSummaryTabStyle(tester, 'expense', 'รายจ่าย', selected: true);
+      _expectSummaryTabStyle(tester, 'income', 'รายรับ', selected: false);
+      _expectSummaryTabStyle(tester, 'transfer', 'ย้ายเงิน', selected: false);
+
+      for (final (tab, label) in [
+        ('income', 'รายรับ'),
+        ('transfer', 'ย้ายเงิน'),
+        ('expense', 'รายจ่าย'),
+      ]) {
+        await tester.tap(find.byKey(Key('summaryTab-$tab')));
+        await _pumpBounded(tester);
+
+        for (final (otherTab, otherLabel) in [
+          ('income', 'รายรับ'),
+          ('expense', 'รายจ่าย'),
+          ('transfer', 'ย้ายเงิน'),
+        ]) {
+          _expectSummaryTabStyle(
+            tester,
+            otherTab,
+            otherLabel,
+            selected: otherTab == tab,
+          );
+        }
+        expect(find.text(label), findsWidgets);
+      }
+    });
 
     group('ticket 10: category drill-through', () {
       testWidgets(

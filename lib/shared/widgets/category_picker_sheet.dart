@@ -106,7 +106,7 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                       child: const Icon(
                         RemixIcon.closeLine,
                         size: 16,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -119,7 +119,7 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                   widget.subtitle,
                   style: const TextStyle(
                     fontSize: 11.5,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textMuted,
                   ),
                 ),
               ),
@@ -139,9 +139,9 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                         key: const Key('categoryOptionUncategorized'),
                         label: 'ยังไม่ระบุ',
                         icon: RemixIcon.questionFill,
-                        iconColor: AppColors.textSecondary,
+                        iconColor: AppColors.textMuted,
                         backgroundColor: AppColors.background,
-                        borderColor: AppColors.textSecondary,
+                        borderColor: AppColors.textMuted,
                         selected: widget.currentCategoryId == null,
                         onTap: () => Navigator.of(context).pop(
                           widget.currentCategoryId == null
@@ -169,9 +169,9 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                         key: const Key('categoryOptionAddNew'),
                         label: 'เพิ่มใหม่',
                         icon: RemixIcon.addLine,
-                        iconColor: AppColors.textSecondary,
+                        iconColor: AppColors.textMuted,
                         backgroundColor: AppColors.background,
-                        borderColor: AppColors.textFaint,
+                        borderColor: AppColors.textDisabled,
                         dashed: true,
                         selected: false,
                         onTap: () async {
@@ -236,7 +236,7 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                     child: Icon(
                       RemixIcon.flashlightLine,
                       size: 13,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textMuted,
                     ),
                   ),
                   SizedBox(width: 7),
@@ -246,7 +246,7 @@ class _CategoryGridSheetState extends ConsumerState<_CategoryGridSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 10.5,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
@@ -317,7 +317,7 @@ class CategoryGridTile extends StatelessWidget {
                     color: backgroundColor,
                     borderRadius: BorderRadius.circular(AppRadii.cardLarge),
                     border: dashed
-                        ? Border.all(color: AppColors.textFaint, width: 1.5)
+                        ? Border.all(color: AppColors.textDisabled, width: 1.5)
                         : Border.all(
                             color: selected ? borderColor : Colors.transparent,
                             width: 2,
@@ -334,7 +334,7 @@ class CategoryGridTile extends StatelessWidget {
                       height: 20,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: AppColors.accentGradient,
+                        gradient: AppColors.primaryGradient,
                         border: Border.fromBorderSide(
                           BorderSide(color: AppColors.background, width: 2),
                         ),
@@ -363,7 +363,7 @@ class CategoryGridTile extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               height: 1.15,
-              color: AppColors.chipUnselectedText,
+              color: AppColors.textBody,
             ),
             overflow: TextOverflow.ellipsis,
           ),

@@ -209,14 +209,14 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textMuted,
                           ),
                         ),
                         Text(
                           'เลื่อนดูเพิ่ม',
                           style: TextStyle(
                             fontSize: 10.5,
-                            color: AppColors.textFaint,
+                            color: AppColors.textDisabled,
                           ),
                         ),
                       ],
@@ -232,7 +232,7 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                         final selected = _iconKey == choice.$1;
                         final accent = selected
                             ? colorFromHex(_colorHex)
-                            : AppColors.textSecondary;
+                            : AppColors.textMuted;
                         return InkWell(
                           onTap: () => setState(() => _iconKey = choice.$1),
                           borderRadius: BorderRadius.circular(13),
@@ -261,7 +261,7 @@ class _CategoryFormPageState extends ConsumerState<CategoryFormPage> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                     const SizedBox(height: 10),

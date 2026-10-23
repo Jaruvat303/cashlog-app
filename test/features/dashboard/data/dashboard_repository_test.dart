@@ -90,6 +90,41 @@ void main() {
     expect(result.isLeft(), isTrue);
   });
 
+  test(
+    'fetchYearlySummary sends scope and year without a month query',
+    () async {
+      final adapter = _FakeAdapter({
+        'data': {
+          'total_income': 38430,
+          'total_expense': 17002.52,
+          'total_transfer': 0,
+          'scope': 'yearly',
+          'year': 2026,
+          'month': 1,
+          'income': [],
+          'expense': [],
+        },
+      }, 200);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final repository = DashboardRepository(ApiClient(dio));
+
+      final result = await repository.fetchYearlySummary(year: 2026);
+
+      expect(adapter.lastRequest?.path, '/api/v1/transactions/summary');
+      expect(adapter.lastRequest?.queryParameters, {
+        'scope': 'yearly',
+        'year': 2026,
+      });
+      result.fold((failure) => fail('expected success, got $failure'), (
+        summary,
+      ) {
+        expect(summary.totalIncome, 38430);
+        expect(summary.totalExpense, 17002.52);
+        expect(summary.month, 1);
+      });
+    },
+  );
+
   test('fetchTrend sends granularity and year as query params in month mode and parses the response', () async {
     final adapter = _FakeAdapter({
       'success': true,

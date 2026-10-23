@@ -25,6 +25,11 @@ class _FakeDashboardRepository implements DashboardRepository {
     required int year,
     required int month,
   }) => throw UnimplementedError('not exercised by this test');
+
+  @override
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => throw UnimplementedError('not exercised by this test');
 }
 
 TrendSummary _summary({

@@ -21,6 +21,11 @@ class _FakeDashboardRepository implements DashboardRepository {
       nextResult ?? const Left(UnknownFailure(message: 'no result configured'));
 
   @override
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => throw UnimplementedError('not exercised by this test');
+
+  @override
   Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
       throw UnimplementedError('not exercised by this test');
 }

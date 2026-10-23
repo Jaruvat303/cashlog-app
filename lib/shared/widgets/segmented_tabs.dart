@@ -12,7 +12,7 @@ class SegmentedTabs<T> extends StatelessWidget {
     required this.labels,
     required this.selected,
     required this.onChanged,
-    this.trackColor = AppColors.tabTrackBg,
+    this.trackColor = AppColors.surfaceMuted,
   }) : assert(values.length == labels.length);
 
   final List<T> values;
@@ -66,7 +66,7 @@ class _Segment extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 9),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          gradient: active ? AppColors.accentGradient : null,
+          gradient: active ? AppColors.primaryGradient : null,
           borderRadius: BorderRadius.circular(11),
         ),
         child: Text(
@@ -74,7 +74,7 @@ class _Segment extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: active ? Colors.white : AppColors.textSecondary,
+            color: active ? Colors.white : AppColors.textBody,
           ),
         ),
       ),

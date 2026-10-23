@@ -7,7 +7,7 @@
 // hatch, covered separately.
 import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
-import 'package:cashlog/core/theme/finance_colors.dart';
+import 'package:cashlog/core/theme/app_theme.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
@@ -456,20 +456,16 @@ void main() {
     });
   });
 
-  // F1: income/expense colors moved to FinanceColors — this guards that the
-  // create-transaction screen still renders the exact same colors it did
-  // before the refactor (FinanceColors.light carries the same values as the
-  // AppColors constants this screen used directly).
-  group('F1 FinanceColors regression', () {
+  group('transaction amount semantic colors', () {
     testWidgets(
-      'expense (default type) renders FinanceColors.expense for the icon and amount field',
+      'expense (default type) renders AppColors.expense for the icon and amount field',
       (tester) async {
         await tester.pumpWidget(buildApp());
         await tester.tap(find.text('open'));
         await _pumpBounded(tester);
 
         final icon = tester.widget<Icon>(find.byIcon(RemixIcon.arrowDownLine));
-        expect(icon.color, FinanceColors.light.expense);
+        expect(icon.color, AppColors.expense);
 
         final amountField = tester.widget<TextField>(
           find.descendant(
@@ -477,12 +473,12 @@ void main() {
             matching: find.byType(TextField),
           ),
         );
-        expect(amountField.style!.color, FinanceColors.light.expense);
+        expect(amountField.style!.color, AppColors.expense);
       },
     );
 
     testWidgets(
-      'income renders FinanceColors.income for the icon and amount field',
+      'income renders AppColors.income for the icon and amount field',
       (tester) async {
         await tester.pumpWidget(buildApp());
         await tester.tap(find.text('open'));
@@ -492,7 +488,7 @@ void main() {
         await _pumpBounded(tester);
 
         final icon = tester.widget<Icon>(find.byIcon(RemixIcon.arrowUpLine));
-        expect(icon.color, FinanceColors.light.income);
+        expect(icon.color, AppColors.income);
 
         final amountField = tester.widget<TextField>(
           find.descendant(
@@ -500,7 +496,7 @@ void main() {
             matching: find.byType(TextField),
           ),
         );
-        expect(amountField.style!.color, FinanceColors.light.income);
+        expect(amountField.style!.color, AppColors.income);
       },
     );
   });

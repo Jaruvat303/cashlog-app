@@ -72,7 +72,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                   ),
                   CircularIconButton(
                     icon: RemixIcon.addLine,
-                    gradient: AppColors.accentGradient,
+                    gradient: AppColors.primaryGradient,
                     iconColor: Colors.white,
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -116,7 +116,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textMuted,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -167,7 +167,7 @@ class _NetWorthHero extends ConsumerWidget {
         children: [
           const Text(
             'สินทรัพย์รวมทั้งหมด',
-            style: TextStyle(fontSize: 13, color: Color(0xD9FFFFFF)),
+            style: TextStyle(fontSize: 13, color: Colors.white),
           ),
           const SizedBox(height: 6),
           Text(
@@ -227,7 +227,7 @@ class _AccountRow extends StatelessWidget {
                     account.accountType.label,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -245,7 +245,7 @@ class _AccountRow extends StatelessWidget {
               showSubtitle: false,
             ),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, color: AppColors.textFaint),
+            const Icon(Icons.chevron_right, color: AppColors.textDisabled),
           ],
         ),
       ),

@@ -31,9 +31,9 @@ class PrimaryGradientButton extends StatelessWidget {
           child: Ink(
             height: height,
             decoration: BoxDecoration(
-              gradient: AppColors.accentGradient,
+              gradient: AppColors.primaryGradient,
               borderRadius: BorderRadius.circular(AppRadii.control + 2),
-              boxShadow: const [AppShadows.accent],
+              boxShadow: [AppShadows.accent],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

@@ -1,11 +1,6 @@
-// Post-launch UI polish ticket 03: the pie chart's old dot+name+percent
-// legend list (with its 10%-share cutoff) is gone entirely, replaced by a
-// floating "%"-only label per slice positioned at that slice's own angular
-// midpoint — no leader lines, and every slice gets a label regardless of its
-// share (nothing to declutter once there's no name text taking up space).
-// The chart itself is also enlarged. No providers/repositories involved —
-// ExpensePieChart is a plain StatelessWidget over the data it's handed, so
-// this is a direct pumpWidget test, no fakes needed.
+// No providers/repositories involved — ExpensePieChart is a plain
+// StatelessWidget over the data it's handed, so these are direct pumpWidget
+// tests with no fakes needed.
 import 'package:cashlog/features/dashboard/domain/dashboard_summary.dart';
 import 'package:cashlog/features/dashboard/presentation/widgets/expense_pie_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -23,7 +18,7 @@ CategoryBreakdown _breakdown(int id, String name, double amount) =>
 
 void main() {
   testWidgets(
-    'every slice gets its own floating "%" label, including ones under 10% share',
+    'every slice is preserved and labels are shown at the 5% threshold',
     (tester) async {
       // Shares: A=70%, B=25%, C=5% of a 1000 total.
       final breakdown = [
@@ -89,23 +84,88 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a category sitting exactly at 10% share still gets its own label (no cutoff anymore)',
-    (tester) async {
-      final breakdown = [_breakdown(1, 'A', 900), _breakdown(2, 'B', 100)];
+  testWidgets('a category sitting exactly at 5% share still gets its label', (
+    tester,
+  ) async {
+    final breakdown = [_breakdown(1, 'A', 950), _breakdown(2, 'B', 50)];
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ExpensePieChart(expense: breakdown, total: 1000),
-          ),
-        ),
-      );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ExpensePieChart(expense: breakdown, total: 1000)),
+      ),
+    );
 
-      expect(find.byKey(const Key('pieChartPercentLabel-2')), findsOneWidget);
-      expect(find.text('10%'), findsOneWidget);
-    },
-  );
+    expect(find.byKey(const Key('pieChartPercentLabel-2')), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+  });
+
+  testWidgets('a share below 5% is hidden even when rounding would show 5%', (
+    tester,
+  ) async {
+    final breakdown = [_breakdown(1, 'A', 951), _breakdown(2, 'B', 49)];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ExpensePieChart(expense: breakdown, total: 1000)),
+      ),
+    );
+
+    expect(find.byKey(const Key('pieChartPercentLabel-1')), findsOneWidget);
+    expect(find.byKey(const Key('pieChartPercentLabel-2')), findsNothing);
+    expect(find.byType(PieChart), findsOneWidget);
+    expect(
+      tester.widget<PieChart>(find.byType(PieChart)).data.sections,
+      hasLength(2),
+    );
+  });
+
+  testWidgets('all shares below 5% keep the slices but hide every label', (
+    tester,
+  ) async {
+    final breakdown = [
+      for (var id = 1; id <= 21; id++) _breakdown(id, 'Category $id', 1),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ExpensePieChart(expense: breakdown, total: 21)),
+      ),
+    );
+
+    expect(find.byType(PieChart), findsOneWidget);
+    expect(
+      tester.widget<PieChart>(find.byType(PieChart)).data.sections,
+      hasLength(21),
+    );
+    expect(find.byKey(const Key('pieChartPercentLabel-1')), findsNothing);
+    expect(find.textContaining('%'), findsNothing);
+  });
+
+  testWidgets('empty data does not render a chart or percentage labels', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: ExpensePieChart(expense: [], total: 0)),
+      ),
+    );
+
+    expect(find.byType(PieChart), findsNothing);
+    expect(find.textContaining('%'), findsNothing);
+  });
+
+  testWidgets('a share just above 5% is labeled', (tester) async {
+    final breakdown = [_breakdown(1, 'A', 949), _breakdown(2, 'B', 51)];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ExpensePieChart(expense: breakdown, total: 1000)),
+      ),
+    );
+
+    expect(find.byKey(const Key('pieChartPercentLabel-2')), findsOneWidget);
+    expect(find.text('5%'), findsOneWidget);
+  });
 
   testWidgets(
     'percentage labels sit outside the ring, at increasing angular offsets from the top',

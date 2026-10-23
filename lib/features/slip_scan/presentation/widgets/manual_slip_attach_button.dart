@@ -63,9 +63,9 @@ class ManualSlipAttachButton extends ConsumerWidget {
       child: Container(
         width: 58,
         height: 58,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: AppColors.accentGradient,
+          gradient: AppColors.primaryGradient,
           boxShadow: [AppShadows.accent],
         ),
         child: isBusy
@@ -221,7 +221,7 @@ class _SpeedDialOptions extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: gradient ? null : AppColors.surface,
-            gradient: gradient ? AppColors.accentGradient : null,
+            gradient: gradient ? AppColors.primaryGradient : null,
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [AppShadows.card],
           ),

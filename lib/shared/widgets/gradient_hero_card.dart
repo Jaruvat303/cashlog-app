@@ -9,7 +9,7 @@ class GradientHeroCard extends StatelessWidget {
   const GradientHeroCard({
     super.key,
     required this.child,
-    this.gradient = AppColors.accentGradient,
+    this.gradient = AppColors.primaryGradient,
     this.padding = const EdgeInsets.all(18),
     this.borderRadius = AppRadii.hero,
     this.showDecoration = true,

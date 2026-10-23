@@ -252,7 +252,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 11.5,
-                                        color: AppColors.textSecondary,
+                                        color: AppColors.textMuted,
                                       ),
                                     ),
                                     Text(
@@ -260,7 +260,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w500,
                                         fontSize: 11.5,
-                                        color: AppColors.textSecondary,
+                                        color: AppColors.textMuted,
                                       ),
                                     ),
                                   ],
@@ -410,8 +410,8 @@ class _GalleryPermissionBanner extends ConsumerWidget {
       key: const Key('galleryPermissionBanner'),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.warningIconBg,
-        border: Border.all(color: AppColors.warningBorder),
+        color: AppColors.surfaceMuted,
+        border: Border.all(color: AppColors.border),
         borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.all(14),
@@ -423,7 +423,7 @@ class _GalleryPermissionBanner extends ConsumerWidget {
               const Icon(
                 RemixIcon.imageLine,
                 size: 18,
-                color: AppColors.warningIcon,
+                color: AppColors.textBody,
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -441,10 +441,7 @@ class _GalleryPermissionBanner extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             body,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted),
           ),
           const SizedBox(height: 10),
           SizedBox(

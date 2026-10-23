@@ -12,7 +12,7 @@ class PillFormRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.onTap,
-    this.iconColor = AppColors.accentA,
+    this.iconColor = AppColors.primary,
     this.trailing,
   });
 
@@ -58,7 +58,7 @@ class PillFormRow extends StatelessWidget {
                       label,
                       style: const TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                     Text(
@@ -78,7 +78,7 @@ class PillFormRow extends StatelessWidget {
                   const Icon(
                     Icons.keyboard_arrow_down_rounded,
                     size: 18,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textMuted,
                   ),
             ],
           ),

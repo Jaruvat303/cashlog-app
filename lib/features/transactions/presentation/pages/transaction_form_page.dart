@@ -413,7 +413,7 @@ class _TransactionFormPageState extends ConsumerState<TransactionFormPage> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textMuted,
                         ),
                       ),
                     ],
@@ -558,7 +558,7 @@ class _SlipInfoCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textMuted,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -568,7 +568,7 @@ class _SlipInfoCard extends StatelessWidget {
                       const Icon(
                         RemixIcon.userLine,
                         size: 14,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textMuted,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -590,7 +590,7 @@ class _SlipInfoCard extends StatelessWidget {
                   dateTimeLabel(transaction.transactionDate),
                   style: const TextStyle(
                     fontSize: 11,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textMuted,
                   ),
                 ),
               ],
@@ -659,7 +659,7 @@ class _Thumbnail extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 9.5, color: AppColors.textSecondary),
+                style: TextStyle(fontSize: 9.5, color: AppColors.textMuted),
               ),
             ),
           ],
@@ -674,7 +674,7 @@ class _Thumbnail extends StatelessWidget {
       width: _width,
       height: _height,
       decoration: BoxDecoration(
-        gradient: AppColors.accentGradient,
+        gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(10),
       ),
       child: const Icon(RemixIcon.imageLine, color: Colors.white, size: 20),

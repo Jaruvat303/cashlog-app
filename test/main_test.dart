@@ -173,6 +173,11 @@ class _FakeDashboardRepository implements DashboardRepository {
   );
 
   @override
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => throw UnimplementedError('not exercised by the lifecycle-wiring test');
+
+  @override
   Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) =>
       throw UnimplementedError('not exercised by this test');
 }

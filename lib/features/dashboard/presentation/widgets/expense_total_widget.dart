@@ -63,7 +63,7 @@ class ExpenseTotalWidget extends ConsumerWidget {
               const Expanded(
                 child: Text(
                   'ค่าใช้จ่ายเดือนนี้',
-                  style: TextStyle(fontSize: 13, color: Color(0xD9FFFFFF)),
+                  style: TextStyle(fontSize: 13, color: Colors.white),
                 ),
               ),
               // Static, read-only — month switching only happens from the
@@ -298,6 +298,7 @@ class _CategorySpendBar extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: colorOf(b),
                             shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
                           ),
                         ),
                       ),

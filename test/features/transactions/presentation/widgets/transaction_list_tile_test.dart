@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:cashlog/core/cache/cache_invalidator.dart';
 import 'package:cashlog/core/network/failure.dart';
+import 'package:cashlog/core/theme/app_theme.dart';
 import 'package:cashlog/features/accounts/data/accounts_repository.dart';
 import 'package:cashlog/features/accounts/domain/account.dart';
 import 'package:cashlog/features/categories/data/categories_repository.dart';
@@ -23,6 +24,7 @@ import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:remix_icons_flutter/remixicon_ids.dart';
 
 class _FakeAccountsRepository implements AccountsRepository {
   @override
@@ -303,6 +305,41 @@ void main() {
       expect(find.text("Couldn't read slip data"), findsNothing);
       expect(find.byKey(const Key('junkEditButton')), findsNothing);
       expect(find.byKey(const Key('junkDeleteButton')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'an uncategorized transaction uses the neutral quick-assign style',
+    (tester) async {
+      await tester.pumpWidget(buildApp(_editedTransaction));
+      await _pumpBounded(tester);
+
+      expect(find.byIcon(RemixIcon.addLine), findsOneWidget);
+      expect(find.text('ยังไม่ระบุหมวดหมู่'), findsOneWidget);
+      expect(
+        tester.widget<Icon>(find.byIcon(RemixIcon.addLine)).color,
+        AppColors.textMuted,
+      );
+      expect(
+        tester.widget<Text>(find.text('ยังไม่ระบุหมวดหมู่')).style?.color,
+        AppColors.textMuted,
+      );
+
+      final chip = tester.widget<Container>(
+        find
+            .descendant(
+              of: find.byKey(const Key('categoryQuickAssignChip')),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final decoration = chip.decoration! as BoxDecoration;
+      expect(decoration.color, AppColors.surfaceMuted);
+      expect(
+        decoration.border,
+        Border.all(color: AppColors.border, width: 1.5),
+      );
+      expect(decoration.color, isNot(const Color(0xFFFFF3D6)));
     },
   );
 

@@ -110,9 +110,7 @@ class AccountDetailPage extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
                     children: [
                       GradientHeroCard(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.accentB, Color(0xFF6D28D9)],
-                        ),
+                        gradient: AppColors.primaryGradient,
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,7 +127,7 @@ class AccountDetailPage extends ConsumerWidget {
                                   bankIcon.label,
                                   style: const TextStyle(
                                     fontSize: 13,
-                                    color: Color(0xD9FFFFFF),
+                                    color: Colors.white,
                                   ),
                                 ),
                                 if (!account.isActive) ...[
@@ -303,7 +301,7 @@ class _InfoRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
         ),
         Flexible(
           child: Text(

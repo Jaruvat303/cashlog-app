@@ -94,6 +94,11 @@ class _FakeDashboardRepository implements DashboardRepository {
   }
 
   @override
+  Future<Either<Failure, DashboardSummary>> fetchYearlySummary({
+    required int year,
+  }) => throw UnimplementedError('not exercised by this test');
+
+  @override
   Future<Either<Failure, TrendSummary>> fetchTrend(TrendQuery query) async {
     fetchTrendCalls.add(query);
     return Right(
